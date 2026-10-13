@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đăng nhập - Tiệm Hoa Kẽm Nhung</title>
+
+    <link rel="stylesheet" href="./css/reset.css" />
+    <link rel="stylesheet" href="./css/variables.css" />
+    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/auth.css" />
+    <link rel="stylesheet" href="./css/responsive.css" />
+
+    <script type="importmap">
+  {
+    "imports": {
+      "axios": "https://esm.sh/axios@1.7.9"
+    }
+  }
+  </script>
+</head>
+
+<body>
+    <div class="auth-wrapper">
+        <div class="auth-card">
+            <h1 class="auth-title">Chào Mừng Trở Lại</h1>
+            <p class="auth-subtitle">Đăng nhập để theo dõi đơn hàng của bạn</p>
+
+            <form id="loginForm" novalidate>
+                <div class="form-group">
+                    <label for="email">Địa chỉ Email</label>
+                    <input type="email" id="email" class="form-control" placeholder="Nhập email của bạn" />
+                    <span class="form-error" id="emailError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Mật khẩu</label>
+                    <input type="password" id="password" class="form-control" placeholder="Nhập mật khẩu" />
+                    <span class="form-error" id="passwordError"></span>
+                </div>
+
+                <button type="submit" class="auth-btn" id="submitBtn">Đăng Nhập</button>
+
+                <p class="auth-switch">
+                    Chưa có tài khoản? <a href="./register.html">Đăng ký tài khoản mới</a>
+                </p>
+                <p class="auth-switch" style="margin-top: 10px;">
+                    <a href="./index.html" style="color: var(--text-muted); font-size: 13px;">← Quay về Trang chủ</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="./js/login.js"></script>
+</body>
+
+</html>

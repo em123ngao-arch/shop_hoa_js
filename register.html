@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đăng ký tài khoản - Tiệm Hoa Kẽm Nhung</title>
+
+    <link rel="stylesheet" href="./css/reset.css" />
+    <link rel="stylesheet" href="./css/variables.css" />
+    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/auth.css" />
+    <link rel="stylesheet" href="./css/responsive.css" />
+
+    <!-- Import Axios CDN qua Importmap giống code mẫu giáo viên -->
+    <script type="importmap">
+  {
+    "imports": {
+      "axios": "https://esm.sh/axios@1.7.9"
+    }
+  }
+  </script>
+</head>
+
+<body>
+    <div class="auth-wrapper">
+        <div class="auth-card">
+            <h1 class="auth-title">Tạo Tài Khoản Mới</h1>
+            <p class="auth-subtitle">Đăng ký để tích điểm và nhận ưu đãi từ Tiệm Hoa</p>
+
+            <form id="registerForm" novalidate>
+                <div class="form-group">
+                    <label for="name">Họ và tên *</label>
+                    <input type="text" id="name" class="form-control" placeholder="Ví dụ: Nguyễn Văn An" />
+                    <span class="form-error" id="nameError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Địa chỉ Email *</label>
+                    <input type="email" id="email" class="form-control" placeholder="Ví dụ: an.nguyen@gmail.com" />
+                    <span class="form-error" id="emailError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Mật khẩu *</label>
+                    <input type="password" id="password" class="form-control" placeholder="Tối thiểu 6 ký tự" />
+                    <span class="form-error" id="passwordError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword">Nhập lại mật khẩu *</label>
+                    <input type="password" id="confirmPassword" class="form-control"
+                        placeholder="Xác nhận lại mật khẩu" />
+                    <span class="form-error" id="confirmPasswordError"></span>
+                </div>
+
+                <button type="submit" class="auth-btn" id="submitBtn">Đăng Ký</button>
+
+                <p class="auth-switch">
+                    Đã có tài khoản? <a href="./login.html">Đăng nhập ngay</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="./js/register.js"></script>
+</body>
+
+</html>

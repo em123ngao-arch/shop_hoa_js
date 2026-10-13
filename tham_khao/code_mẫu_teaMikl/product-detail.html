@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Chi tiết sản phẩm</title>
+
+    <link rel="stylesheet" href="./detail.css">
+    <script type="importmap">
+    {
+      "imports": {
+        "axios": "https://esm.sh/axios@1.7.9"
+      }
+    }
+    </script>
+
+</head>
+
+<body>
+
+    <!-- HEADER -->
+
+    <header class="header">
+
+        <div class="container">
+
+            <a href="./index.html" class="logo">
+
+                🧋 Milk Tea
+
+            </a>
+
+            <a href="./index.html" class="back">
+
+                ← Quay lại
+
+            </a>
+
+        </div>
+
+    </header>
+
+
+    <!-- DETAIL -->
+
+    <main>
+
+        <div class="container">
+
+            <div id="loading">
+
+                Đang tải sản phẩm...
+
+            </div>
+
+
+            <div id="error" class="hidden">
+
+                Không tìm thấy sản phẩm.
+
+            </div>
+
+
+            <div id="productDetail" class="product-detail">
+
+            </div>
+
+        </div>
+
+    </main>
+
+
+    <script type="module" src="./detail.js">
+    </script>
+
+</body>
+
+</html>

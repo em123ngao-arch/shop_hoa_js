@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chi Tiết Hoa - Tiệm Hoa Kẽm Nhung</title>
+
+  <!-- GOOGLE FONTS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- CSS STYLESHEETS -->
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/variables.css">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/detail.css">
+  <link rel="stylesheet" href="./css/responsive.css">
+
+  <!-- IMPORTMAP (Nạp Axios CDN chuẩn theo code mẫu) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "axios": "https://esm.sh/axios@1.7.9"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- 1. TOP ANNOUNCEMENT BAR -->
+  <div class="top-bar">
+    <div class="container top-bar-content">
+      <span class="top-bar-badge">Cam kết</span>
+      <span>Giao hoa hỏa tốc trong ngày • Miễn phí thiệp viết tay theo yêu cầu</span>
+    </div>
+  </div>
+
+  <!-- 2. HEADER -->
+  <header class="header">
+    <div class="container header-content">
+      <a href="./index.html" class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 2a4 4 0 0 1 4 4c0 3-4 6-4 6s-4-3-4-6a4 4 0 0 1 4-4z"></path>
+          <path d="M12 22a4 4 0 0 1-4-4c0-3 4-6 4-6s4 3 4 6a4 4 0 0 1-4 4z"></path>
+          <path d="M2 12a4 4 0 0 1 4-4c3 0 6 4 6 4s-3 4-6 4a4 4 0 0 1-4-4z"></path>
+          <path d="M22 12a4 4 0 0 1-4 4c-3 0-6-4-6-4s3-4 6-4a4 4 0 0 1 4 4z"></path>
+        </svg>
+        <div>
+          <span>Tiệm Hoa Kẽm Nhung</span>
+          <span class="logo-sub">Handmade Florist</span>
+        </div>
+      </a>
+
+      <div class="header-actions">
+        <a href="./index.html" class="detail-btn" style="font-size: 13.5px; font-weight: 600; padding: 0;">
+          ← Quay lại trang chủ
+        </a>
+
+        <a href="./index.html#products" class="cart-btn" title="Giỏ hàng">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-2z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+          <span id="cartCount" class="cart-badge">0</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 3. BREADCRUMBS -->
+  <nav class="breadcrumbs" aria-label="Breadcrumb">
+    <div class="container">
+      <a href="./index.html">Trang chủ</a>
+      <span>/</span>
+      <a href="./index.html" id="breadcrumbCategory">Hoa Kẽm Nhung</a>
+      <span>/</span>
+      <span class="current" id="breadcrumbProduct">Chi tiết hoa</span>
+    </div>
+  </nav>
+
+  <!-- 4. KHU VỰC CHI TIẾT SẢN PHẨM -->
+  <main class="detail-section">
+    <div class="container">
+      <!-- Loading & Error States -->
+      <div id="loading" class="loading">
+        Đang nạp thông tin chi tiết hoa...
+      </div>
+
+      <div id="error" class="error hidden">
+        <p style="font-size: 18px; margin-bottom: 16px;">Không tìm thấy mẫu hoa này hoặc đường link không hợp lệ.</p>
+        <a href="./index.html" class="hero-cta" style="display: inline-flex;">
+          ← Quay lại danh sách hoa
+        </a>
+      </div>
+
+      <!-- Container chính nạp chi tiết hoa bằng JS (detail.js) -->
+      <div id="productDetail"></div>
+    </div>
+  </main>
+
+  <!-- 5. SẢN PHẨM LIÊN QUAN (RELATED FLOWERS) -->
+  <section class="related-section">
+    <div class="container">
+      <h3 class="related-title">Các Mẫu Hoa Cùng Bộ Sưu Tập</h3>
+      <div id="relatedGrid" class="product-grid">
+        <!-- Render 4 sản phẩm liên quan bằng detail.js -->
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom" style="border: none; padding-top: 0;">
+        <p>© 2026 Tiệm Hoa Kẽm Nhung • Đồ án cuối khóa môn JavaScript</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- SCRIPT DETAIL ES6 MODULE -->
+  <script type="module" src="./js/detail.js"></script>
+
+</body>
+</html>

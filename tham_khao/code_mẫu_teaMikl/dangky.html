@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Đăng ký</title>
+    <script type="importmap">
+    {
+      "imports": {
+        "axios": "https://esm.sh/axios@1.7.9"
+      }
+    }
+    </script>
+</head>
+
+<body>
+
+    <h1>Đăng ký tài khoản</h1>
+
+    <form id="registerForm">
+
+        <input
+            type="text"
+            id="name"
+            placeholder="Họ tên"
+        >
+
+        <br><br>
+
+        <input
+            type="email"
+            id="email"
+            placeholder="Email"
+        >
+
+        <br><br>
+
+        <input
+            type="password"
+            id="password"
+            placeholder="Mật khẩu"
+        >
+
+        <br><br>
+
+        <input
+            type="password"
+            id="confirmPassword"
+            placeholder="Nhập lại mật khẩu"
+        >
+
+        <br><br>
+
+        <button type="submit">
+            Đăng ký
+        </button>
+
+    </form>
+
+    <p id="message"></p>
+
+    
+    <script type="module" src="./register.js"></script>
+
+</body>
+
+</html>

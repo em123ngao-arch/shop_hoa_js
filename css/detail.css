@@ -1,0 +1,316 @@
+@import url('./variables.css');
+
+/* ==========================================================================
+   detail.css - Giao diện trang chi tiết sản phẩm (Flower Chimp Style)
+   ========================================================================== */
+
+/* Breadcrumbs */
+.breadcrumbs {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.breadcrumbs a {
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+}
+
+.breadcrumbs a:hover {
+  color: var(--color-primary);
+}
+
+.breadcrumbs span {
+  margin: 0 8px;
+  color: var(--border-light);
+}
+
+.breadcrumbs .current {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+/* Detail Main Layout */
+.detail-section {
+  padding: 40px 0 60px;
+}
+
+.detail-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 50px;
+  align-items: start;
+}
+
+/* Cột trái: Ảnh sản phẩm */
+.detail-gallery {
+  position: sticky;
+  top: 100px;
+}
+
+.main-image-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  position: relative;
+}
+
+.main-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.main-image-wrap:hover img {
+  transform: scale(1.04);
+}
+
+.detail-badge-corner {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: var(--radius-sm);
+  background-color: var(--badge-sale-bg);
+  color: var(--badge-sale-text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Cột phải: Thông tin đặt hàng */
+.detail-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-category-tag {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--color-primary);
+  margin-bottom: 8px;
+}
+
+.detail-title {
+  font-family: var(--font-serif);
+  font-size: 30px;
+  line-height: 1.25;
+  color: var(--text-main);
+  margin-bottom: 12px;
+}
+
+.detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 13.5px;
+}
+
+.detail-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detail-stock-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--badge-handmade-text);
+  font-weight: 600;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--badge-handmade-text);
+}
+
+/* Bảng giá */
+.detail-price-box {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.detail-price {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-sale-price);
+}
+
+.detail-was-price {
+  font-size: 16px;
+  color: var(--text-was-price);
+  text-decoration: line-through;
+}
+
+.detail-save-badge {
+  font-size: 12px;
+  font-weight: 700;
+  background-color: var(--badge-sale-bg);
+  color: var(--badge-sale-text);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+/* Mô tả sản phẩm */
+.detail-desc {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+
+/* Bộ chọn số lượng */
+.quantity-control {
+  margin-bottom: 24px;
+}
+
+.quantity-label {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.quantity-box {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-btn);
+  background-color: #FFFFFF;
+  overflow: hidden;
+}
+
+.qty-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-main);
+  background-color: var(--bg-surface);
+  transition: background-color var(--transition-fast);
+}
+
+.qty-btn:hover {
+  background-color: var(--border-light);
+}
+
+.qty-input {
+  width: 50px;
+  height: 40px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+  border-left: 1px solid var(--border-light);
+  border-right: 1px solid var(--border-light);
+}
+
+/* Nút hành động */
+.action-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.btn-add-cart {
+  padding: 14px 20px;
+  background-color: #FFFFFF;
+  border: 2px solid var(--text-main);
+  border-radius: var(--radius-btn);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all var(--transition-fast);
+}
+
+.btn-add-cart:hover {
+  background-color: var(--text-main);
+  color: #FFFFFF;
+}
+
+.btn-buy-now {
+  padding: 14px 20px;
+  background-color: var(--color-primary);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-btn);
+  font-size: 14px;
+  font-weight: 700;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.btn-buy-now:hover {
+  background-color: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+}
+
+/* Checklist cam kết dịch vụ */
+.detail-guarantees {
+  border-top: 1px solid var(--border-light);
+  padding-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.guarantee-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.guarantee-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+/* Sản phẩm liên quan */
+.related-section {
+  padding: 40px 0 60px;
+  border-top: 1px solid var(--border-light);
+}
+
+.related-title {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  text-align: center;
+}

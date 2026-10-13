@@ -1,0 +1,47 @@
+/**
+ * variables.css - Hệ thống biến màu sắc và Design Tokens chuẩn Flower Chimp
+ * Căn cứ theo FRONTEND_RULES.md - Tuyệt đối không dùng màu AI (tím neon, gradient lòe loẹt)
+ */
+
+:root {
+  /* --- 1. MÀU NỀN & BỀ MẶT (Sạch sẽ, tinh khôi, tôn vinh ảnh hoa) --- */
+  --bg-page: #FFFFFF;              /* Nền trang trắng tinh khôi */
+  --bg-surface: #F9FAFB;           /* Nền section phụ xám khói cực nhạt */
+  --bg-cream: #FDFBF7;             /* Nền ấm nhẹ cho banner / block nổi bật */
+  --border-light: #E8E8E8;         /* Viền mảnh thanh lịch chuẩn Flower Chimp */
+  --border-subtle: #F0F2F5;        /* Viền ngăn cách phụ */
+
+  /* --- 2. MÀU VĂN BẢN (Typography cao cấp) --- */
+  --text-main: #181318;            /* Đen than chì sang trọng (không dùng #000 thô) */
+  --text-secondary: #454346;       /* Xám tro đậm cho phụ đề, nhãn danh mục */
+  --text-muted: #7B7B7B;           /* Xám mềm cho mô tả, số lượng review */
+  --text-was-price: #A1A0A0;       /* Xám nhạt gạch ngang giá cũ (was_price) */
+
+  /* --- 3. MÀU ĐIỂM NHẤN THƯƠNG HIỆU (Floral Accents) --- */
+  --color-primary: #108474;        /* Xanh ngọc lục bảo Flower Chimp (cuống hoa, lá) */
+  --color-primary-dark: #0A6054;   /* Xanh đậm khi hover */
+  --color-accent-rose: #D9536F;     /* Hồng đất sang trọng cho dịp lễ */
+  --color-sale-price: #D92D20;      /* Đỏ mận thanh nhã cho giá bán */
+  --color-star: #FF9900;           /* Vàng hổ phách cho đánh giá sao */
+
+  /* --- 4. TRẠNG THÁI & BADGES --- */
+  --badge-sale-bg: #FEE4E2;
+  --badge-sale-text: #B42318;
+  --badge-handmade-bg: #ECFDF3;
+  --badge-handmade-text: #027A48;
+  --badge-bestseller-bg: #FEF0C7;
+  --badge-bestseller-text: #B54708;
+
+  /* --- 5. TYPOGRAPHY (Font chuẩn trang hoa quốc tế) --- */
+  --font-serif: 'Merriweather', 'Playfair Display', Georgia, serif;
+  --font-sans: 'Lato', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+  /* --- 6. BO GÓC & ĐỔ BÓNG (Tự nhiên, không lạm dụng) --- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-btn: 6px;
+  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.05);
+  --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --transition-fast: 0.25s ease;
+  --transition-smooth: 0.4s ease;
+}

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tiệm Hoa Kẽm Nhung - Hoa Handmade & Quà Tặng Tinh Tế</title>
+  <meta name="description"
+    content="Shop hoa kẽm nhung và hoa tươi handmade cao cấp, giao hoa hỏa tốc trong ngày, tặng kèm thiệp chúc mừng thiết kế riêng.">
+
+  <!-- GOOGLE FONTS (Serif + Sans-serif chuẩn Flower Chimp) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- CSS STYLESHEETS (Vanilla CSS thuần) -->
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/variables.css">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/responsive.css">
+
+  <!-- IMPORTMAP (Nạp Axios CDN chuẩn theo code mẫu của Thầy) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "axios": "https://esm.sh/axios@1.7.9"
+    }
+  }
+  </script>
+</head>
+
+<body>
+
+  <!-- 1. TOP ANNOUNCEMENT BAR -->
+  <div class="top-bar">
+    <div class="container top-bar-content">
+      <span class="top-bar-badge">Ưu đãi</span>
+      <span>Miễn phí giao hoa nhanh trong ngày cho đơn từ 350k • Tặng kèm thiệp viết tay theo yêu cầu</span>
+    </div>
+  </div>
+
+  <!-- 2. MAIN HEADER -->
+  <header class="header">
+    <div class="container header-content">
+      <!-- Logo Tiệm Hoa -->
+      <a href="./index.html" class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 2a4 4 0 0 1 4 4c0 3-4 6-4 6s-4-3-4-6a4 4 0 0 1 4-4z"></path>
+          <path d="M12 22a4 4 0 0 1-4-4c0-3 4-6 4-6s4 3 4 6a4 4 0 0 1-4 4z"></path>
+          <path d="M2 12a4 4 0 0 1 4-4c3 0 6 4 6 4s-3 4-6 4a4 4 0 0 1-4-4z"></path>
+          <path d="M22 12a4 4 0 0 1-4 4c-3 0-6-4-6-4s3-4 6-4a4 4 0 0 1 4 4z"></path>
+        </svg>
+        <div>
+          <span>Tiệm Hoa Kẽm Nhung</span>
+          <span class="logo-sub">Handmade Florist</span>
+        </div>
+      </a>
+
+      <!-- Thanh Tìm Kiếm Thông Minh (Search Input) -->
+      <div class="search-box">
+        <input type="text" id="searchInput" class="search-input"
+          placeholder="Tìm kiếm mẫu hoa, dịp sinh nhật, kỷ niệm..." autocomplete="off">
+        <button id="searchBtn" class="search-btn" aria-label="Tìm kiếm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Header Actions: Giỏ hàng -->
+      <div class="header-actions">
+        <a href="./login.html">Đăng nhập</a>
+        <a href="./register.html">Đăng ký</a>
+        <a href="#products" class="cart-btn" id="cartButton" title="Giỏ hàng của bạn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-2z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+          <span>Giỏ Hàng</span>
+          <span id="cartCount" class="cart-badge">0</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 3. HERO BANNER -->
+  <section class="hero">
+    <div class="container hero-content">
+      <div class="hero-text">
+        <span class="hero-tag">Bộ Sưu Tập Hoa Kẽm Nhung 2026</span>
+        <h1 class="hero-title">Trao Gửi Yêu Thương <br>Bền Đẹp Theo Năm Tháng</h1>
+        <p class="hero-desc">
+          Từng cành hoa được uốn nắn thủ công 100% từ sợi kẽm nhung cao cấp mềm mịn,
+          giữ trọn vẻ tươi tắn vĩnh cửu. Món quà sinh nhật và kỷ niệm ý nghĩa nhất.
+        </p>
+        <a href="#products" class="hero-cta">
+          <span>Khám Phá Các Mẫu Hoa</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
+      </div>
+
+      <div class="hero-image-wrap">
+        <img src="./images/350.png" alt="Bó hoa kẽm nhung cao cấp">
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. DANH MỤC HOA (CATEGORY FILTER) -->
+  <section class="category-section">
+    <div class="container">
+      <div class="category-header">
+        <h2 class="category-title">Danh Mục Mẫu Hoa</h2>
+      </div>
+
+      <!-- Container chứa các nút lọc danh mục (Đổ bằng JS) -->
+      <div id="categoryList" class="category-list">
+        <button class="category-btn active" data-category="0">
+          Tất cả
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. DANH SÁCH SẢN PHẨM HOA (TỐI THIỂU 15+ MẪU THEO YÊU CẦU 1) -->
+  <section id="products" class="products-section">
+    <div class="container">
+      <!-- Toolbar: Tiêu đề và đếm số lượng -->
+      <div class="section-toolbar">
+        <div>
+          <h2 style="font-family: var(--font-serif); font-size: 24px; font-weight: 700;">
+            Tất Cả Mẫu Hoa Nổi Bật
+          </h2>
+          <p class="products-count">
+            Hiển thị <strong id="productCount">16</strong> mẫu hoa kẽm nhung thủ công
+          </p>
+        </div>
+      </div>
+
+      <!-- Trạng thái Loading và Lỗi (Kế thừa từ code Thầy) -->
+      <div id="loading" class="loading">
+        Đang nạp các mẫu hoa...
+      </div>
+
+      <div id="error" class="error hidden">
+        Không thể tải dữ liệu hoa. Vui lòng kiểm tra kết nối!
+      </div>
+
+      <!-- Lưới sản phẩm hoa (Grid 4 cột Desktop / 2 cột Mobile) -->
+      <div id="productList" class="product-grid">
+        <!-- Danh sách hoa sẽ được render động bằng JavaScript (main.js) -->
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. CAM KẾT DỊCH VỤ (TRUST BADGES) -->
+  <section class="trust-section">
+    <div class="container">
+      <div class="trust-grid">
+        <div class="trust-item">
+          <div class="trust-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="1" y="3" width="15" height="13"></rect>
+              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+              <circle cx="5.5" cy="18.5" r="2.5"></circle>
+              <circle cx="18.5" cy="18.5" r="2.5"></circle>
+            </svg>
+          </div>
+          <div class="trust-text">
+            <h4>Giao Hỏa Tốc Trong Ngày</h4>
+            <p>Đúng hẹn, đóng gói hộp bảo vệ an toàn</p>
+          </div>
+        </div>
+
+        <div class="trust-item">
+          <div class="trust-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z">
+              </path>
+            </svg>
+          </div>
+          <div class="trust-text">
+            <h4>100% Thủ Công Tỉ Mỉ</h4>
+            <p>Uốn cánh hoa từ sợi kẽm nhung mịn đẹp</p>
+          </div>
+        </div>
+
+        <div class="trust-item">
+          <div class="trust-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+          </div>
+          <div class="trust-text">
+            <h4>Tặng Thiệp Viết Tay</h4>
+            <p>Miễn phí in banner chúc mừng ý nghĩa</p>
+          </div>
+        </div>
+
+        <div class="trust-item">
+          <div class="trust-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+          <div class="trust-text">
+            <h4>Bảo Hành Độ Bền</h4>
+            <p>Hoa không tàn, giữ màu vĩnh cửu</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div>
+          <div class="footer-logo">Tiệm Hoa Kẽm Nhung</div>
+          <p class="footer-desc">
+            Chuyên thiết kế các bó hoa sinh nhật, hoa kỷ niệm, giỏ hoa để bàn thủ công từ kẽm nhung cao cấp.
+            Trao gửi thông điệp yêu thương vĩnh cửu tới người thương.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Về Chúng Tôi</h4>
+          <ul>
+            <li><a href="#about">Câu chuyện thương hiệu</a></li>
+            <li><a href="#products">Mẫu hoa kẽm nhung</a></li>
+            <li><a href="#products">Hoa sinh nhật thiết kế</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Hỗ Trợ Khách Hàng</h4>
+          <ul>
+            <li><a href="#">Chính sách giao hàng</a></li>
+            <li><a href="#">Hướng dẫn bảo quản hoa</a></li>
+            <li><a href="#">Đổi trả trong 24h</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Liên Hệ</h4>
+          <ul>
+            <li>📍 14 Trịnh Đình Thảo, Phường Hòa Thạnh, Quận Tân Phú, TP.HCM</li>
+            <li>📞 Hotline: 0374905296</li>
+            <li>⏰ 08:00 - 21:00 hàng ngày</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>© 2026 Tiệm Hoa Kẽm Nhung</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- SCRIPT ES6 MODULE CHÍNH -->
+  <script type="module" src="./js/main.js"></script>
+
+</body>
+
+</html>

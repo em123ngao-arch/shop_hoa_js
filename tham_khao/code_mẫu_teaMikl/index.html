@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Milk Tea - Trà Sữa</title>
+
+    <link rel="stylesheet" href="./style.css">
+
+    <script type="importmap">
+    {
+      "imports": {
+        "axios": "https://esm.sh/axios@1.7.9"
+      }
+    }
+    </script>
+</head>
+
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+
+        <div class="container header-content">
+
+            <div class="logo">
+                🧋 Milk Tea
+            </div>
+
+            <nav class="menu">
+                <a href="#">Trang chủ</a>
+                <a href="#products">Sản phẩm</a>
+                <a href="#about">Giới thiệu</a>
+                <a href="#contact">Liên hệ</a>
+                <a href="dangky.html">Đăng Ký</a>
+                <a href="login.html">Đăng Nhập</a>
+            </nav>
+            <div class="user-info">
+                <span id="userName"></span>
+            </div>
+            <div class="cart">
+                🛒
+                <span id="cartCount">0</span>
+            </div>
+
+        </div>
+
+    </header>
+
+
+    <!-- HERO -->
+    <section class="hero">
+
+        <div class="container hero-content">
+
+            <div class="hero-text">
+
+                <p class="subtitle">
+                    NGON MỖI NGÀY
+                </p>
+
+                <h1>
+                    Trà sữa yêu thích
+                    <br>
+                    của bạn
+                </h1>
+
+                <p>
+                    Những ly trà sữa thơm ngon,
+                    nguyên liệu chất lượng và
+                    được pha chế mỗi ngày.
+                </p>
+
+                <a href="#products" class="btn">
+                    Khám phá ngay
+                </a>
+
+            </div>
+
+            <div class="hero-image">
+                <div class="bubble">🧋</div>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- CATEGORY -->
+    <section class="category-section">
+
+        <div class="container">
+
+            <h2>Danh mục sản phẩm</h2>
+
+            <div id="categoryList" class="category-list">
+
+                <button
+                    class="category-btn active"
+                    data-category="0">
+                    Tất cả
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- PRODUCTS -->
+    <section id="products" class="products-section">
+
+        <div class="container">
+
+            <div class="section-header">
+
+                <div>
+                    <p class="section-subtitle">
+                        MENU
+                    </p>
+
+                    <h2>
+                        Sản phẩm nổi bật
+                    </h2>
+                </div>
+
+                <div class="search-box">
+
+                    <input
+                        type="text"
+                        id="searchInput"
+                        placeholder="Tìm trà sữa...">
+
+                    <button id="searchBtn">
+                        🔍
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- Loading -->
+            <div id="loading" class="loading">
+                Đang tải sản phẩm...
+            </div>
+
+
+            <!-- Error -->
+            <div id="error" class="error hidden">
+                Không thể tải dữ liệu sản phẩm.
+            </div>
+
+
+            <!-- Product list -->
+            <div
+                id="productList"
+                class="product-grid">
+                
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ABOUT -->
+    <section id="about" class="about">
+
+        <div class="container">
+
+            <h2>Về Milk Tea</h2>
+
+            <p>
+                Milk Tea mang đến những thức uống
+                thơm ngon, được pha chế từ nguyên liệu
+                chất lượng và phục vụ nhanh chóng.
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <!-- FOOTER -->
+    <footer id="contact">
+
+        <div class="container">
+
+            <h3>🧋 Milk Tea</h3>
+
+            <p>
+                Trà sữa ngon - Tươi mỗi ngày
+            </p>
+
+            <p>
+                © 2026 Milk Tea
+            </p>
+
+        </div>
+
+    </footer>
+
+
+    <!-- APP -->
+    <script type="module" src="./app.js"></script>
+
+</body>
+</html>
