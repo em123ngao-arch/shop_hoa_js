@@ -43,11 +43,16 @@ function renderDetail(product) {
   }
   document.title = `${product.name} - Shop Hoa Kẽm Nhung`;
 
-  // Tính phần trăm giảm giá nếu có
+  // Tính phần trăm giảm giá nếu có (áp dụng ngưỡng >= 5%)
   let discountBadge = '';
+  let imageDiscountBadge = '';
   if (product.originalPrice && product.originalPrice > product.price) {
     const percent = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
-    discountBadge = `<span class="detail-save-badge">Tiết kiệm ${percent}%</span>`;
+    if (percent >= 5) {
+      imageDiscountBadge = `<span class="product-badge-discount" style="top: 14px; left: 14px; font-size: 13px; padding: 4px 10px;">-${percent}%</span>`;
+      const savedAmount = product.originalPrice - product.price;
+      discountBadge = `<span class="detail-save-badge">Tiết kiệm ${formatPrice(savedAmount)} (-${percent}%)</span>`;
+    }
   }
 
   // Render toàn bộ layout chi tiết
@@ -56,6 +61,7 @@ function renderDetail(product) {
       <!-- CỘT TRÁI: ẢNH SẢN PHẨM -->
       <div class="detail-gallery">
         <div class="main-image-wrap">
+          ${imageDiscountBadge}
           ${product.badge ? `<span class="detail-badge-corner">${product.badge}</span>` : ''}
           <img src="${product.image}" alt="${product.name}" id="mainDetailImage">
         </div>

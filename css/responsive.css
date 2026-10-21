@@ -34,6 +34,10 @@
   .detail-layout {
     gap: 32px;
   }
+
+  .voucher-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -72,7 +76,8 @@
     padding: 28px 0;
   }
 
-  .hero-content {
+  .hero-content,
+  .hero-slide {
     grid-template-columns: 1fr;
     gap: 20px;
   }
@@ -88,6 +93,49 @@
 
   .hero-image-wrap img {
     height: 220px;
+  }
+
+  .hero-nav-btn {
+    width: 36px;
+    height: 36px;
+    top: auto;
+    bottom: -16px;
+    transform: none;
+  }
+
+  .hero-prev {
+    left: calc(50% - 90px);
+  }
+
+  .hero-next {
+    right: calc(50% - 90px);
+  }
+
+  /* Hero Trust Bar on Tablet/Mobile */
+  .hero-trust-bar {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    padding: 16px;
+    margin-top: 24px;
+  }
+
+  .trust-item {
+    gap: 10px;
+  }
+
+  .trust-icon {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    font-size: 18px;
+  }
+
+  .trust-info strong {
+    font-size: 13px;
+  }
+
+  .trust-info span {
+    font-size: 11.5px;
   }
 
   /* Category Bar */
@@ -126,6 +174,17 @@
   .add-cart {
     padding: 6px 10px;
     font-size: 12px;
+  }
+
+  .quick-add-btn {
+    opacity: 1;
+    transform: translateY(0);
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    padding: 7px 10px;
+    font-size: 11.5px;
+    background: rgba(255, 255, 255, 0.94);
   }
 
   .product-badge {
@@ -169,4 +228,28 @@
     grid-template-columns: 1fr;
     gap: 24px;
   }
+
+  /* SHOP-07 Mobile Adjustments */
+  .sale-filter-pills {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sale-pill {
+    flex-shrink: 0;
+  }
+
+  .voucher-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .cart-drawer {
+    width: 100%;
+    max-width: 100vw;
+  }
 }
+

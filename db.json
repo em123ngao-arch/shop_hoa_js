@@ -121,7 +121,7 @@
       "id": "6",
       "name": "Bó Hoa Baby Kẽm Nhung Xanh Biển",
       "price": 450000,
-      "originalPrice": 520000,
+      "originalPrice": 600000,
       "categoryId": 1,
       "categoryName": "Hoa Kẽm Nhung",
       "categorySlug": "kem-nhung",
@@ -154,8 +154,8 @@
     {
       "id": "8",
       "name": "Bó Hoa Kẽm Nhung Lavender Tím Huế",
-      "price": 499000,
-      "originalPrice": 560000,
+      "price": 350000,
+      "originalPrice": 500000,
       "categoryId": 1,
       "categoryName": "Hoa Kẽm Nhung",
       "categorySlug": "kem-nhung",
@@ -205,8 +205,8 @@
     {
       "id": "11",
       "name": "Bình Hoa Kẽm Nhung Để Bàn Thanh Lịch",
-      "price": 503000,
-      "originalPrice": 580000,
+      "price": 390000,
+      "originalPrice": 600000,
       "categoryId": 4,
       "categoryName": "Hoa Để Bàn Mini",
       "categorySlug": "de-ban",
@@ -306,7 +306,157 @@
     }
   ],
   "cart": [],
-  "orders": [],
+  "orders": [
+    {
+      "id": "DH-1001",
+      "customerName": "Nguyễn Thị Mai",
+      "phone": "0901234567",
+      "address": "14 Lê Lợi, Phường Bến Nghé, Quận 1, TP.HCM",
+      "note": "Giao trước 10h sáng giúp mình nhé",
+      "items": [
+        {
+          "id": 1,
+          "name": "Bó Hoa Kẽm Nhung Tulip Pastel",
+          "price": 300000,
+          "quantity": 2,
+          "image": "./images/300.png"
+        }
+      ],
+      "subtotal": 600000,
+      "discountAmount": 60000,
+      "totalAmount": 540000,
+      "status": "completed",
+      "createdAt": "2026-10-12T09:30:00.000Z"
+    },
+    {
+      "id": "DH-1002",
+      "customerName": "Trần Văn Nam",
+      "phone": "0987654321",
+      "address": "25 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP.HCM",
+      "note": "Gọi trước khi giao 15 phút",
+      "items": [
+        {
+          "id": 6,
+          "name": "Bó Hoa Baby Kẽm Nhung Xanh Biển",
+          "price": 390000,
+          "quantity": 1,
+          "image": "./images/450k (2).png"
+        }
+      ],
+      "subtotal": 390000,
+      "discountAmount": 0,
+      "totalAmount": 390000,
+      "status": "shipping",
+      "createdAt": "2026-10-14T14:15:00.000Z"
+    },
+    {
+      "id": "DH-1003",
+      "customerName": "Lê Thu Trang",
+      "phone": "0912345678",
+      "address": "88 Lý Tự Trọng, Phường Bến Thành, Quận 1, TP.HCM",
+      "note": "Kèm thiệp chúc mừng sinh nhật giúp em",
+      "items": [
+        {
+          "id": 9,
+          "name": "Hộp Hoa Kẽm Nhung Trái Tim Sweet Love",
+          "price": 500000,
+          "quantity": 1,
+          "image": "./images/500k.png"
+        }
+      ],
+      "subtotal": 500000,
+      "discountAmount": 100000,
+      "totalAmount": 400000,
+      "status": "pending",
+      "createdAt": "2026-10-15T08:45:00.000Z"
+    }
+  ],
+  "banners": [
+    {
+      "id": "1",
+      "tenbanner": "Hộp Hoa Kẽm Nhung Khai Xuân Đắc Lộc - Tết 2027",
+      "tag": "🧧 Khai Xuân Đắc Lộc 2027",
+      "title": "Khai Xuân Đắc Lộc <br>Vạn Sự Cát Tường 2027",
+      "desc": "Hộp hoa kẽm nhung phối sắc đỏ vàng may mắn, hoa mai phú quý cùng mèo thần tài chiêu tài đón lộc. Món quà trao gửi trọn vẹn lời chúc Bình An và Thịnh Vượng cho năm mới 2027.",
+      "hinhbanner": "./images/Lunar New Year Blossom Bouquet.png",
+      "link": "#products",
+      "ctaText": "Sắm Hoa Đón Tết 2027",
+      "active": true,
+      "order": 1,
+      "theme": "tet"
+    },
+    {
+      "id": "2",
+      "tenbanner": "Bộ Sưu Tập Hoa Kẽm Nhung Mùa Xuân 2026",
+      "tag": "🌿 Tinh Hoa Nghệ Thuật Handmade",
+      "title": "Trao Gửi Yêu Thương <br>Bền Đẹp Theo Năm Tháng",
+      "desc": "Từng cành hoa được uốn nắn thủ công 100% từ sợi kẽm nhung cao cấp mềm mịn, giữ trọn vẻ tươi tắn vĩnh cửu. Món quà sinh nhật và kỷ niệm ý nghĩa nhất.",
+      "hinhbanner": "./images/350.png",
+      "link": "#products",
+      "ctaText": "Khám Phá Các Mẫu Hoa",
+      "active": true,
+      "order": 2,
+      "theme": "default"
+    },
+    {
+      "id": "3",
+      "tenbanner": "Bó Hoa Khai Trương Tinh Tế Pastel - Giảm 15%",
+      "tag": "⚡ Siêu Ưu Đãi Giờ Vàng",
+      "title": "Khai Trương Hồng Phát <br>Tài Lộc Thịnh Vượng",
+      "desc": "Bó hoa tulip phối sắc cam vàng rực rỡ tượng trưng cho nhiệt huyết và thịnh vượng, món quà tinh tế gửi trọn lời chúc may mắn phát tài.",
+      "hinhbanner": "./images/300.png",
+      "link": "#products",
+      "ctaText": "Săn Ưu Đãi Ngay",
+      "active": true,
+      "order": 3,
+      "theme": "sale"
+    },
+    {
+      "id": "4",
+      "tenbanner": "Bộ Sưu Tập Lễ Tình Nhân Sweet Valentine",
+      "tag": "💖 Mùa Yêu Thương Lãng Mạn",
+      "title": "Gửi Trọn Tình Yêu <br>Hoa Nhung Vĩnh Cửu",
+      "desc": "Bó hoa hồng kẽm nhung cánh sen ngọt ngào cùng thiệp chúc mừng viết tay thủ công, thay vạn lời muốn nói gửi đến người thương trong dịp Valentine.",
+      "hinhbanner": "./images/500k.png",
+      "link": "#products",
+      "ctaText": "Khám Phá Mẫu Hoa Tình Yêu",
+      "active": true,
+      "order": 4,
+      "theme": "valentine"
+    }
+  ],
+  "promotions": [
+    {
+      "id": "promo-new",
+      "code": "CHAO2026",
+      "name": "Ưu Đãi Khách Hàng Mới",
+      "discountPercent": 10,
+      "type": "new_user",
+      "minOrder": 200000,
+      "desc": "Giảm 10% cho đơn hàng đầu tiên từ 200.000đ",
+      "active": true
+    },
+    {
+      "id": "promo-birthday",
+      "code": "SINHNHATVUI",
+      "name": "Quà Tặng Sinh Nhật Khách Yêu",
+      "discountPercent": 20,
+      "type": "birthday",
+      "minOrder": 0,
+      "desc": "Giảm 20% toàn bộ đơn hàng hoa trong tháng sinh nhật của bạn",
+      "active": true
+    },
+    {
+      "id": "promo-flash",
+      "code": "SALE15",
+      "name": "Flash Sale Giờ Vàng",
+      "discountPercent": 15,
+      "type": "flash_sale",
+      "minOrder": 350000,
+      "desc": "Giảm 15% cho các đơn hàng hoa từ 350.000đ",
+      "active": true
+    }
+  ],
   "users": [
     {
       "name": "Duy Bảo",
@@ -319,6 +469,12 @@
       "email": "em123ngao@gmail.com",
       "password": "123",
       "id": "wi-XRJopccA"
+    },
+    {
+      "name": "Bảo",
+      "email": "lethuvan198181@gmail.com",
+      "password": "123456",
+      "id": "2-u5jCl"
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"

@@ -191,132 +191,628 @@ body {
   line-height: 1;
 }
 
-/* --------------------------------------------------------------------------
-   3. HERO BANNER (Phong cách Flower Chimp sang trọng)
-   -------------------------------------------------------------------------- */
+/* ==========================================================================
+   3. HERO BANNER SLIDER DYNAMIC (SHOP-05 LUXURY UPGRADE)
+   ========================================================================== */
+/* ==========================================================================
+   3. HERO BANNER SLIDER DYNAMIC (SHOP-05 MULTI-THEME VIBRANT BACKGROUNDS)
+   ========================================================================== */
 .hero {
-  background-color: var(--bg-cream);
-  border-bottom: 1px solid var(--border-light);
-  padding: 48px 0;
+  padding: 42px 0 24px;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.6s ease, box-shadow 0.6s ease;
 }
 
-.hero-content {
+/* --------------------------------------------------------------------------
+   1. CHỦ ĐỀ MẶC ĐỊNH: HOA NGHỆ THUẬT XANH NGỌC LỤC BẢO (EMERALD NATURE)
+   -------------------------------------------------------------------------- */
+.hero[data-current-theme="default"],
+.hero:not([data-current-theme]) {
+  background: 
+    radial-gradient(circle at 12% 20%, rgba(38, 166, 154, 0.22) 0%, transparent 45%),
+    radial-gradient(circle at 88% 80%, rgba(76, 175, 80, 0.22) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(220, 245, 230, 0.8) 0%, transparent 65%),
+    linear-gradient(135deg, #DCF3E5 0%, #D1EFE0 50%, #E3F7EC 100%);
+  border-bottom: 3px solid #2C4C38;
+  box-shadow: inset 0 -20px 45px rgba(44, 76, 56, 0.08);
+}
+
+.hero[data-current-theme="default"]::before,
+.hero:not([data-current-theme])::before {
+  content: '🌿';
+  position: absolute;
+  top: 18px;
+  right: 40px;
+  font-size: 28px;
+  opacity: 0.6;
+  pointer-events: none;
+  animation: themeFloat 3.5s ease-in-out infinite alternate;
+}
+
+.hero[data-current-theme="default"]::after,
+.hero:not([data-current-theme])::after {
+  content: '✨';
+  position: absolute;
+  bottom: 24px;
+  left: 32px;
+  font-size: 26px;
+  opacity: 0.65;
+  pointer-events: none;
+  animation: themeFloat 4s ease-in-out infinite alternate-reverse;
+}
+
+.hero[data-current-theme="default"] .hero-tag,
+.hero:not([data-current-theme]) .hero-tag {
+  color: #2C4C38;
+  background: rgba(44, 76, 56, 0.12);
+  border-color: rgba(44, 76, 56, 0.22);
+}
+
+.hero[data-current-theme="default"] .hero-cta,
+.hero:not([data-current-theme]) .hero-cta {
+  background: linear-gradient(135deg, #2C4C38 0%, #1D3626 100%);
+  box-shadow: 0 8px 24px rgba(44, 76, 56, 0.35);
+}
+
+.hero[data-current-theme="default"] .hero-progress-bar,
+.hero:not([data-current-theme]) .hero-progress-bar {
+  background: linear-gradient(90deg, #2C4C38 0%, #52B788 100%);
+}
+
+.hero[data-current-theme="default"] .hero-dot.active,
+.hero:not([data-current-theme]) .hero-dot.active {
+  background-color: #2C4C38;
+  box-shadow: 0 0 10px rgba(44, 76, 56, 0.6);
+}
+
+/* --------------------------------------------------------------------------
+   2. CHỦ ĐỀ TẾT 2027: ĐỎ SON VÀNG KIM HOÀNG GIA (LUNAR NEW YEAR FESTIVE)
+   -------------------------------------------------------------------------- */
+.hero[data-current-theme="tet"] {
+  background: 
+    radial-gradient(circle at 12% 20%, rgba(220, 38, 38, 0.25) 0%, transparent 45%),
+    radial-gradient(circle at 88% 80%, rgba(245, 158, 11, 0.28) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(255, 232, 230, 0.85) 0%, transparent 65%),
+    linear-gradient(135deg, #FFE4E1 0%, #FFF2D6 50%, #FFDFD9 100%);
+  border-bottom: 3px solid #D32F2F;
+  box-shadow: inset 0 -20px 45px rgba(211, 47, 47, 0.1);
+}
+
+.hero[data-current-theme="tet"]::before {
+  content: '🧧';
+  position: absolute;
+  top: 18px;
+  right: 40px;
+  font-size: 30px;
+  opacity: 0.7;
+  pointer-events: none;
+  animation: themeFloat 3.2s ease-in-out infinite alternate;
+}
+
+.hero[data-current-theme="tet"]::after {
+  content: '🌸';
+  position: absolute;
+  bottom: 24px;
+  left: 32px;
+  font-size: 28px;
+  opacity: 0.7;
+  pointer-events: none;
+  animation: themeFloat 3.8s ease-in-out infinite alternate-reverse;
+}
+
+.hero[data-current-theme="tet"] .hero-tag {
+  color: #C62828;
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(220, 38, 38, 0.25);
+}
+
+.hero[data-current-theme="tet"] .hero-cta {
+  background: linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%);
+  box-shadow: 0 8px 24px rgba(211, 47, 47, 0.38);
+}
+
+.hero[data-current-theme="tet"] .hero-progress-bar {
+  background: linear-gradient(90deg, #D32F2F 0%, #FFB300 100%);
+}
+
+.hero[data-current-theme="tet"] .hero-dot.active {
+  background-color: #D32F2F;
+  box-shadow: 0 0 10px rgba(211, 47, 47, 0.65);
+}
+
+/* --------------------------------------------------------------------------
+   3. CHỦ ĐỀ SIÊU SALE GIỜ VÀNG: CAM CHÁY VÀNG NẮNG NĂNG ĐỘNG (FLASH SALE)
+   -------------------------------------------------------------------------- */
+.hero[data-current-theme="sale"] {
+  background: 
+    radial-gradient(circle at 12% 20%, rgba(255, 112, 67, 0.28) 0%, transparent 45%),
+    radial-gradient(circle at 88% 80%, rgba(255, 179, 0, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(255, 238, 204, 0.85) 0%, transparent 65%),
+    linear-gradient(135deg, #FFE8D6 0%, #FFF0CD 50%, #FFDEC0 100%);
+  border-bottom: 3px solid #E65100;
+  box-shadow: inset 0 -20px 45px rgba(230, 81, 0, 0.1);
+}
+
+.hero[data-current-theme="sale"]::before {
+  content: '⚡';
+  position: absolute;
+  top: 18px;
+  right: 40px;
+  font-size: 32px;
+  opacity: 0.75;
+  pointer-events: none;
+  animation: themeFloat 2.5s ease-in-out infinite alternate;
+}
+
+.hero[data-current-theme="sale"]::after {
+  content: '🔥';
+  position: absolute;
+  bottom: 24px;
+  left: 32px;
+  font-size: 28px;
+  opacity: 0.7;
+  pointer-events: none;
+  animation: themeFloat 3s ease-in-out infinite alternate-reverse;
+}
+
+.hero[data-current-theme="sale"] .hero-tag {
+  color: #D84315;
+  background: rgba(230, 81, 0, 0.12);
+  border-color: rgba(230, 81, 0, 0.25);
+}
+
+.hero[data-current-theme="sale"] .hero-cta {
+  background: linear-gradient(135deg, #FF6F00 0%, #E65100 100%);
+  box-shadow: 0 8px 24px rgba(255, 111, 0, 0.38);
+}
+
+.hero[data-current-theme="sale"] .hero-progress-bar {
+  background: linear-gradient(90deg, #FF6F00 0%, #FFA000 100%);
+}
+
+.hero[data-current-theme="sale"] .hero-dot.active {
+  background-color: #FF6F00;
+  box-shadow: 0 0 10px rgba(255, 111, 0, 0.65);
+}
+
+/* --------------------------------------------------------------------------
+   4. CHỦ ĐỀ VALENTINE: HỒNG PHẤN KẸO NGỌT LÃNG MẠN (SWEET VALENTINE)
+   -------------------------------------------------------------------------- */
+.hero[data-current-theme="valentine"] {
+  background: 
+    radial-gradient(circle at 12% 20%, rgba(233, 30, 99, 0.25) 0%, transparent 45%),
+    radial-gradient(circle at 88% 80%, rgba(186, 104, 200, 0.26) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(253, 226, 238, 0.85) 0%, transparent 65%),
+    linear-gradient(135deg, #FDE0ED 0%, #FCE8F3 50%, #F9CFE3 100%);
+  border-bottom: 3px solid #D81B60;
+  box-shadow: inset 0 -20px 45px rgba(216, 27, 96, 0.1);
+}
+
+.hero[data-current-theme="valentine"]::before {
+  content: '💖';
+  position: absolute;
+  top: 18px;
+  right: 40px;
+  font-size: 30px;
+  opacity: 0.75;
+  pointer-events: none;
+  animation: themeFloat 2.8s ease-in-out infinite alternate;
+}
+
+.hero[data-current-theme="valentine"]::after {
+  content: '🌹';
+  position: absolute;
+  bottom: 24px;
+  left: 32px;
+  font-size: 28px;
+  opacity: 0.7;
+  pointer-events: none;
+  animation: themeFloat 3.4s ease-in-out infinite alternate-reverse;
+}
+
+.hero[data-current-theme="valentine"] .hero-tag {
+  color: #C2185B;
+  background: rgba(233, 30, 99, 0.12);
+  border-color: rgba(233, 30, 99, 0.25);
+}
+
+.hero[data-current-theme="valentine"] .hero-cta {
+  background: linear-gradient(135deg, #E91E63 0%, #C2185B 100%);
+  box-shadow: 0 8px 24px rgba(233, 30, 99, 0.38);
+}
+
+.hero[data-current-theme="valentine"] .hero-progress-bar {
+  background: linear-gradient(90deg, #D81B60 0%, #F48FB1 100%);
+}
+
+.hero[data-current-theme="valentine"] .hero-dot.active {
+  background-color: #D81B60;
+  box-shadow: 0 0 10px rgba(216, 27, 96, 0.65);
+}
+
+@keyframes themeFloat {
+  0% { transform: translateY(0) scale(1) rotate(0deg); }
+  100% { transform: translateY(-8px) scale(1.08) rotate(8deg); }
+}
+
+.hero-slider-wrap {
+  position: relative;
+}
+
+.hero-slides-container {
+  position: relative;
+  min-height: 380px;
+}
+
+.hero-slide {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: 1.15fr 0.85fr;
   align-items: center;
-  gap: 40px;
+  gap: 48px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hero-slide.active {
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+  pointer-events: auto;
+  z-index: 2;
+  transition: opacity 0.3s ease-in;
+}
+
+/* Ẩn dứt khoát không có transition để triệt tiêu hoàn toàn bóng ma chồng chữ của slide cũ */
+.hero-slide:not(.active) {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: none !important;
+}
+
+/* Hiệu ứng trượt chữ mượt mà khi đổi slide */
+.hero-slide.active .hero-text {
+  animation: heroTextSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes heroTextSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .hero-tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 8px;
+  font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.4px;
   color: var(--color-primary);
-  margin-bottom: 12px;
+  background: rgba(44, 76, 56, 0.08);
+  padding: 6px 14px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+  width: fit-content;
+  border: 1px solid rgba(44, 76, 56, 0.12);
 }
 
 .hero-title {
   font-family: var(--font-serif);
-  font-size: 42px;
-  line-height: 1.2;
+  font-size: 44px;
+  line-height: 1.22;
   color: var(--text-main);
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+  letter-spacing: -0.5px;
 }
 
 .hero-desc {
-  font-size: 16px;
+  font-size: 15.5px;
   color: var(--text-secondary);
-  line-height: 1.6;
-  margin-bottom: 24px;
-  max-width: 520px;
+  line-height: 1.65;
+  margin-bottom: 28px;
+  max-width: 530px;
 }
 
 .hero-cta {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  background-color: var(--text-main);
+  gap: 12px;
+  background-color: var(--color-primary);
   color: #FFFFFF;
-  padding: 13px 28px;
+  padding: 14px 30px;
   border-radius: var(--radius-btn);
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 600;
   letter-spacing: 0.3px;
+  box-shadow: 0 6px 20px rgba(44, 76, 56, 0.25);
   transition: all var(--transition-fast);
+  text-decoration: none;
 }
 
 .hero-cta:hover {
-  background-color: var(--color-primary);
-  transform: translateY(-2px);
+  background-color: #1E3627;
+  color: #FFFFFF;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(44, 76, 56, 0.35);
 }
 
+.hero-cta svg {
+  transition: transform 0.3s ease;
+}
+
+.hero-cta:hover svg {
+  transform: translateX(4px);
+}
+
+/* ==========================================================================
+   THEME STYLES: TẾT NGUYÊN ĐÁN 2027 & VALENTINE
+   ========================================================================== */
+.hero-slide[data-theme="tet"] .hero-tag {
+  background: linear-gradient(135deg, #B71C1C 0%, #D32F2F 100%);
+  color: #FFFDF5;
+  border-color: rgba(255, 215, 0, 0.55);
+  box-shadow: 0 4px 14px rgba(183, 28, 28, 0.28);
+}
+
+.hero-slide[data-theme="tet"] .hero-title {
+  color: #2D1515;
+}
+
+.hero-slide[data-theme="tet"] .hero-cta {
+  background: linear-gradient(135deg, #C62828 0%, #E53935 100%);
+  color: #FFFDF5;
+  border: 1px solid rgba(255, 215, 0, 0.6);
+  box-shadow: 0 8px 24px rgba(198, 40, 40, 0.4);
+}
+
+.hero-slide[data-theme="tet"] .hero-cta:hover {
+  background: linear-gradient(135deg, #B71C1C 0%, #C62828 100%);
+  box-shadow: 0 12px 28px rgba(183, 28, 28, 0.55);
+  transform: translateY(-3px) scale(1.02);
+}
+
+.hero-slide[data-theme="tet"] .hero-image-wrap {
+  border: 2px solid rgba(255, 215, 0, 0.6);
+  box-shadow: 0 20px 50px rgba(198, 40, 40, 0.2);
+}
+
+/* Khung ảnh Hero có chiều sâu với hiệu ứng Ken Burns */
 .hero-image-wrap {
   position: relative;
-  border-radius: var(--radius-md);
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: #FFFFFF;
+  aspect-ratio: 4 / 3;
 }
 
 .hero-image-wrap img {
   width: 100%;
-  height: 320px;
+  height: 100%;
   object-fit: cover;
-  transition: transform 0.6s ease;
+  display: block;
 }
 
-.hero-image-wrap:hover img {
-  transform: scale(1.03);
+/* Hiệu ứng Ken Burns (Zoom chậm êm ái) khi slide active */
+.hero-slide.active .hero-image-wrap img {
+  animation: kenBurnsZoom 6s cubic-bezier(0.25, 1, 0.5, 1) infinite alternate;
+}
+
+@keyframes kenBurnsZoom {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.07);
+  }
+}
+
+/* Nút điều hướng Slider (Prev / Next) */
+.hero-nav-btn {
+  position: absolute;
+  top: calc(50% - 30px);
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-light);
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  transition: all var(--transition-fast);
+}
+
+.hero-nav-btn:hover {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  border-color: var(--color-primary);
+  transform: translateY(-50%) scale(1.08);
+}
+
+.hero-prev {
+  left: -22px;
+}
+
+.hero-next {
+  right: -22px;
+}
+
+/* Thanh Tiến Trình Auto-Slide 4s */
+.hero-progress-wrap {
+  width: 140px;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 3px;
+  margin: 20px auto 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.hero-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--color-primary) 0%, #E88D67 100%);
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+
+/* Chỉ số chấm tròn (Dots) */
+.hero-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.hero-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #D1D5DB;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+}
+
+.hero-dot.active {
+  width: 28px;
+  border-radius: 6px;
+  background-color: var(--color-primary);
 }
 
 /* --------------------------------------------------------------------------
-   4. CATEGORY FILTER BAR
+   3.1. FEATURED SECTIONS: BÁN CHẠY & MỚI NHẤT (SHOP-06)
    -------------------------------------------------------------------------- */
-.category-section {
-  padding: 32px 0 20px;
+.featured-section {
+  padding: 48px 0 54px;
   border-bottom: 1px solid var(--border-light);
 }
 
-.category-header {
+.featured-section.bg-subtle {
+  background-color: var(--bg-surface);
+}
+
+.section-title-wrap {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 28px;
+  gap: 16px;
+}
+
+.section-tag {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--color-primary);
+  margin-bottom: 6px;
+}
+
+.section-tag.tag-rose {
+  color: var(--color-accent-rose);
+}
+
+.section-main-title {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.25;
+}
+
+.section-link-more {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.section-link-more:hover {
+  color: var(--color-primary-dark);
+  transform: translateX(3px);
+}
+
+.badge-new {
+  background-color: #E0F2FE;
+  color: #0369A1;
+}
+
+.badge-bestseller {
+  background-color: #FEF3C7;
+  color: #92400E;
+}
+
+/* --------------------------------------------------------------------------
+   4. CATEGORY FILTER BAR (Chuẩn thanh lọc tinh tế Flower Chimp)
+   -------------------------------------------------------------------------- */
+.category-section {
+  padding: 24px 0 20px;
+  border-bottom: 1px solid var(--border-light);
+  background-color: #FFFFFF;
+}
+
+.category-header {
+  text-align: center;
+  margin-bottom: 14px;
 }
 
 .category-title {
   font-family: var(--font-serif);
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
+  color: var(--text-main);
 }
 
 .category-list {
   display: flex;
+  justify-content: center;
   gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-  scrollbar-width: none;
-}
-
-.category-list::-webkit-scrollbar {
-  display: none;
+  flex-wrap: wrap;
+  padding-bottom: 4px;
 }
 
 .category-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 18px;
+  gap: 6px;
+  padding: 8px 18px;
   border: 1px solid var(--border-light);
-  border-radius: 20px;
-  background-color: var(--bg-page);
-  font-size: 13.5px;
+  border-radius: 24px;
+  background-color: var(--bg-surface);
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
   white-space: nowrap;
+  cursor: pointer;
   transition: all var(--transition-fast);
 }
 
@@ -329,6 +825,7 @@ body {
   background-color: var(--color-primary);
   border-color: var(--color-primary);
   color: #FFFFFF;
+  box-shadow: 0 3px 10px rgba(16, 132, 116, 0.18);
 }
 
 /* --------------------------------------------------------------------------
@@ -369,187 +866,209 @@ body {
   display: none !important;
 }
 
-/* Product Grid */
+/* Product Grid: 4 cột thoáng đãng */
 .product-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
+  gap: 26px;
 }
 
-/* Product Card */
+/* Product Card: Thiết kế không viền hộp, có chiều sâu thị giác chuẩn Flower Chimp */
 .product-card {
-  background-color: #FFFFFF;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  background-color: transparent;
+  border: none;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  transition: all var(--transition-smooth);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  cursor: pointer;
 }
 
 .product-card:hover {
-  box-shadow: var(--shadow-hover);
-  border-color: #D1D5DB;
   transform: translateY(-4px);
 }
 
-/* Product Image */
+/* Khung ảnh có chiều sâu và bo góc mềm mại */
 .product-image {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 4.5;
-  background-color: var(--bg-surface);
+  aspect-ratio: 4 / 4.8;
+  background-color: #F3F4F6;
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.35s ease;
+}
+
+.product-card:hover .product-image {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+}
+
+.product-img-link {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .product-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.5s ease;
+  transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .product-card:hover .product-image img {
   transform: scale(1.05);
 }
 
-/* Product Badge */
-.product-badge {
+/* Huy hiệu giảm giá thanh lịch góc trên (Chỉ hiện khi có sale) */
+.product-badge-discount {
   position: absolute;
   top: 10px;
   left: 10px;
-  padding: 4px 10px;
+  background-color: var(--color-sale-price);
+  color: #FFFFFF;
+  border-radius: 6px;
+  padding: 3px 8px;
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-radius: var(--radius-sm);
+  letter-spacing: 0.3px;
   z-index: 2;
-  background-color: var(--badge-sale-bg);
-  color: var(--badge-sale-text);
+  box-shadow: 0 2px 8px rgba(217, 45, 32, 0.28);
 }
 
-.product-badge.badge-handmade {
-  background-color: var(--badge-handmade-bg);
-  color: var(--badge-handmade-text);
+/* Dải ruy băng ở đáy ảnh (Chuẩn Flower Chimp) */
+.product-ribbon {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #D97706; /* Cam hổ phách ấm */
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  padding: 5px 8px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  z-index: 2;
+  transition: opacity 0.3s ease;
 }
 
-.product-badge.badge-bestseller {
-  background-color: var(--badge-bestseller-bg);
-  color: var(--badge-bestseller-text);
+.product-ribbon.ribbon-handmade {
+  background: var(--color-primary);
 }
 
-/* Product Info */
+.product-ribbon.ribbon-new {
+  background: var(--color-accent-rose);
+}
+
+/* Nút "Thêm Nhanh" trượt lên khi hover */
+.quick-add-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 16px;
+  right: 16px;
+  transform: translateY(130%);
+  opacity: 0;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  color: var(--text-main);
+  border: 1px solid var(--border-light);
+  border-radius: 22px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  z-index: 4;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.product-card:hover .quick-add-btn {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.quick-add-btn:hover {
+  background: var(--color-primary);
+  color: #FFFFFF;
+  border-color: var(--color-primary);
+  transform: translateY(-2px) scale(1.02);
+}
+
+/* Thông tin sản phẩm căn giữa thanh lịch */
 .product-info {
-  padding: 16px;
+  padding: 14px 4px 4px;
+  text-align: center;
   display: flex;
   flex-direction: column;
-  flex: 1;
-}
-
-.product-category-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  letter-spacing: 0.8px;
-  font-weight: 600;
-  margin-bottom: 6px;
+  align-items: center;
 }
 
 .product-title {
   font-family: var(--font-serif);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.35;
   color: var(--text-main);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  text-align: center;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 44px;
+  min-height: 40px;
+  transition: color var(--transition-fast);
 }
 
-.product-card a:hover .product-title {
+.product-card:hover .product-title {
   color: var(--color-primary);
 }
 
-/* Rating */
+.price-wrap {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.was-price {
+  font-size: 13px;
+  color: var(--text-was-price);
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
+.price {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
 .product-rating {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 12px;
+  justify-content: center;
+  gap: 4px;
+  font-size: 11px;
 }
 
 .stars {
   color: var(--color-star);
   letter-spacing: 1px;
-  font-size: 13px;
+  font-size: 12px;
 }
 
-/* Product Bottom: Price & Add Button */
-.product-bottom {
-  margin-top: auto;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.price-wrap {
-  display: flex;
-  flex-direction: column;
-}
-
-.was-price {
-  font-size: 12.5px;
-  color: var(--text-was-price);
-  text-decoration: line-through;
-  line-height: 1.2;
-}
-
-.price {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--color-sale-price);
-  line-height: 1.2;
-}
-
-.add-cart {
-  padding: 8px 14px;
-  background-color: var(--text-main);
-  color: #FFFFFF;
-  border-radius: var(--radius-btn);
-  font-size: 13px;
-  font-weight: 600;
-  transition: all var(--transition-fast);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.add-cart:hover {
-  background-color: var(--color-primary);
-  transform: scale(1.03);
-}
-
-.detail-btn {
-  display: block;
-  text-align: center;
-  padding: 9px 0 2px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  transition: color var(--transition-fast);
-}
-
-.detail-btn:hover {
-  color: var(--color-primary);
+.review-count {
+  color: var(--text-muted);
+  font-size: 11.5px;
 }
 
 /* --------------------------------------------------------------------------
@@ -708,3 +1227,686 @@ body {
 .toast.toast-error {
   border-left-color: var(--color-sale-price);
 }
+
+/* ==========================================================================
+   9. SHOP-07: FLASH SALE, VOUCHERS, SIDE CART DRAWER & BIRTHDAY MODAL
+   ========================================================================== */
+
+/* 9.1 Flash Deals Section */
+.flash-sale-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.flash-sale-badge {
+  background: linear-gradient(135deg, #FFF1F0 0%, #FFEBE6 100%);
+  color: var(--color-sale-price);
+  border: 1px solid rgba(217, 45, 32, 0.25);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 6px rgba(217, 45, 32, 0.12);
+}
+
+.flash-sale-timer {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.flash-sale-timer strong {
+  background-color: #2B2A2D;
+  color: #FFFFFF;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-left: 4px;
+}
+
+.sale-filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sale-pill {
+  padding: 7px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border-light);
+  background-color: #FFFFFF;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.sale-pill:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background-color: var(--bg-soft);
+}
+
+.sale-pill.active {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(44, 76, 56, 0.2);
+}
+
+/* 9.2 Trung Tâm Voucher (Voucher Cards Grid) */
+.bg-cream {
+  background-color: #FBF9F5;
+}
+
+.voucher-section {
+  padding: 48px 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.voucher-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+.voucher-card {
+  background-color: #FFFFFF;
+  border: 1px dashed #D3C9BD;
+  border-radius: 12px;
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  overflow: hidden;
+}
+
+.voucher-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-color: var(--color-primary);
+}
+
+/* Khía răng cưa kiểu vé coupon voucher */
+.voucher-card::before,
+.voucher-card::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  background-color: #FBF9F5;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  border: 1px dashed #D3C9BD;
+  z-index: 1;
+}
+
+.voucher-card::before {
+  left: -7px;
+}
+
+.voucher-card::after {
+  right: -7px;
+}
+
+.voucher-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.voucher-discount-badge {
+  background: #FFF1F0;
+  color: var(--color-sale-price);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.3px;
+}
+
+.voucher-type-tag {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.voucher-title {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 6px;
+}
+
+.voucher-condition {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 16px;
+}
+
+.voucher-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border-light);
+  gap: 10px;
+}
+
+.voucher-code-display {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--bg-soft);
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.voucher-copy-btn {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.voucher-copy-btn:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.voucher-copy-btn.copied {
+  background-color: #027A48;
+}
+
+/* 9.3 Side Cart Drawer & Backdrop */
+.cart-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(26, 25, 27, 0.45);
+  backdrop-filter: blur(3px);
+  z-index: 9998;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cart-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cart-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 440px;
+  max-width: 92vw;
+  background-color: #FFFFFF;
+  z-index: 9999;
+  transform: translateX(100%);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -10px 0 35px rgba(0, 0, 0, 0.16);
+}
+
+.cart-drawer.open {
+  transform: translateX(0);
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-light);
+  background-color: #FFFFFF;
+}
+
+.drawer-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.drawer-title-wrap h3 {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.drawer-count-tag {
+  background-color: var(--bg-soft);
+  color: var(--color-primary);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.drawer-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background-color: #F3F4F6;
+  color: var(--text-main);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast);
+}
+
+.drawer-close-btn:hover {
+  background-color: #E5E7EB;
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.drawer-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drawer-item {
+  display: flex;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-light);
+  align-items: center;
+}
+
+.drawer-item-img {
+  width: 70px;
+  height: 84px;
+  border-radius: 8px;
+  object-fit: cover;
+  background-color: #F5F5F5;
+  flex-shrink: 0;
+  border: 1px solid var(--border-light);
+}
+
+.drawer-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.drawer-item-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.4;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-item-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-sale-price);
+  margin-bottom: 8px;
+}
+
+.drawer-item-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.drawer-qty-control {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #FFFFFF;
+}
+
+.qty-btn {
+  width: 26px;
+  height: 26px;
+  background-color: #FFFFFF;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-main);
+  transition: background-color var(--transition-fast);
+}
+
+.qty-btn:hover {
+  background-color: #F3F4F6;
+}
+
+.qty-value {
+  min-width: 28px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.drawer-item-delete {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all var(--transition-fast);
+}
+
+.drawer-item-delete:hover {
+  color: var(--color-sale-price);
+  background-color: #FFF1F0;
+}
+
+.drawer-empty-state {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.drawer-footer {
+  padding: 18px 24px 24px;
+  border-top: 1px solid var(--border-light);
+  background-color: #FAFAF9;
+}
+
+.drawer-voucher-box {
+  margin-bottom: 14px;
+}
+
+.voucher-input-wrap {
+  display: flex;
+  gap: 8px;
+}
+
+.voucher-input-wrap input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  font-size: 13px;
+  text-transform: uppercase;
+  font-weight: 700;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.voucher-input-wrap input:focus {
+  border-color: var(--color-primary);
+}
+
+.voucher-input-wrap button {
+  padding: 9px 16px;
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.voucher-input-wrap button:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.applied-voucher-info {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: #EBF5F0;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.remove-voucher-btn {
+  background: none;
+  border: none;
+  color: var(--color-sale-price);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.drawer-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 13.5px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-secondary);
+}
+
+.discount-row {
+  color: var(--color-sale-price);
+  font-weight: 700;
+}
+
+.discount-val {
+  color: var(--color-sale-price);
+}
+
+.total-row {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-light);
+}
+
+.total-row .total-price {
+  color: var(--color-sale-price);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.drawer-checkout-btn {
+  width: 100%;
+  padding: 13px;
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.drawer-checkout-btn:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.drawer-continue-btn {
+  width: 100%;
+  padding: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  margin-top: 4px;
+  transition: color var(--transition-fast);
+}
+
+.drawer-continue-btn:hover {
+  color: var(--color-primary);
+}
+
+/* 9.4 Birthday Modal */
+.birthday-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(26, 25, 27, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.birthday-modal-card {
+  background-color: #FFFFFF;
+  border-radius: 16px;
+  max-width: 420px;
+  width: 100%;
+  padding: 32px 28px;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+  animation: modalPop 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPop {
+  from {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background-color: #F3F4F6;
+  color: var(--text-main);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast);
+}
+
+.modal-close-btn:hover {
+  background-color: #E5E7EB;
+}
+
+.birthday-tag {
+  display: inline-block;
+  background-color: #FFF4E5;
+  color: #B54708;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 20px;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+.birthday-code-box {
+  background-color: #F8F9FA;
+  border: 1.5px dashed var(--color-primary);
+  border-radius: 8px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.birthday-code-box .code-text {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 1px;
+}
+
+.copy-code-btn {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.copy-code-btn:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.modal-cta-btn {
+  width: 100%;
+  padding: 12px;
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.modal-cta-btn:hover {
+  background-color: var(--color-primary-dark);
+}
+
