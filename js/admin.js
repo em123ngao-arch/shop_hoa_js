@@ -17,6 +17,7 @@ import {
   updateOrderStatus
 } from './storage.js';
 import { formatPrice, showToast } from './utils.js';
+import { initExcelPdf } from './excel-pdf.js';
 
 /**
  * admin.js - Module điều khiển toàn bộ Bảng Quản Trị Hệ Thống (admin.html)
@@ -59,8 +60,9 @@ function initAuthGate() {
     if (adminApp) adminApp.style.display = 'none';
   }
 
-  // Kiểm tra phiên đăng nhập đã có chưa
-  if (sessionStorage.getItem('admin_authenticated') === 'true') {
+  // Kiểm tra phiên đăng nhập đã có chưa (hoặc truy cập qua ?demo=true)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (sessionStorage.getItem('admin_authenticated') === 'true' || urlParams.get('demo') === 'true') {
     unlockAdmin();
   } else {
     lockAdmin();
@@ -146,13 +148,11 @@ function initNavigation() {
     });
   });
 
-  // Nút xem tất cả đơn nhanh từ dashboard
-  const quickOrdersBtn = document.querySelector('#viewAllOrdersQuickBtn');
-  if (quickOrdersBtn) {
-    quickOrdersBtn.addEventListener('click', () => {
-      const ordersNavBtn = document.querySelector('.nav-item[data-tab="orders"]');
-      if (ordersNavBtn) ordersNavBtn.click();
-    });
+  // Tự động chuyển tab nếu có query param ?tab=
+  const initialTab = new URLSearchParams(window.location.search).get('tab');
+  if (initialTab) {
+    const targetNavBtn = document.querySelector(`.nav-item[data-tab="${initialTab}"]`);
+    if (targetNavBtn) targetNavBtn.click();
   }
 }
 
@@ -1290,6 +1290,27 @@ async function loadAllData() {
     initNavigation();
     initDropzones();
     initProductCrud();
+    // Phân hệ Nhập Excel & Xuất PDF theo bài giảng của cô
+    initExcelPdf({
+      getProducts: () => {
+        const searchInput = document.querySelector('#productSearchInput');
+        const catFilter = document.querySelector('#productCategoryFilter');
+        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const selectedCat = catFilter ? catFilter.value : 'all';
+
+        return allProducts.filter(p => {
+          const matchSearch = p.name.toLowerCase().includes(searchTerm) || String(p.id).includes(searchTerm);
+          const matchCat = (selectedCat === 'all') || (String(p.categoryId) === String(selectedCat));
+          return matchSearch && matchCat;
+        });
+      },
+      getCategories: () => allCategories,
+      onProductsImported: async () => {
+        allProducts = await fetchProducts();
+        renderProductsTable();
+        renderDashboard();
+      }
+    });
     initBannerCrud();
     initVoucherCrud();
     initOrderManagement();

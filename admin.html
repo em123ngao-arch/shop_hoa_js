@@ -21,6 +21,13 @@
     }
   </script>
 
+  <!-- Thư viện jsPDF & jsPDF-AutoTable (Xuất PDF) theo bài giảng của cô -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@3.0.3/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.2/dist/jspdf.plugin.autotable.min.js"></script>
+
+  <!-- Thư viện SheetJS (Đọc & Ghi file Excel) theo bài giảng của cô -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <!-- CSS Style trang chính & CSS Quản trị -->
   <link rel="stylesheet" href="./css/style.css">
   <link rel="stylesheet" href="./css/admin.css">
@@ -260,13 +267,51 @@
               <h2>Quản Lý Danh Sách Mẫu Hoa</h2>
               <p>Thêm mới, chỉnh sửa thông tin, giá bán và xóa sản phẩm hoa kẽm nhung</p>
             </div>
-            <button type="button" class="btn-primary" id="openAddProductBtn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              <span>+ Thêm Mẫu Hoa Mới</span>
-            </button>
+            <div class="panel-header-actions" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <!-- Input ẩn để người dùng chọn file Excel -->
+              <input type="file" id="excelFileInput" accept=".xlsx, .xls" hidden>
+
+              <!-- Nút tải file Excel mẫu chuẩn -->
+              <button type="button" class="btn-secondary" id="btnDownloadTemplate" title="Tải file Excel mẫu chuẩn để điền thông tin hoa" style="padding: 8px 12px; font-size: 13px; font-weight: 600;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>File Mẫu</span>
+              </button>
+
+              <!-- Nút chọn file Excel nhập hàng loạt -->
+              <button type="button" class="btn-secondary" id="btnTriggerImportExcel" title="Nhập danh sách mẫu hoa hàng loạt từ file Excel" style="padding: 8px 12px; font-size: 13px; font-weight: 600;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="12" y1="18" x2="12" y2="12"></line>
+                  <line x1="9" y1="15" x2="15" y2="15"></line>
+                </svg>
+                <span>📥 Nhập Excel</span>
+              </button>
+
+              <!-- Nút xuất báo cáo PDF -->
+              <button type="button" class="btn-secondary" id="btnExportProductPdf" title="Xuất báo cáo danh sách hoa ra file PDF" style="padding: 8px 12px; font-size: 13px; font-weight: 600;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+                <span>📄 Xuất PDF</span>
+              </button>
+
+              <!-- Nút thêm thủ công có sẵn -->
+              <button type="button" class="btn-primary" id="openAddProductBtn" style="padding: 8px 14px; font-size: 13px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>+ Thêm Mẫu Hoa</span>
+              </button>
+            </div>
           </div>
 
           <!-- THANH KÍCH HOẠT CHIẾN DỊCH KHUYẾN MÃI NGÀY LỄ / SIÊU SALE ĐỒNG LOẠT -->
@@ -822,6 +867,54 @@
         <button type="button" class="btn-secondary" id="confirmCancelBtn" style="flex: 1;">Hủy Bỏ</button>
         <button type="button" class="btn-primary" id="confirmOkBtn" style="flex: 1; background-color: var(--color-danger);">
           Đồng Ý Xóa
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL XEM TRƯỚC VÀ XÁC NHẬN NHẬP EXCEL -->
+  <div class="modal-backdrop hidden" id="excelPreviewModal">
+    <div class="modal-card" style="max-width: 740px; width: 95%;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">📥</span>
+          <h3 style="margin: 0; font-size: 17px;">Xem Trước Danh Sách Mẫu Hoa Từ Excel</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="excelPreviewCloseBtn">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding: 16px 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <p style="font-size: 13.5px; color: var(--text-secondary); margin: 0;" id="excelPreviewSummary">
+            Đang phân tích file...
+          </p>
+          <span style="font-size: 12px; background: #ECFDF5; color: #047857; padding: 4px 10px; border-radius: 4px; font-weight: 600;">
+            ✓ Sẵn sàng nhập vào kho
+          </span>
+        </div>
+
+        <div class="admin-table-wrap" style="max-height: 340px; overflow-y: auto;">
+          <table class="admin-table" style="font-size: 13px;">
+            <thead>
+              <tr>
+                <th style="width: 50px;">STT</th>
+                <th>Tên Mẫu Hoa</th>
+                <th>Danh Mục</th>
+                <th>Giá Bán</th>
+                <th>Tồn Kho</th>
+              </tr>
+            </thead>
+            <tbody id="excelPreviewTableBody">
+              <!-- Đổ dữ liệu đọc từ Excel -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn-secondary" id="excelPreviewCancelBtn">Hủy Bỏ</button>
+        <button type="button" class="btn-primary" id="excelPreviewConfirmBtn">
+          ✅ Xác Nhận Lưu Vào Hệ Thống
         </button>
       </div>
     </div>

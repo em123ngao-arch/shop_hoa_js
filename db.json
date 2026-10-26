@@ -35,7 +35,7 @@
     {
       "id": "1",
       "name": "Bó Hoa Kẽm Nhung Tulip Pastel",
-      "price": 300000,
+      "price": 350000,
       "originalPrice": 350000,
       "categoryId": 1,
       "categoryName": "Hoa Kẽm Nhung",
@@ -52,7 +52,7 @@
     {
       "id": "2",
       "name": "Bó Hoa Hồng Kẽm Nhung Sunset",
-      "price": 350000,
+      "price": 420000,
       "originalPrice": 420000,
       "categoryId": 1,
       "categoryName": "Hoa Kẽm Nhung",
@@ -69,7 +69,7 @@
     {
       "id": "3",
       "name": "Bó Hoa Kẽm Nhung Hướng Dương Rực Rỡ",
-      "price": 350000,
+      "price": 390000,
       "originalPrice": 390000,
       "categoryId": 1,
       "categoryName": "Hoa Kẽm Nhung",
@@ -86,7 +86,7 @@
     {
       "id": "4",
       "name": "Bó Hoa Tulip Hồng Phấn Mộng Mơ",
-      "price": 399000,
+      "price": 450000,
       "originalPrice": 450000,
       "categoryId": 2,
       "categoryName": "Bó Hoa Sinh Nhật",
@@ -103,7 +103,7 @@
     {
       "id": "5",
       "name": "Giỏ Hoa Kẽm Nhung Garden Sunshine",
-      "price": 402000,
+      "price": 480000,
       "originalPrice": 480000,
       "categoryId": 3,
       "categoryName": "Giỏ & Hộp Hoa",
@@ -120,7 +120,7 @@
     {
       "id": "6",
       "name": "Bó Hoa Baby Kẽm Nhung Xanh Biển",
-      "price": 450000,
+      "price": 600000,
       "originalPrice": 600000,
       "categoryId": 1,
       "categoryName": "Hoa Kẽm Nhung",
@@ -137,7 +137,7 @@
     {
       "id": "7",
       "name": "Bó Hoa Kẽm Nhung Cúc Họa Mi Tinh Khôi",
-      "price": 450000,
+      "price": 500000,
       "originalPrice": 500000,
       "categoryId": 2,
       "categoryName": "Bó Hoa Sinh Nhật",
@@ -154,7 +154,7 @@
     {
       "id": "8",
       "name": "Bó Hoa Kẽm Nhung Lavender Tím Huế",
-      "price": 350000,
+      "price": 425000,
       "originalPrice": 500000,
       "categoryId": 1,
       "categoryName": "Hoa Kẽm Nhung",
@@ -166,12 +166,12 @@
       "stock": 16,
       "soldCount": 45,
       "featured": false,
-      "badge": "-11%"
+      "badge": ""
     },
     {
       "id": "9",
       "name": "Hộp Hoa Kẽm Nhung Trái Tim Sweet Love",
-      "price": 500000,
+      "price": 590000,
       "originalPrice": 590000,
       "categoryId": 3,
       "categoryName": "Giỏ & Hộp Hoa",
@@ -188,7 +188,7 @@
     {
       "id": "10",
       "name": "Bó Hoa Kẽm Nhung Đa Sắc Cầu Vồng",
-      "price": 501000,
+      "price": 580000,
       "originalPrice": 580000,
       "categoryId": 2,
       "categoryName": "Bó Hoa Sinh Nhật",
@@ -205,7 +205,7 @@
     {
       "id": "11",
       "name": "Bình Hoa Kẽm Nhung Để Bàn Thanh Lịch",
-      "price": 390000,
+      "price": 600000,
       "originalPrice": 600000,
       "categoryId": 4,
       "categoryName": "Hoa Để Bàn Mini",
@@ -222,7 +222,7 @@
     {
       "id": "12",
       "name": "Bó Hoa Kẽm Nhung Hoàng Gia Queen",
-      "price": 550000,
+      "price": 650000,
       "originalPrice": 650000,
       "categoryId": 2,
       "categoryName": "Bó Hoa Sinh Nhật",
@@ -239,7 +239,7 @@
     {
       "id": "13",
       "name": "Giỏ Hoa Kẽm Nhung Khai Trương Tài Lộc",
-      "price": 600000,
+      "price": 720000,
       "originalPrice": 720000,
       "categoryId": 5,
       "categoryName": "Hoa Khai Trương",
@@ -256,7 +256,7 @@
     {
       "id": "14",
       "name": "Bó Hoa Nghệ Thuật Bloom Of Spring",
-      "price": 450000,
+      "price": 520000,
       "originalPrice": 520000,
       "categoryId": 1,
       "categoryName": "Hoa Kẽm Nhung",
@@ -273,7 +273,7 @@
     {
       "id": "15",
       "name": "Chậu Hoa Kẽm Nhung Mini Để Bàn Xinh",
-      "price": 280000,
+      "price": 320000,
       "originalPrice": 320000,
       "categoryId": 4,
       "categoryName": "Hoa Để Bàn Mini",
@@ -290,7 +290,7 @@
     {
       "id": "16",
       "name": "Bó Hoa Tulip Kẽm Nhung Trắng Sữa",
-      "price": 360000,
+      "price": 400000,
       "originalPrice": 400000,
       "categoryId": 1,
       "categoryName": "Hoa Kẽm Nhung",
@@ -442,9 +442,9 @@
       "name": "Quà Tặng Sinh Nhật Khách Yêu",
       "discountPercent": 20,
       "type": "birthday",
-      "minOrder": 0,
+      "minOrder": null,
       "desc": "Giảm 20% toàn bộ đơn hàng hoa trong tháng sinh nhật của bạn",
-      "active": true
+      "active": false
     },
     {
       "id": "promo-flash",
@@ -452,9 +452,9 @@
       "name": "Flash Sale Giờ Vàng",
       "discountPercent": 15,
       "type": "flash_sale",
-      "minOrder": 350000,
+      "minOrder": null,
       "desc": "Giảm 15% cho các đơn hàng hoa từ 350.000đ",
-      "active": true
+      "active": false
     }
   ],
   "users": [

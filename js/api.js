@@ -4,7 +4,7 @@ import axios from 'axios';
  * api.js - Cấu hình Axios gọi API json-server
 
  */
-const API_URL = 'http://localhost:3000';
+const API_URL = 'http://localhost:4000';
 
 const api = axios.create({
   baseURL: API_URL,
