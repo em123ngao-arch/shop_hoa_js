@@ -11,7 +11,7 @@
    │
    ├── 📂 01. Tính năng Đăng Nhập (Login) ──────────> (Phần 1 bên dưới)
    ├── 📂 02. Nhập Excel & Xuất Báo Cáo PDF (Admin) ─> [MỚI HOÀN THÀNH] (Phần 2 bên dưới)
-   ├── 📂 03. Tính năng Đăng Ký (Register) ─────────> (Sẽ bổ sung tiếp tục)
+   ├── 📂 03. Tính năng Đăng Ký (Register) ─────────> [MỚI HOÀN THÀNH] (Phần 3 bên dưới)
    ├── 📂 04. Tính năng Giỏ Hàng (Cart) ────────────> (Sẽ bổ sung tiếp tục)
    └── 📂 05. Quản trị viên (Admin Dashboard) ──────> (Sẽ bổ sung tiếp tục)
 ```
@@ -378,3 +378,204 @@ doc.save('Bao_Cao_Mau_Hoa.pdf'); // Tải file về máy
 #### ❓ Câu 5: *"Phần chức năng này em làm có gặp khó khăn gì không?"*
 > 🗣️ **Trả lời:**  
 > "Dạ, khó khăn lớn nhất là đồng bộ cấu trúc dữ liệu giữa file Excel tự do của người dùng và định dạng `Product` trong `db.json` của dự án. Em đã xử lý ánh xạ linh hoạt các tên cột (cả tiếng Việt có dấu lẫn không dấu) và tự động khớp `categoryId` tương ứng để dữ liệu nhập vào luôn nhất quán với hệ thống ạ."
+
+---
+
+# PHẦN 3: TÍNH NĂNG ĐĂNG KÝ (REGISTER FLOW)
+
+## 1. 📍 Bản Đồ Vị Trí Code (Nó Nằm Ở Đâu?)
+
+Khi giáo viên hỏi: *"Code đăng ký tài khoản nằm ở đâu và liên kết thế nào?"*  
+👉 Trả lời theo bản đồ 4 file cốt lõi sau:
+
+| File | Đường dẫn | Vai trò |
+| :--- | :--- | :--- |
+| **Giao diện HTML** | [`register.html`](file:///d:/shopHoa/souce_shopHoa/register.html) | Chứa form đăng ký (`#registerForm`), 4 ô nhập (`#name`, `#email`, `#password`, `#confirmPassword`), các span báo lỗi và nút submit (`#submitBtn`). |
+| **Cấu hình API** | [`js/api.js`](file:///d:/shopHoa/souce_shopHoa/js/api.js) | Cung cấp đối tượng Axios đã cấu hình sẵn `baseURL: 'http://localhost:4000'`. |
+| **Xử lý Logic JS** | [`js/register.js`](file:///d:/shopHoa/souce_shopHoa/js/register.js) | **File nghiệp vụ chính**: Bắt sự kiện submit, kiểm tra dữ liệu, gọi API kiểm tra trùng email (`GET /users`), gửi tạo mới tài khoản (`POST /users`), và chuyển hướng về trang đăng nhập. |
+| **Cơ sở dữ liệu** | [`db.json`](file:///d:/shopHoa/souce_shopHoa/db.json) | Bảng `"users": [ ... ]` tiếp nhận bản ghi người dùng mới. |
+
+---
+
+## 2. 🔄 Sơ Đồ Luồng Hoạt Động Từ Trên Xuống Dưới (Flowchart)
+
+```
+[BƯỚC 1]: Người dùng điền: Họ tên, Email, Mật khẩu, Xác nhận mật khẩu -> Bấm "Đăng Ký"
+                             │
+                             ▼
+[BƯỚC 2]: registerForm.addEventListener('submit', ...) bắt sự kiện
+          ├── event.preventDefault()    -> Chặn trình duyệt tự nạp lại trang
+          └── registerUser()            -> Kích hoạt hàm xử lý đăng ký
+                             │
+                             ▼
+[BƯỚC 3]: Lấy dữ liệu & Kiểm tra (Validation)
+          ├── name = document.getElementById('name').value.trim()
+          ├── email = document.getElementById('email').value.trim().toLowerCase()
+          ├── password = document.getElementById('password').value
+          ├── confirmPassword = document.getElementById('confirmPassword').value
+          ├── 1. Kiểm tra để trống: if (!name || !email || !password || !confirmPassword) -> Alert & Dừng
+          ├── 2. Kiểm tra độ dài: if (password.length < 6) -> Alert & Dừng
+          └── 3. Kiểm tra khớp mật khẩu: if (password !== confirmPassword) -> Alert & Dừng
+                             │
+                             ▼
+[BƯỚC 4]: Kiểm tra Trùng Email (Check Duplicate via API GET)
+          └── api.get('/users', { params: { email } })
+                             │
+                 ┌───────────┴───────────┐
+                 ▼                       ▼
+      [response.data.length > 0]   [response.data.length === 0]
+      (Email này ĐÃ TỒN TẠI)       (Email HỢP LỆ, chưa ai đăng ký)
+                 │                       │
+                 ▼                       ▼
+        Alert: Email đã có        [BƯỚC 5]: Đóng gói Object tài khoản mới:
+         (Dừng lại, return)                 newUser = { name, email, password, role: 'customer', createdAt }
+                                         │
+                                         ▼
+                                  [BƯỚC 6]: Gửi yêu cầu lưu tài khoản (API POST)
+                                            await api.post('/users', newUser)
+                                         │
+                                         ▼
+                                  [BƯỚC 7]: Hoàn tất!
+                                            ├── Alert chúc mừng đăng ký thành công
+                                            └── Chuyển hướng: window.location.href = 'login.html'
+```
+
+---
+
+## 3. 🔍 Mổ Xẻ Chi Tiết Code Trong `js/register.js` (Ý Nghĩa Là Gì?)
+
+### 🔹 3.1 Bắt sự kiện Form Submit & Khóa nút bấm chống spam
+```javascript
+const registerForm = document.getElementById('registerForm');
+const submitBtn = document.getElementById('submitBtn');
+
+registerForm.addEventListener('submit', function (event) {
+    event.preventDefault(); // Chặn hành vi reload mặc định của trình duyệt
+    registerUser();
+});
+```
+* **Ý nghĩa:** `event.preventDefault()` giúp JavaScript toàn quyền kiểm soát quá trình gửi dữ liệu mà không bị tải lại trang.
+
+---
+
+### 🔹 3.2 Lấy giá trị, Chuẩn hóa chuỗi (.trim(), .toLowerCase()) & Kiểm tra hợp lệ
+```javascript
+const name = document.getElementById('name').value.trim();
+const email = document.getElementById('email').value.trim().toLowerCase();
+const password = document.getElementById('password').value;
+const confirmPassword = document.getElementById('confirmPassword').value;
+
+if (!name || !email || !password || !confirmPassword) {
+    alert('Vui lòng điền đầy đủ tất cả các trường thông tin!');
+    return;
+}
+
+if (password.length < 6) {
+    alert('Mật khẩu phải có độ dài tối thiểu từ 6 ký tự trở lên!');
+    return;
+}
+
+if (password !== confirmPassword) {
+    alert('Mật khẩu và xác nhận mật khẩu không khớp!');
+    return;
+}
+```
+* **Ý nghĩa:**
+  * `.trim()`: Xóa sạch khoảng trắng vô tình ở hai đầu chuỗi do người dùng gõ phím cách.
+  * `.toLowerCase()`: Chuẩn hóa email về chữ thường (ví dụ: `An@gmail.com` -> `an@gmail.com`) để tránh việc một người đăng ký 2 tài khoản trùng nhau do viết hoa viết thường.
+  * `password.length < 6`: Quy chuẩn bảo mật cơ bản cho đồ án, tránh người dùng đặt mật khẩu quá ngắn.
+  * `password !== confirmPassword`: Đảm bảo người dùng nhớ chính xác mật khẩu họ vừa gõ.
+
+---
+
+### 🔹 3.3 Kiểm tra trùng Email (Tránh đăng ký đè) & Gửi HTTP POST tạo User
+```javascript
+try {
+    // 1. Kiểm tra xem Email đã có trong cơ sở dữ liệu chưa
+    const checkEmailResponse = await api.get('/users', {
+        params: { email: email }
+    });
+
+    if (checkEmailResponse.data.length > 0) {
+        alert('Địa chỉ Email này đã được đăng ký, vui lòng sử dụng Email khác hoặc Đăng Nhập!');
+        return;
+    }
+
+    // 2. Tạo đối tượng người dùng hoàn chỉnh
+    const newUser = {
+        name: name,
+        email: email,
+        password: password,
+        role: 'customer',                     // Phân quyền khách hàng mặc định
+        createdAt: new Date().toISOString()   // Lưu thời điểm đăng ký chuẩn ISO
+    };
+
+    // 3. Gửi HTTP POST lên json-server để thêm dòng mới vào db.json
+    await api.post('/users', newUser);
+
+    alert('🎉 Đăng ký tài khoản thành công! Bạn có thể đăng nhập ngay bây giờ.');
+    window.location.href = 'login.html';
+
+} catch (error) {
+    console.error('Lỗi khi đăng ký:', error);
+    alert('Không thể kết nối đến máy chủ! Vui lòng kiểm tra server (npm run server).');
+} finally {
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Đăng Ký';
+    }
+}
+```
+* **Ý nghĩa:**
+  * **Tại sao phải dùng `GET` trước khi `POST`?** Để đảm bảo tính duy nhất (Unique) của Email. Nếu không kiểm tra, server sẽ cho phép tạo vô số tài khoản trùng email, dẫn đến khi Đăng nhập server không biết lấy tài khoản nào!
+  * **Tại sao dùng `api.post('/users', newUser)`?** Trong chuẩn RESTful API, phương thức `POST` dùng để **Tạo mới một bản ghi**. `json-server` sẽ tự động sinh ra một mã định danh ngẫu nhiên (`id`) duy nhất cho user này.
+  * **`role: 'customer'`**: Rất quan trọng để phân biệt giữa khách mua hoa thông thường và quản trị viên cửa hàng (`admin`).
+  * **Khối `finally`**: Bất kể đăng ký thành công hay gặp lỗi mạng, nút bấm luôn được kích hoạt lại để người dùng không bị "kẹt nút".
+
+---
+
+## 4. 🛠️ Nhật Ký Gỡ Lỗi Thực Chiến (Các Lỗi Thường Gặp & Cách Khắc Phục)
+
+> Khi giáo viên hỏi: *"Trong quá trình làm tính năng Đăng Ký, em gặp phải những lỗi gì?"*  
+> 👉 Trả lời các trường hợp thực tế sau:
+
+### ❌ Lỗi 1: Người dùng gõ mật khẩu đúng nhưng bị báo "Mật khẩu không khớp"
+- **Triệu chứng:** Người dùng nhìn thấy 2 ô nhập mật khẩu giống hệt nhau nhưng hệ thống vẫn báo sai.
+- **Nguyên nhân:** Người dùng vô tình bấm khoảng trắng ở cuối mật khẩu một trong hai ô, hoặc lấy nhầm `id` của input (ví dụ gõ nhầm `#pass` thay vì `#password`).
+- **Cách sửa:** Kiểm tra kỹ `id` thẻ HTML, dùng so sánh nghiêm ngặt `password !== confirmPassword`.
+
+### ❌ Lỗi 2: Nhấn nút Đăng Ký nhiều lần liên tục làm sinh ra hàng loạt tài khoản rác
+- **Triệu chứng:** Khi mạng chậm, người dùng sốt ruột bấm nút Đăng ký 3-4 lần, `db.json` xuất hiện 3-4 user giống nhau.
+- **Cách sửa:** Khóa nút submit ngay khi bắt đầu xử lý: `submitBtn.disabled = true; submitBtn.textContent = 'Đang xử lý...'` và mở lại trong khối `finally`.
+
+### ❌ Lỗi 3: Quên `await` trước lệnh `api.post('/users', newUser)`
+- **Triệu chứng:** Web hiện thông báo "Đăng ký thành công" và nhảy sang `login.html`, nhưng mở `db.json` ra thì chưa thấy user đâu, đăng nhập báo tài khoản không tồn tại.
+- **Nguyên nhân:** `api.post()` là hàm bất đồng bộ. Nếu không có `await`, trình duyệt sẽ ngay lập tức chuyển trang `window.location.href` khiến request gửi mạng bị hủy giữa chừng trước khi kịp ghi vào file `db.json`.
+- **Cách sửa:** Luôn đặt từ khóa `await` trước lệnh `api.post('/users', newUser)`.
+
+---
+
+## 5. 🎓 KỊCH BẢN VẤN ĐÁP GIÁO VIÊN (TEACHER DEFENSE SCRIPT)
+
+#### ❓ Câu 1: *"Phương thức `api.get` ở tính năng Đăng Nhập khác gì với `api.post` ở tính năng Đăng Ký?"*
+> 🗣️ **Trả lời:**  
+> "Dạ thưa cô, đây là 2 phương thức chuẩn theo kiến trúc RESTful API:  
+> - `api.get()` dùng để **Truy vấn / Đọc dữ liệu** từ server về mà không làm thay đổi cơ sở dữ liệu (ở trang Đăng nhập em dùng GET để tìm xem user có tồn tại không).  
+> - Còn `api.post()` dùng để **Tạo mới và ghi thêm dữ liệu** vào cơ sở dữ liệu. Ở trang Đăng ký, khi gửi `POST /users` kèm đối tượng `newUser`, `json-server` sẽ thêm một phần tử mới vào mảng `users` trong `db.json` và tự sinh mã `id` duy nhất ạ."
+
+#### ❓ Câu 2: *"Tại sao trước khi gọi lệnh `api.post` em lại phải gọi lệnh `api.get` kiểm tra email?"*
+> 🗣️ **Trả lời:**  
+> "Dạ thưa cô, vì trong hệ thống xác thực người dùng, Email đóng vai trò là định danh duy nhất (Unique Identity). Thư viện `json-server` mặc định không tự động ngăn chặn trùng email. Vì vậy, em cần thực hiện nghiệp vụ kiểm tra trước: gọi `api.get('/users', { params: { email } })`. Nếu `response.data.length > 0` nghĩa là email đã có người dùng đăng ký trước đó, em sẽ chặn lại và thông báo cho người dùng, bảo vệ tính toàn vẹn của dữ liệu ạ."
+
+#### ❓ Câu 3: *"Tại sao em lại dùng `event.preventDefault()` trong sự kiện submit của Form?"*
+> 🗣️ **Trả lời:**  
+> "Dạ thưa cô, theo hành vi mặc định của thẻ `<form>` trong HTML, khi bấm nút submit thì trình duyệt sẽ tự động gửi một HTTP request dạng đồng bộ và tải lại toàn bộ trang web (reload). Vì đồ án của em xây dựng theo phong cách ứng dụng hiện đại (Single Page / AJAX với Axios), em dùng `event.preventDefault()` để chặn hành vi reload đó lại, giúp trang web giữ nguyên trạng thái mượt mà để mã JavaScript tự kiểm tra hợp lệ và gửi API ngầm ạ."
+
+#### ❓ Câu 4: *"Trong đối tượng `newUser`, tại sao em lại thêm thuộc tính `role: 'customer'`?"*
+> 🗣️ **Trả lời:**  
+> "Dạ thưa cô, việc thêm `role: 'customer'` giúp hệ thống hỗ trợ **Phân quyền người dùng (Role-based Authorization)**. Khi khách tự đăng ký ngoài trang chủ, họ sẽ luôn có quyền là khách hàng (`customer`). Điều này giúp phân biệt với tài khoản quản trị viên (`admin`) và ngăn chặn việc người dùng bình thường truy cập trái phép vào các trang quản trị như `admin.html` ạ."
+
+#### ❓ Câu 5: *"Tại sao em lại đặt lệnh khôi phục nút bấm trong khối `finally`?"*
+> 🗣️ **Trả lời:**  
+> "Dạ thưa cô, khối `finally` trong cấu trúc `try ... catch ... finally` có đặc điểm là sẽ **luôn luôn được thực thi**, dù chương trình chạy thành công hay xảy ra lỗi mạng. Khi bắt đầu gửi API em khóa nút submit (`disabled = true`) để chống người dùng bấm liên tục tạo trùng dữ liệu. Em mở khóa nút ở `finally` để đảm bảo trong mọi tình huống (kể cả khi mất mạng), nút bấm đều được trả về trạng thái bình thường để người dùng có thể thao tác lại ạ."
+
