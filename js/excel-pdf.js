@@ -430,3 +430,353 @@ export function initExcelPdf({ getProducts, getCategories, onProductsImported })
     if (previewModal) previewModal.classList.remove('hidden');
   }
 }
+
+// ==========================================================================
+// 4. CHỨC NĂNG 4: XUẤT HÓA ĐƠN BÁN LẺ DẠNG PDF CHO KẾ TOÁN (STAFF)
+// ==========================================================================
+/**
+ * Xuất hóa đơn bán lẻ chi tiết của đơn hàng ra file PDF chuẩn in ấn A4
+ * @param {object} order - Đối tượng đơn hàng cần in hóa đơn
+ */
+export function exportOrderInvoicePdf(order) {
+  if (!order) {
+    showToast('Không tìm thấy thông tin đơn hàng để in hóa đơn!', 'error');
+    return;
+  }
+
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    showToast('Chưa tải được thư viện jsPDF. Vui lòng thử lại!', 'error');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // 1. HEADER CỬA HÀNG
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(16, 132, 116); // Màu xanh ngọc thương hiệu
+  doc.text('TIEM HOA KEM NHUNG HANDMADE', 105, 16, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Chuyen Hoa Kem Nhung Thu Cong & Hoa Tuoi Nghe Thuat Cao Cap', 105, 21, { align: 'center' });
+  doc.text('Hotline: 0901.234.567 | Website: tiemplovers.vn | Dia chi: Quan 1, TP. Ho Chi Minh', 105, 26, { align: 'center' });
+
+  // Đường kẻ phân cách
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.5);
+  doc.line(14, 29, 196, 29);
+
+  // 2. TIÊU ĐỀ HÓA ĐƠN
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(15, 23, 42);
+  doc.text('HOA DON BAN LE / PHIEU GIAO HANG', 105, 37, { align: 'center' });
+
+  // 3. THÔNG TIN KHÁCH HÀNG & ĐƠN HÀNG
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(30, 41, 59);
+
+  const orderDate = order.createdAt ? new Date(order.createdAt).toLocaleDateString('vi-VN') : 'Vua dat';
+  const orderId = order.id || 'DH-TEMP';
+  const customerName = order.customerName || order.recipientName || 'Khach vang lai';
+  const phone = order.phone || '---';
+  const address = order.address || 'Nhan tai quay';
+  const note = order.note || 'Khong co';
+
+  doc.text(`Ma don hang: #${orderId}`, 14, 46);
+  doc.text(`Ngay dat hang: ${orderDate}`, 120, 46);
+  doc.text(`Khach hang: ${customerName}`, 14, 52);
+  doc.text(`So dien thoai: ${phone}`, 120, 52);
+  doc.text(`Dia chi giao: ${address}`, 14, 58);
+  doc.text(`Ghi chu: ${note}`, 14, 64);
+
+  // 4. BẢNG DANH SÁCH SẢN PHẨM (AUTOTABLE)
+  const items = Array.isArray(order.items) ? order.items : [];
+  const tableRows = items.map((item, index) => {
+    const qty = Number(item.quantity) || 1;
+    const price = Number(item.price) || 0;
+    const total = qty * price;
+    return [
+      (index + 1).toString(),
+      item.name || 'San pham hoa',
+      formatPrice(price),
+      qty.toString(),
+      formatPrice(total)
+    ];
+  });
+
+  const tableHeaders = ['STT', 'Ten Mau Hoa', 'Don Gia', 'SL', 'Thanh Tien'];
+
+  doc.autoTable({
+    head: [tableHeaders],
+    body: tableRows,
+    startY: 69,
+    theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 9,
+      cellPadding: 3.5,
+      textColor: [30, 41, 59]
+    },
+    headStyles: {
+      fillColor: [16, 132, 116],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 12 },
+      1: { halign: 'left', cellWidth: 85 },
+      2: { halign: 'right', cellWidth: 30 },
+      3: { halign: 'center', cellWidth: 18 },
+      4: { halign: 'right', cellWidth: 35 }
+    }
+  });
+
+  // 5. TỔNG KẾT TIỀN HÓA ĐƠN
+  const finalY = doc.lastAutoTable.finalY + 6;
+  const subtotal = order.subtotal || order.total || 0;
+  const discount = order.discountAmount || 0;
+  const totalAmount = order.totalAmount || order.finalTotal || (subtotal - discount);
+
+  doc.setFontSize(9.5);
+  doc.text('Tam tinh:', 125, finalY);
+  doc.text(formatPrice(subtotal), 180, finalY, { align: 'right' });
+
+  if (discount > 0) {
+    doc.text('Giam gia Voucher:', 125, finalY + 5);
+    doc.text(`- ${formatPrice(discount)}`, 180, finalY + 5, { align: 'right' });
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(16, 132, 116);
+  doc.text('TONG TIEN THANH TOAN:', 125, finalY + (discount > 0 ? 11 : 6));
+  doc.text(formatPrice(totalAmount), 180, finalY + (discount > 0 ? 11 : 6), { align: 'right' });
+
+  // 6. PHẦN CHỮ KÝ XÁC NHẬN (KẾ TOÁN & KHÁCH HÀNG)
+  const signY = finalY + (discount > 0 ? 25 : 20);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(51, 65, 85);
+
+  doc.text('Nguoi Nhan Hang', 40, signY, { align: 'center' });
+  doc.setFontSize(8);
+  doc.text('(Ky va ghi ro ho ten)', 40, signY + 4, { align: 'center' });
+
+  doc.setFontSize(9);
+  doc.text('Nhan Vien Ke Toan / Lap Phieu', 155, signY, { align: 'center' });
+  doc.setFontSize(8);
+  doc.text('(Ky va ghi ro ho ten)', 155, signY + 4, { align: 'center' });
+
+  // Chữ ký điện tử của hệ thống
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8);
+  doc.setTextColor(148, 163, 184);
+  doc.text('Cam on quy khach da tin tuong ung ho Tiem Hoa Kem Nhung Handmade!', 105, signY + 30, { align: 'center' });
+
+  // 7. LƯU VÀ TẢI FILE PDF
+  doc.save(`Hoa_Don_${orderId}.pdf`);
+  showToast(`Đã xuất hóa đơn PDF thành công cho đơn #${orderId}!`, 'success');
+}
+
+// ==========================================================================
+// 5. CHỨC NĂNG 5: XUẤT BÁO CÁO THỐNG KÊ DOANH THU & LỢI NHUẬN (ADMIN)
+// ==========================================================================
+/**
+ * Xuất bảng thống kê Doanh thu & Lợi nhuận ra file PDF
+ * @param {Array} statsData - Mảng dữ liệu thống kê theo kỳ
+ * @param {string} periodType - 'month' hoặc 'quarter'
+ * @param {number|string} year - Năm báo cáo
+ */
+export function exportRevenueStatisticsPdf(statsData, periodType, year = 2026) {
+  if (!statsData || statsData.length === 0) {
+    showToast('Không có dữ liệu thống kê để xuất báo cáo!', 'error');
+    return;
+  }
+
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    showToast('Chưa tải được thư viện jsPDF!', 'error');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(16, 132, 116);
+  doc.text('TIEM HOA KEM NHUNG HANDMADE', 105, 16, { align: 'center' });
+
+  doc.setFontSize(12);
+  doc.setTextColor(15, 23, 42);
+  const periodLabel = periodType === 'quarter' ? 'THEO QUY' : 'THEO CAC THANG';
+  doc.text(`BAO CAO DOANH THU VA LOI NHUAN ${periodLabel} - NAM ${year}`, 105, 24, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Ngay xuat bao cao: ${new Date().toLocaleString('vi-VN')} | Nguoi xuat: Admin Quan Tri`, 105, 29, { align: 'center' });
+
+  // Chuẩn bị dữ liệu bảng
+  let totalOrdersAll = 0;
+  let totalRevenueAll = 0;
+  let totalCostAll = 0;
+  let totalProfitAll = 0;
+
+  const tableRows = statsData.map((row) => {
+    totalOrdersAll += row.orderCount;
+    totalRevenueAll += row.revenue;
+    totalCostAll += row.cost;
+    totalProfitAll += row.profit;
+
+    return [
+      row.label,
+      row.orderCount.toString(),
+      formatPrice(row.revenue),
+      formatPrice(row.cost),
+      formatPrice(row.profit),
+      `${row.margin}%`
+    ];
+  });
+
+  // Thêm dòng tổng cộng
+  const avgMargin = totalRevenueAll > 0 ? Math.round((totalProfitAll / totalRevenueAll) * 100) : 0;
+  tableRows.push([
+    'TONG CONG TOAN KY',
+    totalOrdersAll.toString(),
+    formatPrice(totalRevenueAll),
+    formatPrice(totalCostAll),
+    formatPrice(totalProfitAll),
+    `${avgMargin}%`
+  ]);
+
+  const headers = ['Ky Thoi Gian', 'So Don', 'Doanh Thu', 'Chi Phi Von (65%)', 'Loi Nhuan Rong', 'Ty Suat LN'];
+
+  doc.autoTable({
+    head: [headers],
+    body: tableRows,
+    startY: 34,
+    theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 8.5,
+      cellPadding: 3
+    },
+    headStyles: {
+      fillColor: [16, 132, 116],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 42, fontStyle: 'bold' },
+      1: { halign: 'center', cellWidth: 20 },
+      2: { halign: 'right', cellWidth: 32 },
+      3: { halign: 'right', cellWidth: 32 },
+      4: { halign: 'right', cellWidth: 32, fontStyle: 'bold' },
+      5: { halign: 'center', cellWidth: 22 }
+    },
+    didParseCell: function (data) {
+      // Làm nổi bật dòng Tổng cộng cuối cùng
+      if (data.row.index === tableRows.length - 1) {
+        data.cell.styles.fillColor = [241, 245, 249];
+        data.cell.styles.fontStyle = 'bold';
+        if (data.column.index === 4) {
+          data.cell.styles.textColor = [16, 132, 116];
+        }
+      }
+    }
+  });
+
+  doc.save(`Bao_Cao_Doanh_Thu_Loi_Nhuan_${year}.pdf`);
+  showToast('Đã tải xuống file Báo Cáo Doanh Thu & Lợi Nhuận PDF!', 'success');
+}
+
+/**
+ * Xuất bảng thống kê Doanh thu & Lợi nhuận ra file Excel (.xlsx)
+ * @param {Array} statsData - Mảng dữ liệu thống kê
+ * @param {string} periodType - 'month' hoặc 'quarter'
+ * @param {number|string} year - Năm báo cáo
+ */
+export function exportRevenueStatisticsExcel(statsData, periodType, year = 2026) {
+  if (!statsData || statsData.length === 0) {
+    showToast('Không có dữ liệu để xuất Excel!', 'error');
+    return;
+  }
+
+  if (typeof window.XLSX === 'undefined') {
+    showToast('Chưa nạp thư viện SheetJS (XLSX)!', 'error');
+    return;
+  }
+
+  const periodTitle = periodType === 'quarter' ? 'QUÝ' : 'THÁNG';
+  const headers = ['Kỳ Báo Cáo', 'Số Đơn Hàng', 'Doanh Thu (VND)', 'Chi Phí Giá Vốn (VND)', 'Lợi Nhuận Ròng (VND)', 'Tỷ Suất Lợi Nhuận (%)'];
+
+  let totalOrdersAll = 0;
+  let totalRevenueAll = 0;
+  let totalCostAll = 0;
+  let totalProfitAll = 0;
+
+  const rows = statsData.map((row) => {
+    totalOrdersAll += row.orderCount;
+    totalRevenueAll += row.revenue;
+    totalCostAll += row.cost;
+    totalProfitAll += row.profit;
+
+    return [
+      row.label,
+      row.orderCount,
+      row.revenue,
+      row.cost,
+      row.profit,
+      `${row.margin}%`
+    ];
+  });
+
+  const avgMargin = totalRevenueAll > 0 ? Math.round((totalProfitAll / totalRevenueAll) * 100) : 0;
+  rows.push([
+    'TỔNG CỘNG TOÀN KỲ',
+    totalOrdersAll,
+    totalRevenueAll,
+    totalCostAll,
+    totalProfitAll,
+    `${avgMargin}%`
+  ]);
+
+  const worksheet = window.XLSX.utils.aoa_to_sheet([
+    [`BÁO CÁO DOANH THU & LỢI NHUẬN NĂM ${year} (THEO ${periodTitle})`],
+    [`Ngày lập: ${new Date().toLocaleDateString('vi-VN')} | Đơn vị: Tiệm Hoa Kẽm Nhung Handmade`],
+    [],
+    headers,
+    ...rows
+  ]);
+
+  worksheet['!cols'] = [
+    { wch: 25 },
+    { wch: 15 },
+    { wch: 20 },
+    { wch: 22 },
+    { wch: 22 },
+    { wch: 22 }
+  ];
+
+  const workbook = window.XLSX.utils.book_new();
+  window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Thống Kê Doanh Thu');
+  window.XLSX.writeFile(workbook, `Bao_Cao_Doanh_Thu_Loi_Nhuan_${year}.xlsx`);
+  showToast('Đã tải xuống file Excel Báo Cáo Doanh Thu thành công!', 'success');
+}
+

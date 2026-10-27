@@ -16,8 +16,14 @@ import {
   fetchOrders,
   updateOrderStatus
 } from './storage.js';
+import api from './api.js';
 import { formatPrice, showToast } from './utils.js';
-import { initExcelPdf } from './excel-pdf.js';
+import {
+  initExcelPdf,
+  exportOrderInvoicePdf,
+  exportRevenueStatisticsPdf,
+  exportRevenueStatisticsExcel
+} from './excel-pdf.js';
 
 /**
  * admin.js - Module điều khiển toàn bộ Bảng Quản Trị Hệ Thống (admin.html)
@@ -32,12 +38,31 @@ let allCategories = [];
 let allBanners = [];
 let allPromotions = [];
 let allOrders = [];
+let allUsers = []; // Danh sách tài khoản người dùng và vai trò
+let currentUser = null; // Tài khoản đang đăng nhập hiện tại
 let currentTab = 'dashboard';
 let deleteTarget = { type: null, id: null };
 let currentDetailOrderId = null;
 
+// State quản lý phân trang theo công thức của cô
+let productsPagination = {
+  currentPage: 1,
+  limit: 10
+};
+
+let ordersPagination = {
+  currentPage: 1,
+  limit: 10
+};
+
+// State lọc báo cáo thống kê doanh thu & lợi nhuận
+let statsFilter = {
+  periodType: 'month', // 'month' hoặc 'quarter'
+  year: 2026
+};
+
 // ==========================================================================
-// 2. CỬA NGÕ XÁC THỰC QUẢN TRỊ (AUTH GATE)
+// 2. CỬA NGÕ XÁC THỰC QUẢN TRỊ & PHÂN QUYỀN 3 ROLE (AUTH GATE & ROLE ACCESS)
 // ==========================================================================
 function initAuthGate() {
   const authModal = document.querySelector('#authGateModal');
@@ -46,11 +71,85 @@ function initAuthGate() {
   const pinInput = document.querySelector('#adminPinInput');
   const quickDemoBtn = document.querySelector('#quickDemoBtn');
   const logoutBtn = document.querySelector('#adminLogoutBtn');
+  const userRoleBadge = document.querySelector('#adminUserRoleBadge');
+  const userNameDisplay = document.querySelector('#adminUserNameDisplay');
+  const userAvatarDisplay = document.querySelector('#adminAvatarDisplay');
 
-  function unlockAdmin() {
+  // Đọc thông tin tài khoản người dùng từ localStorage
+  const savedUserJson = localStorage.getItem('user');
+  if (savedUserJson) {
+    try {
+      currentUser = JSON.parse(savedUserJson);
+    } catch (e) {
+      currentUser = null;
+    }
+  }
+
+  // Hàm áp dụng giao diện theo vai trò (Role Permissions)
+  function applyRolePermissions(user) {
+    const role = user?.role || 'admin'; // Mặc định chế độ Demo là admin
+
+    // Cập nhật thông tin hiển thị ở topbar
+    if (userNameDisplay) {
+      userNameDisplay.textContent = user?.name || user?.email || 'Quản Trị Viên';
+    }
+    if (userAvatarDisplay) {
+      const initial = (user?.name || user?.email || 'A').charAt(0).toUpperCase();
+      userAvatarDisplay.textContent = initial;
+    }
+
+    const navOrders = document.querySelector('.nav-item[data-tab="orders"]');
+    const navDashboard = document.querySelector('.nav-item[data-tab="dashboard"]');
+    const navProducts = document.querySelector('.nav-item[data-tab="products"]');
+    const navBanners = document.querySelector('.nav-item[data-tab="banners"]');
+    const navVouchers = document.querySelector('.nav-item[data-tab="vouchers"]');
+    const navStatistics = document.querySelector('#navItemStatistics');
+    const navUsers = document.querySelector('#navItemUsers');
+
+    if (role === 'staff') {
+      // VAI TRÒ NHÂN VIÊN KẾ TOÁN: CHỈ XEM ĐƠN HÀNG VÀ XUẤT HÓA ĐƠN PDF
+      if (userRoleBadge) {
+        userRoleBadge.textContent = '📑 Nhân Viên Kế Toán';
+        userRoleBadge.style.color = '#0284C7';
+      }
+
+      // Ẩn tất cả các tab khác
+      if (navDashboard) navDashboard.style.display = 'none';
+      if (navProducts) navProducts.style.display = 'none';
+      if (navBanners) navBanners.style.display = 'none';
+      if (navVouchers) navVouchers.style.display = 'none';
+      if (navStatistics) navStatistics.style.display = 'none';
+      if (navUsers) navUsers.style.display = 'none';
+
+      // Chỉ hiển thị tab Đơn Hàng
+      if (navOrders) {
+        navOrders.style.display = 'flex';
+        // Tự động kích hoạt tab Đơn Hàng
+        setTimeout(() => navOrders.click(), 50);
+      }
+    } else {
+      // VAI TRÒ ADMIN: TOÀN QUYỀN TRÊN TẤT CẢ CÁC PHÂN HỆ
+      if (userRoleBadge) {
+        userRoleBadge.textContent = '👑 Quản Trị Viên Cấp Cao';
+        userRoleBadge.style.color = '#108474';
+      }
+
+      // Hiển thị đầy đủ tất cả các tab
+      if (navDashboard) navDashboard.style.display = 'flex';
+      if (navProducts) navProducts.style.display = 'flex';
+      if (navBanners) navBanners.style.display = 'flex';
+      if (navVouchers) navVouchers.style.display = 'flex';
+      if (navOrders) navOrders.style.display = 'flex';
+      if (navStatistics) navStatistics.style.display = 'flex';
+      if (navUsers) navUsers.style.display = 'flex';
+    }
+  }
+
+  function unlockAdmin(user) {
     sessionStorage.setItem('admin_authenticated', 'true');
     if (authModal) authModal.classList.add('hidden');
     if (adminApp) adminApp.style.display = 'flex';
+    applyRolePermissions(user);
     loadAllData();
   }
 
@@ -60,39 +159,64 @@ function initAuthGate() {
     if (adminApp) adminApp.style.display = 'none';
   }
 
-  // Kiểm tra phiên đăng nhập đã có chưa (hoặc truy cập qua ?demo=true)
+  // 1. KIỂM TRA PHÂN QUYỀN TRUY CẬP TỰ ĐỘNG
   const urlParams = new URLSearchParams(window.location.search);
-  if (sessionStorage.getItem('admin_authenticated') === 'true' || urlParams.get('demo') === 'true') {
-    unlockAdmin();
+  const isDemo = urlParams.get('demo') === 'true';
+
+  if (currentUser) {
+    if (currentUser.role === 'customer') {
+      alert('⚠️ Tài khoản khách hàng không có quyền truy cập vào Khu Vực Quản Trị Hệ Thống!');
+      window.location.href = 'index.html';
+      return;
+    } else if (currentUser.role === 'admin' || currentUser.role === 'staff') {
+      unlockAdmin(currentUser);
+    } else {
+      // Nếu không rõ vai trò thì yêu cầu xác thực
+      lockAdmin();
+    }
+  } else if (sessionStorage.getItem('admin_authenticated') === 'true' || isDemo) {
+    // Phiên làm việc demo hoặc đã đăng nhập trước đó
+    currentUser = { name: 'Admin Demo', email: 'admin@shophoa.com', role: 'admin' };
+    unlockAdmin(currentUser);
   } else {
     lockAdmin();
   }
 
+  // 2. FORM ĐĂNG NHẬP MÃ PIN DỰ PHÒNG
   if (authForm) {
     authForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const val = pinInput ? pinInput.value.trim() : '';
-      // Chấp nhận mã PIN 123, 123456 hoặc bất kỳ chuỗi mật khẩu hợp lệ
       if (val === '123' || val === '123456' || val.length >= 3) {
         showToast('Đăng nhập Quản trị viên thành công!');
-        unlockAdmin();
+        currentUser = { name: 'Quản Trị Viên', email: 'admin@shophoa.com', role: 'admin' };
+        localStorage.setItem('user', JSON.stringify(currentUser));
+        unlockAdmin(currentUser);
       } else {
         showToast('Mật khẩu/Mã PIN không đúng (Gợi ý: 123)', 'error');
       }
     });
   }
 
+  // 3. VÀO NHANH CHẾ ĐỘ DEMO
   if (quickDemoBtn) {
     quickDemoBtn.addEventListener('click', () => {
-      showToast('Đã mở quyền Quản trị viên (Chế độ Demo)!');
-      unlockAdmin();
+      showToast('Đã mở quyền Quản trị viên Cấp cao (Demo)!');
+      currentUser = { name: 'Thầy Cô Chấm Thi', email: 'admin@shophoa.com', role: 'admin' };
+      localStorage.setItem('user', JSON.stringify(currentUser));
+      unlockAdmin(currentUser);
     });
   }
 
+  // 4. ĐĂNG XUẤT HỆ THỐNG
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
-      showToast('Đã đăng xuất quyền Quản trị.');
-      lockAdmin();
+      showToast('Đã đăng xuất khỏi hệ thống.');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('admin_authenticated');
+      setTimeout(() => {
+        window.location.href = 'login.html';
+      }, 500);
     });
   }
 }
@@ -122,7 +246,9 @@ function initNavigation() {
     products: 'Quản Lý Mẫu Hoa',
     banners: 'Banner & Chủ Đề',
     vouchers: 'Mã Giảm Giá Voucher',
-    orders: 'Quản Lý Đơn Hàng'
+    orders: 'Quản Lý Đơn Hàng',
+    statistics: 'Báo Cáo & Thống Kê Doanh Thu - Lợi Nhuận',
+    users: 'Quản Lý Tài Khoản & Phân Quyền'
   };
 
   navItems.forEach(btn => {
@@ -139,12 +265,14 @@ function initNavigation() {
 
       if (breadcrumb) breadcrumb.textContent = tabTitles[tab] || 'Quản Trị';
 
-      // Nạp lại dữ liệu tương ứng của tab
+      // Nạp lại dữ liệu tương ứng của từng tab
       if (tab === 'dashboard') renderDashboard();
       else if (tab === 'products') renderProductsTable();
       else if (tab === 'banners') renderBannersTable();
       else if (tab === 'vouchers') renderVouchersTable();
       else if (tab === 'orders') renderOrdersTable();
+      else if (tab === 'statistics') renderStatistics();
+      else if (tab === 'users') renderUsersTable();
     });
   });
 
@@ -365,7 +493,98 @@ function renderDashboard() {
 }
 
 // ==========================================================================
-// 6. TAB 2: QUẢN LÝ SẢN PHẨM (CRUD + TÌM KIẾM / LỌC)
+// 6. THUẬT TOÁN PHÂN TRANG TÁI SỬ DỤNG (CÔNG THỨC CHUẨN CỦA CÔ GIÁO)
+// Limit: số phần tử 1 trang
+// Page: Math.ceil(tongsp / limit)
+// Cắt mảng: array.slice((page - 1) * limit, page * limit)
+// ==========================================================================
+function renderPaginationControls({ containerId, totalItems, currentPage, limit, onPageChange, onLimitChange }) {
+  const container = document.querySelector(`#${containerId}`);
+  if (!container) return;
+
+  if (totalItems === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  // Công thức của cô: Math.ceil(tongsp / limit)
+  const totalPages = Math.ceil(totalItems / limit) || 1;
+  const startIdx = (currentPage - 1) * limit + 1;
+  const endIdx = Math.min(currentPage * limit, totalItems);
+
+  // Tạo các nút trang: 1, 2, 3...
+  let pageButtonsHtml = '';
+  for (let i = 1; i <= totalPages; i++) {
+    const isActive = i === currentPage;
+    pageButtonsHtml += `
+      <button type="button" class="btn-page ${isActive ? 'active' : ''}" data-page="${i}" style="min-width: 32px; height: 32px; padding: 0 8px; border-radius: 6px; border: 1px solid ${isActive ? '#108474' : 'var(--border-light)'}; background: ${isActive ? '#108474' : '#FFF'}; color: ${isActive ? '#FFF' : 'var(--text-dark)'}; font-weight: 600; font-size: 12.5px; cursor: pointer;">
+        ${i}
+      </button>
+    `;
+  }
+
+  container.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-muted); flex-wrap: wrap;">
+      <span>Hiển thị <strong>${startIdx} - ${endIdx}</strong> / tổng <strong>${totalItems}</strong> mục</span>
+      <span style="display: flex; align-items: center; gap: 6px;">
+        Số dòng:
+        <select class="admin-select pagination-limit-select" style="padding: 4px 8px; font-size: 12px; height: 32px;">
+          <option value="5" ${limit === 5 ? 'selected' : ''}>5 / trang</option>
+          <option value="10" ${limit === 10 ? 'selected' : ''}>10 / trang</option>
+          <option value="20" ${limit === 20 ? 'selected' : ''}>20 / trang</option>
+        </select>
+      </span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <button type="button" class="btn-page-nav page-prev" ${currentPage <= 1 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''} style="height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-light); background: #FFF; font-size: 12.5px; font-weight: 600; cursor: pointer;">
+        « Pre
+      </button>
+      <div style="display: flex; gap: 4px;">
+        ${pageButtonsHtml}
+      </div>
+      <button type="button" class="btn-page-nav page-next" ${currentPage >= totalPages ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''} style="height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-light); background: #FFF; font-size: 12.5px; font-weight: 600; cursor: pointer;">
+        Next »
+      </button>
+    </div>
+  `;
+
+  // Gắn sự kiện thay đổi limit
+  const limitSelect = container.querySelector('.pagination-limit-select');
+  if (limitSelect) {
+    limitSelect.addEventListener('change', (e) => {
+      if (typeof onLimitChange === 'function') onLimitChange(Number(e.target.value));
+    });
+  }
+
+  // Gắn sự kiện nút Pre
+  const prevBtn = container.querySelector('.page-prev');
+  if (prevBtn && currentPage > 1) {
+    prevBtn.addEventListener('click', () => {
+      if (typeof onPageChange === 'function') onPageChange(currentPage - 1);
+    });
+  }
+
+  // Gắn sự kiện nút Next
+  const nextBtn = container.querySelector('.page-next');
+  if (nextBtn && currentPage < totalPages) {
+    nextBtn.addEventListener('click', () => {
+      if (typeof onPageChange === 'function') onPageChange(currentPage + 1);
+    });
+  }
+
+  // Gắn sự kiện từng trang số
+  const pageBtns = container.querySelectorAll('.btn-page');
+  pageBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = Number(btn.dataset.page);
+      if (p !== currentPage && typeof onPageChange === 'function') onPageChange(p);
+    });
+  });
+}
+
+// ==========================================================================
+// 7. TAB 2: QUẢN LÝ SẢN PHẨM (CRUD + PHÂN TRANG)
 // ==========================================================================
 function renderProductsTable() {
   const tbody = document.querySelector('#adminProductsTable');
@@ -385,10 +604,28 @@ function renderProductsTable() {
 
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 32px; color: var(--text-muted);">Không tìm thấy mẫu hoa nào phù hợp</td></tr>`;
+    renderPaginationControls({
+      containerId: 'productsPagination',
+      totalItems: 0,
+      currentPage: 1,
+      limit: productsPagination.limit
+    });
     return;
   }
 
-  tbody.innerHTML = filtered.map(p => {
+  // Áp dụng thuật toán phân trang
+  const totalItems = filtered.length;
+  const limit = productsPagination.limit;
+  const totalPages = Math.ceil(totalItems / limit) || 1;
+  if (productsPagination.currentPage > totalPages) {
+    productsPagination.currentPage = totalPages;
+  }
+
+  const startIndex = (productsPagination.currentPage - 1) * limit;
+  const endIndex = startIndex + limit;
+  const pagedProducts = filtered.slice(startIndex, endIndex);
+
+  tbody.innerHTML = pagedProducts.map(p => {
     const originalPriceHtml = (p.originalPrice && p.originalPrice > p.price)
       ? `<span style="text-decoration: line-through; color: var(--text-muted); font-size: 12px;">${formatPrice(p.originalPrice)}</span>`
       : '-';
@@ -416,6 +653,23 @@ function renderProductsTable() {
       </tr>
     `;
   }).join('');
+
+  // Vẽ thanh phân trang
+  renderPaginationControls({
+    containerId: 'productsPagination',
+    totalItems: totalItems,
+    currentPage: productsPagination.currentPage,
+    limit: productsPagination.limit,
+    onPageChange: (newPage) => {
+      productsPagination.currentPage = newPage;
+      renderProductsTable();
+    },
+    onLimitChange: (newLimit) => {
+      productsPagination.limit = newLimit;
+      productsPagination.currentPage = 1;
+      renderProductsTable();
+    }
+  });
 }
 
 function initProductCrud() {
@@ -1064,7 +1318,7 @@ function initVoucherCrud() {
 }
 
 // ==========================================================================
-// 9. TAB 5: QUẢN LÝ ĐƠN HÀNG (ORDERS MANAGEMENT)
+// 9. TAB 5: QUẢN LÝ ĐƠN HÀNG (ORDERS MANAGEMENT + PHÂN TRANG + XUẤT HÓA ĐƠN PDF)
 // ==========================================================================
 function renderOrdersTable() {
   const tbody = document.querySelector('#adminOrdersTable');
@@ -1085,10 +1339,28 @@ function renderOrdersTable() {
 
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 32px; color: var(--text-muted);">Không tìm thấy đơn hàng nào phù hợp</td></tr>`;
+    renderPaginationControls({
+      containerId: 'ordersPagination',
+      totalItems: 0,
+      currentPage: 1,
+      limit: ordersPagination.limit
+    });
     return;
   }
 
-  tbody.innerHTML = filtered.map(o => {
+  // Áp dụng thuật toán phân trang
+  const totalItems = filtered.length;
+  const limit = ordersPagination.limit;
+  const totalPages = Math.ceil(totalItems / limit) || 1;
+  if (ordersPagination.currentPage > totalPages) {
+    ordersPagination.currentPage = totalPages;
+  }
+
+  const startIndex = (ordersPagination.currentPage - 1) * limit;
+  const endIndex = startIndex + limit;
+  const pagedOrders = filtered.slice(startIndex, endIndex);
+
+  tbody.innerHTML = pagedOrders.map(o => {
     let badgeClass = 'badge-emerald';
     let statusText = 'Hoàn thành';
     if (o.status === 'pending') { badgeClass = 'badge-amber'; statusText = 'Chờ xử lý'; }
@@ -1113,6 +1385,23 @@ function renderOrdersTable() {
       </tr>
     `;
   }).join('');
+
+  // Vẽ thanh phân trang đơn hàng
+  renderPaginationControls({
+    containerId: 'ordersPagination',
+    totalItems: totalItems,
+    currentPage: ordersPagination.currentPage,
+    limit: ordersPagination.limit,
+    onPageChange: (newPage) => {
+      ordersPagination.currentPage = newPage;
+      renderOrdersTable();
+    },
+    onLimitChange: (newLimit) => {
+      ordersPagination.limit = newLimit;
+      ordersPagination.currentPage = 1;
+      renderOrdersTable();
+    }
+  });
 }
 
 function initOrderManagement() {
@@ -1125,6 +1414,7 @@ function initOrderManagement() {
   const bodyEl = document.querySelector('#orderDetailBody');
   const statusSelect = document.querySelector('#orderDetailStatusSelect');
   const saveStatusBtn = document.querySelector('#saveOrderStatusBtn');
+  const exportInvoiceBtn = document.querySelector('#btnExportInvoicePdf');
 
   function openOrderDetail(order) {
     if (!modal || !order) return;
@@ -1190,6 +1480,18 @@ function initOrderManagement() {
 
   if (closeBtn) closeBtn.addEventListener('click', closeOrderDetail);
 
+  // Sự kiện Xuất Hóa Đơn PDF (Dành cho Kế toán & Quản trị)
+  if (exportInvoiceBtn) {
+    exportInvoiceBtn.addEventListener('click', () => {
+      const order = allOrders.find(o => String(o.id) === String(currentDetailOrderId));
+      if (order) {
+        exportOrderInvoicePdf(order);
+      } else {
+        showToast('Không tìm thấy thông tin đơn hàng!', 'error');
+      }
+    });
+  }
+
   if (saveStatusBtn) {
     saveStatusBtn.addEventListener('click', async () => {
       if (!currentDetailOrderId) return;
@@ -1214,8 +1516,14 @@ function initOrderManagement() {
     });
   }
 
-  if (searchInput) searchInput.addEventListener('input', renderOrdersTable);
-  if (statusFilter) statusFilter.addEventListener('change', renderOrdersTable);
+  if (searchInput) searchInput.addEventListener('input', () => {
+    ordersPagination.currentPage = 1;
+    renderOrdersTable();
+  });
+  if (statusFilter) statusFilter.addEventListener('change', () => {
+    ordersPagination.currentPage = 1;
+    renderOrdersTable();
+  });
 }
 
 // ==========================================================================
@@ -1268,16 +1576,397 @@ function initConfirmModal() {
 }
 
 // ==========================================================================
-// 11. KHỞI TẠO TỔNG THỂ DỮ LIỆU BAN ĐẦU
+// 11. TAB 6: BÁO CÁO & THỐNG KÊ DOANH THU - LỢI NHUẬN TÁCH BIỆT (ADMIN)
+// Đáp ứng đúng yêu cầu: Lợi nhuận/Doanh thu tách biệt, Tháng/Quý, Dashboard + Table để xuất
+// ==========================================================================
+function calculateRevenueStats(orders, periodType, year) {
+  // Lọc các đơn hàng hoàn thành trong năm được chọn
+  const validOrders = orders.filter(o => {
+    if (!o.createdAt) return false;
+    const d = new Date(o.createdAt);
+    return d.getFullYear() === Number(year) && o.status !== 'cancelled';
+  });
+
+  const stats = [];
+
+  if (periodType === 'quarter') {
+    // Thống kê theo 4 Quý (Q1: T1-3, Q2: T4-6, Q3: T7-9, Q4: T10-12)
+    const quarters = [
+      { label: `Quý 1 (Tháng 1 - 3 / ${year})`, startMonth: 0, endMonth: 2 },
+      { label: `Quý 2 (Tháng 4 - 6 / ${year})`, startMonth: 3, endMonth: 5 },
+      { label: `Quý 3 (Tháng 7 - 9 / ${year})`, startMonth: 6, endMonth: 8 },
+      { label: `Quý 4 (Tháng 10 - 12 / ${year})`, startMonth: 9, endMonth: 11 }
+    ];
+
+    quarters.forEach(q => {
+      const qOrders = validOrders.filter(o => {
+        const m = new Date(o.createdAt).getMonth();
+        return m >= q.startMonth && m <= q.endMonth;
+      });
+
+      // Dùng ES6 reduce tính tổng doanh thu
+      const revenue = qOrders.reduce((sum, o) => sum + Number(o.totalAmount || o.finalTotal || o.subtotal || 0), 0);
+      // Chi phí giá vốn tính theo 65% doanh thu
+      const cost = Math.round(revenue * 0.65);
+      // Lợi nhuận ròng = Doanh thu - Giá vốn (35%)
+      const profit = revenue - cost;
+      const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
+
+      stats.push({
+        label: q.label,
+        orderCount: qOrders.length,
+        revenue,
+        cost,
+        profit,
+        margin
+      });
+    });
+  } else {
+    // Thống kê theo 12 Tháng
+    for (let m = 0; m < 12; m++) {
+      const monthOrders = validOrders.filter(o => new Date(o.createdAt).getMonth() === m);
+      const revenue = monthOrders.reduce((sum, o) => sum + Number(o.totalAmount || o.finalTotal || o.subtotal || 0), 0);
+      const cost = Math.round(revenue * 0.65);
+      const profit = revenue - cost;
+      const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
+
+      stats.push({
+        label: `Tháng ${m + 1} / ${year}`,
+        orderCount: monthOrders.length,
+        revenue,
+        cost,
+        profit,
+        margin
+      });
+    }
+  }
+
+  return stats;
+}
+
+function renderStatistics() {
+  const periodTypeSelect = document.querySelector('#statsPeriodType');
+  const yearSelect = document.querySelector('#statsYearSelect');
+  const completedOrdersEl = document.querySelector('#statCompletedOrders');
+  const totalRevenueEl = document.querySelector('#statTotalRevenue');
+  const totalCostEl = document.querySelector('#statTotalCost');
+  const totalProfitEl = document.querySelector('#statTotalProfit');
+  const chartWrap = document.querySelector('#statsBarChartWrap');
+  const tbody = document.querySelector('#statsTableBody');
+  const tfoot = document.querySelector('#statsTableFooter');
+
+  const periodType = periodTypeSelect ? periodTypeSelect.value : statsFilter.periodType;
+  const year = yearSelect ? Number(yearSelect.value) : statsFilter.year;
+
+  const statsData = calculateRevenueStats(allOrders, periodType, year);
+
+  // 1. Tính tổng toàn kỳ bằng reduce
+  const totalOrders = statsData.reduce((sum, r) => sum + r.orderCount, 0);
+  const totalRev = statsData.reduce((sum, r) => sum + r.revenue, 0);
+  const totalCost = statsData.reduce((sum, r) => sum + r.cost, 0);
+  const totalProfit = statsData.reduce((sum, r) => sum + r.profit, 0);
+
+  // 2. Cập nhật 4 thẻ KPI
+  if (completedOrdersEl) completedOrdersEl.textContent = totalOrders;
+  if (totalRevenueEl) totalRevenueEl.textContent = formatPrice(totalRev);
+  if (totalCostEl) totalCostEl.textContent = formatPrice(totalCost);
+  if (totalProfitEl) totalProfitEl.textContent = formatPrice(totalProfit);
+
+  // 3. Vẽ biểu đồ Bar Chart bằng CSS Flexbox
+  if (chartWrap) {
+    const maxVal = Math.max(...statsData.map(r => r.revenue), 1000000);
+    chartWrap.innerHTML = statsData.map(r => {
+      const revHeight = Math.max(Math.round((r.revenue / maxVal) * 150), 4);
+      const profHeight = Math.max(Math.round((r.profit / maxVal) * 150), 4);
+
+      return `
+        <div style="flex: 1; min-width: 50px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%;">
+          <div style="display: flex; gap: 4px; align-items: flex-end; width: 100%; justify-content: center;">
+            <div title="Doanh thu: ${formatPrice(r.revenue)}" style="width: 14px; height: ${revHeight}px; background: #0EA5E9; border-radius: 4px 4px 0 0; transition: height 0.3s ease;"></div>
+            <div title="Lợi nhuận: ${formatPrice(r.profit)}" style="width: 14px; height: ${profHeight}px; background: #108474; border-radius: 4px 4px 0 0; transition: height 0.3s ease;"></div>
+          </div>
+          <span style="font-size: 10.5px; color: var(--text-muted); margin-top: 8px; white-space: nowrap; transform: rotate(-25deg); transform-origin: top left;">${r.label.split(' /')[0]}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 4. Đổ dữ liệu vào Table chi tiết
+  if (tbody) {
+    tbody.innerHTML = statsData.map(r => `
+      <tr>
+        <td><strong>${r.label}</strong></td>
+        <td style="text-align: center;">${r.orderCount}</td>
+        <td style="text-align: right; font-weight: 600; color: #0EA5E9;">${formatPrice(r.revenue)}</td>
+        <td style="text-align: right; color: #F59E0B;">${formatPrice(r.cost)}</td>
+        <td style="text-align: right; font-weight: 700; color: #108474;">${formatPrice(r.profit)}</td>
+        <td style="text-align: center;"><span class="badge-pill badge-emerald">${r.margin}%</span></td>
+      </tr>
+    `).join('');
+  }
+
+  // 5. Dòng tổng cộng tfoot
+  if (tfoot) {
+    const avgMargin = totalRev > 0 ? Math.round((totalProfit / totalRev) * 100) : 0;
+    tfoot.innerHTML = `
+      <tr>
+        <td>TỔNG CỘNG TOÀN KỲ</td>
+        <td style="text-align: center;">${totalOrders}</td>
+        <td style="text-align: right; color: #0EA5E9;">${formatPrice(totalRev)}</td>
+        <td style="text-align: right; color: #F59E0B;">${formatPrice(totalCost)}</td>
+        <td style="text-align: right; color: #108474;">${formatPrice(totalProfit)}</td>
+        <td style="text-align: center;">${avgMargin}%</td>
+      </tr>
+    `;
+  }
+}
+
+function initStatistics() {
+  const periodTypeSelect = document.querySelector('#statsPeriodType');
+  const yearSelect = document.querySelector('#statsYearSelect');
+  const exportPdfBtn = document.querySelector('#btnExportStatsPdf');
+  const exportExcelBtn = document.querySelector('#btnExportStatsExcel');
+
+  if (periodTypeSelect) {
+    periodTypeSelect.addEventListener('change', () => {
+      statsFilter.periodType = periodTypeSelect.value;
+      renderStatistics();
+    });
+  }
+
+  if (yearSelect) {
+    yearSelect.addEventListener('change', () => {
+      statsFilter.year = Number(yearSelect.value);
+      renderStatistics();
+    });
+  }
+
+  if (exportPdfBtn) {
+    exportPdfBtn.addEventListener('click', () => {
+      const data = calculateRevenueStats(allOrders, statsFilter.periodType, statsFilter.year);
+      exportRevenueStatisticsPdf(data, statsFilter.periodType, statsFilter.year);
+    });
+  }
+
+  if (exportExcelBtn) {
+    exportExcelBtn.addEventListener('click', () => {
+      const data = calculateRevenueStats(allOrders, statsFilter.periodType, statsFilter.year);
+      exportRevenueStatisticsExcel(data, statsFilter.periodType, statsFilter.year);
+    });
+  }
+}
+
+// ==========================================================================
+// 12. TAB 7: QUẢN LÝ TÀI KHOẢN & PUT CREDENTIALS BÀN GIAO (ADMIN)
+// ==========================================================================
+async function fetchAllUsers() {
+  try {
+    const res = await api.get('/users');
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (err) {
+    console.error('Lỗi tải danh sách người dùng:', err);
+    return [];
+  }
+}
+
+function renderUsersTable() {
+  const tbody = document.querySelector('#adminUsersTableBody');
+  const searchInput = document.querySelector('#userSearchInput');
+  const roleFilter = document.querySelector('#userRoleFilter');
+  if (!tbody) return;
+
+  const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const selectedRole = roleFilter ? roleFilter.value : 'all';
+
+  const filtered = allUsers.filter(u => {
+    const matchSearch = (u.name && u.name.toLowerCase().includes(searchTerm)) ||
+      (u.email && u.email.toLowerCase().includes(searchTerm));
+    const uRole = u.role || 'customer';
+    const matchRole = selectedRole === 'all' || uRole === selectedRole;
+    return matchSearch && matchRole;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">Không tìm thấy tài khoản nào phù hợp</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((u, idx) => {
+    const uRole = u.role || 'customer';
+    let roleBadge = '<span class="badge-pill badge-emerald">🌸 Khách Hàng</span>';
+    if (uRole === 'admin') {
+      roleBadge = '<span class="badge-pill badge-rose">👑 Quản Trị Viên</span>';
+    } else if (uRole === 'staff') {
+      roleBadge = '<span class="badge-pill badge-blue">📑 Nhân Viên Kế Toán</span>';
+    }
+
+    const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : 'Mới tạo';
+
+    return `
+      <tr data-id="${u.id}">
+        <td style="text-align: center;">${idx + 1}</td>
+        <td><strong>${u.name || 'Người dùng'}</strong></td>
+        <td><code>${u.email}</code></td>
+        <td>${roleBadge}</td>
+        <td>${dateStr}</td>
+        <td style="text-align: right;">
+          <div class="table-actions" style="justify-content: flex-end;">
+            <button type="button" class="btn-action btn-action-edit edit-user-btn" data-id="${u.id}">
+              ✏️ Sửa / Đổi Pass (PUT)
+            </button>
+            <button type="button" class="btn-action btn-action-delete delete-user-btn" data-id="${u.id}">
+              Xóa
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function initUserManagement() {
+  const table = document.querySelector('#adminUsersTableBody');
+  const searchInput = document.querySelector('#userSearchInput');
+  const roleFilter = document.querySelector('#userRoleFilter');
+  const addBtn = document.querySelector('#btnAddUserBtn');
+  const modal = document.querySelector('#userEditModal');
+  const closeBtn = document.querySelector('#userEditModalClose');
+  const cancelBtn = document.querySelector('#userEditModalCancel');
+  const form = document.querySelector('#userEditForm');
+  const idInput = document.querySelector('#userEditId');
+  const nameInput = document.querySelector('#userEditName');
+  const emailInput = document.querySelector('#userEditEmail');
+  const passwordInput = document.querySelector('#userEditPassword');
+  const roleSelect = document.querySelector('#userEditRole');
+  const titleEl = document.querySelector('#userEditModalTitle');
+
+  function openEditModal(user = null) {
+    if (!modal) return;
+    if (user) {
+      if (titleEl) titleEl.textContent = `Chỉnh Sửa & Bàn Giao Tài Khoản: ${user.name}`;
+      if (idInput) idInput.value = user.id;
+      if (nameInput) nameInput.value = user.name || '';
+      if (emailInput) emailInput.value = user.email || '';
+      if (passwordInput) {
+        passwordInput.value = '';
+        passwordInput.placeholder = 'Để trống nếu không đổi, hoặc nhập mật khẩu mới';
+      }
+      if (roleSelect) roleSelect.value = user.role || 'customer';
+    } else {
+      if (titleEl) titleEl.textContent = 'Thêm Tài Khoản Mới Vào Hệ Thống';
+      if (idInput) idInput.value = '';
+      if (nameInput) nameInput.value = '';
+      if (emailInput) emailInput.value = '';
+      if (passwordInput) {
+        passwordInput.value = '123456';
+        passwordInput.placeholder = 'Mật khẩu khởi tạo (mặc định: 123456)';
+      }
+      if (roleSelect) roleSelect.value = 'customer';
+    }
+    modal.classList.remove('hidden');
+  }
+
+  function closeModal() {
+    if (modal) modal.classList.add('hidden');
+  }
+
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+  if (addBtn) addBtn.addEventListener('click', () => openEditModal(null));
+
+  if (table) {
+    table.addEventListener('click', async (e) => {
+      const editBtn = e.target.closest('.edit-user-btn');
+      const deleteBtn = e.target.closest('.delete-user-btn');
+
+      if (editBtn) {
+        const id = editBtn.dataset.id;
+        const user = allUsers.find(u => String(u.id) === String(id));
+        if (user) openEditModal(user);
+      }
+
+      if (deleteBtn) {
+        const id = deleteBtn.dataset.id;
+        if (confirm('Bạn có chắc chắn muốn xóa tài khoản này khỏi hệ thống không?')) {
+          try {
+            await api.delete(`/users/${id}`);
+            showToast('Đã xóa tài khoản thành công!');
+            allUsers = await fetchAllUsers();
+            renderUsersTable();
+          } catch (err) {
+            console.error('Lỗi khi xóa tài khoản:', err);
+            showToast('Không thể xóa tài khoản!', 'error');
+          }
+        }
+      }
+    });
+  }
+
+  // XỬ LÝ PUT CREDENTIALS BÀN GIAO TÀI KHOẢN
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = idInput.value;
+      const name = nameInput.value.trim();
+      const email = emailInput.value.trim();
+      const newPassword = passwordInput.value.trim();
+      const role = roleSelect.value;
+
+      try {
+        if (id) {
+          // Lấy user cũ để giữ nguyên thông tin nếu không đổi pass
+          const oldUser = allUsers.find(u => String(u.id) === String(id)) || {};
+          const updatedUser = {
+            ...oldUser,
+            name,
+            email,
+            role,
+            // Nếu có gõ mật khẩu mới -> Put credentials để bàn giao
+            password: newPassword ? newPassword : oldUser.password
+          };
+
+          // GỌI PHƯƠNG THỨC PUT CHUẨN ĐỒ ÁN ĐỂ CẬP NHẬT CREDENTIALS
+          await api.put(`/users/${id}`, updatedUser);
+          showToast(`Đã cập nhật thông tin & mật khẩu (PUT) cho tài khoản #${id} thành công!`, 'success');
+        } else {
+          // Tạo user mới bằng POST
+          const newUser = {
+            name,
+            email,
+            password: newPassword || '123456',
+            role,
+            createdAt: new Date().toISOString()
+          };
+          await api.post('/users', newUser);
+          showToast('Đã thêm tài khoản mới thành công!', 'success');
+        }
+
+        closeModal();
+        allUsers = await fetchAllUsers();
+        renderUsersTable();
+      } catch (err) {
+        console.error('Lỗi cập nhật tài khoản:', err);
+        showToast('Có lỗi xảy ra khi lưu thông tin tài khoản!', 'error');
+      }
+    });
+  }
+
+  if (searchInput) searchInput.addEventListener('input', renderUsersTable);
+  if (roleFilter) roleFilter.addEventListener('change', renderUsersTable);
+}
+
+// ==========================================================================
+// 13. KHỞI TẠO TỔNG THỂ DỮ LIỆU BAN ĐẦU
 // ==========================================================================
 async function loadAllData() {
   try {
-    const [categories, products, banners, promotions, orders] = await Promise.all([
+    const [categories, products, banners, promotions, orders, users] = await Promise.all([
       fetchCategories(),
       fetchProducts(),
       fetchAllBanners(),
       fetchAllPromotions(),
-      fetchOrders()
+      fetchOrders(),
+      fetchAllUsers()
     ]);
 
     allCategories = categories;
@@ -1285,6 +1974,7 @@ async function loadAllData() {
     allBanners = banners;
     allPromotions = promotions;
     allOrders = orders;
+    allUsers = users;
 
     // Khởi tạo các phân hệ
     initNavigation();
@@ -1314,6 +2004,8 @@ async function loadAllData() {
     initBannerCrud();
     initVoucherCrud();
     initOrderManagement();
+    initStatistics();
+    initUserManagement();
     initConfirmModal();
 
     // Render tab ban đầu (Dashboard)
@@ -1327,3 +2019,4 @@ async function loadAllData() {
 // Bắt đầu khởi chạy hệ thống
 initAuthGate();
 initClock();
+

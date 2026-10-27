@@ -10,10 +10,13 @@
 [DỰ ÁN SHOP HOA]
    │
    ├── 📂 01. Tính năng Đăng Nhập (Login) ──────────> (Phần 1 bên dưới)
-   ├── 📂 02. Nhập Excel & Xuất Báo Cáo PDF (Admin) ─> [MỚI HOÀN THÀNH] (Phần 2 bên dưới)
-   ├── 📂 03. Tính năng Đăng Ký (Register) ─────────> [MỚI HOÀN THÀNH] (Phần 3 bên dưới)
-   ├── 📂 04. Tính năng Giỏ Hàng (Cart) ────────────> (Sẽ bổ sung tiếp tục)
-   └── 📂 05. Quản trị viên (Admin Dashboard) ──────> (Sẽ bổ sung tiếp tục)
+   ├── 📂 02. Nhập Excel & Xuất Báo Cáo PDF (Admin) ─> (Phần 2 bên dưới)
+   ├── 📂 03. Tính năng Đăng Ký (Register) ─────────> (Phần 3 bên dưới)
+   ├── 📂 04. Phân Quyền 3 Role & Quản Lý User (PUT) > [MỚI HOÀN THÀNH] (Phần 4 bên dưới)
+   ├── 📂 05. Xuất Hóa Đơn Bán Lẻ PDF Cho Kế Toán ──> [MỚI HOÀN THÀNH] (Phần 5 bên dưới)
+   ├── 📂 06. Thống Kê Doanh Thu & Lợi Nhuận (Table) > [MỚI HOÀN THÀNH] (Phần 6 bên dưới)
+   ├── 📂 07. Thuật Toán Phân Trang Chuẩn Bài Cô ───> [MỚI HOÀN THÀNH] (Phần 7 bên dưới)
+   └── 📂 08. Tính năng Giỏ Hàng & Đặt Hàng (Cart) ──> (Sẽ bổ sung tiếp tục)
 ```
 
 ---
@@ -578,4 +581,237 @@ try {
 #### ❓ Câu 5: *"Tại sao em lại đặt lệnh khôi phục nút bấm trong khối `finally`?"*
 > 🗣️ **Trả lời:**  
 > "Dạ thưa cô, khối `finally` trong cấu trúc `try ... catch ... finally` có đặc điểm là sẽ **luôn luôn được thực thi**, dù chương trình chạy thành công hay xảy ra lỗi mạng. Khi bắt đầu gửi API em khóa nút submit (`disabled = true`) để chống người dùng bấm liên tục tạo trùng dữ liệu. Em mở khóa nút ở `finally` để đảm bảo trong mọi tình huống (kể cả khi mất mạng), nút bấm đều được trả về trạng thái bình thường để người dùng có thể thao tác lại ạ."
+
+---
+
+# PHẦN 4: PHÂN QUYỀN 3 ROLE & QUẢN LÝ TÀI KHOẢN (PUT CREDENTIALS)
+
+## 1. 📍 Bản Đồ Vị Trí Code (Nó Nằm Ở Đâu?)
+
+| File | Đường dẫn | Vai trò |
+| :--- | :--- | :--- |
+| **Đăng Nhập Điều Hướng** | [`js/login.js`](file:///d:/shopHoa/souce_shopHoa/js/login.js) | Nhận diện `user.role` để chuyển trang: `admin`/`staff` -> `admin.html`, `customer` -> `index.html`. |
+| **Cửa Ngõ Bảo Vệ (Auth Gate)** | [`js/admin.js`](file:///d:/shopHoa/souce_shopHoa/js/admin.js) | Hàm `initAuthGate()` & `applyRolePermissions()`: Giới hạn menu cho Kế toán, toàn quyền cho Admin, chặn Khách hàng. |
+| **Giao Diện Quản Trị** | [`admin.html`](file:///d:/shopHoa/souce_shopHoa/admin.html) | Chứa Tab Quản Lý Tài Khoản (`#panel-users`) và Modal Sửa / Đổi Pass (`#userEditModal`). |
+| **API Cập Nhật Bàn Giao** | [`js/admin.js`](file:///d:/shopHoa/souce_shopHoa/js/admin.js) | Gọi `api.put('/users/:id', updatedUser)` để ghi đè credentials khi bàn giao quyền. |
+
+---
+
+## 2. 🔄 Bảng Ma Trận Phân Quyền (Permission Matrix)
+
+| Chức năng | Khách (`customer`) | Nhân viên Kế toán (`staff`) | Quản trị viên (`admin`) |
+| :--- | :---: | :---: | :---: |
+| Xem shop hoa, giỏ hàng ngoài trang chủ | ✅ Toàn quyền | ✅ Toàn quyền | ✅ Toàn quyền |
+| Truy cập vào trang `admin.html` | ❌ Bị chặn | ✅ Được phép | ✅ Được phép |
+| Quản lý Đơn hàng & Xem chi tiết | ❌ Không | ✅ Được phép | ✅ Được phép |
+| **Xuất Hóa Đơn Bán Lẻ PDF** | ❌ Không | ✅ **Nghiệp vụ chính** | ✅ Được phép |
+| Quản lý Mẫu hoa, Danh mục, Banners | ❌ Không | ❌ Bị ẩn hoàn toàn | ✅ Toàn quyền CRUD |
+| Thống kê Doanh thu & Lợi nhuận | ❌ Không | ❌ Bị ẩn hoàn toàn | ✅ Xem Dashboard & Table |
+| Quản lý Tài khoản & PUT Credentials | ❌ Không | ❌ Bị ẩn hoàn toàn | ✅ Sửa Role & Đổi Mật Khẩu |
+
+---
+
+## 3. 🔍 Mổ Xẻ Code Cốt Lõi
+
+### 🔹 Phân Quyền Giao Diện Trong `initAuthGate()`:
+```javascript
+if (role === 'staff') {
+    // KẾ TOÁN: Ẩn tất cả các tab nhạy cảm
+    navDashboard.style.display = 'none';
+    navProducts.style.display = 'none';
+    navBanners.style.display = 'none';
+    navVouchers.style.display = 'none';
+    navStatistics.style.display = 'none';
+    navUsers.style.display = 'none';
+
+    // Chỉ hiển thị duy nhất tab Quản Lý Đơn Hàng
+    navOrders.style.display = 'flex';
+    navOrders.click();
+}
+```
+
+### 🔹 Bàn Giao Credentials Bằng Phương Thức PUT:
+```javascript
+const updatedUser = {
+    ...oldUser,
+    name: name,
+    email: email,
+    role: role,
+    password: newPassword ? newPassword : oldUser.password // PUT mật khẩu mới khi bàn giao
+};
+await api.put(`/users/${id}`, updatedUser);
+```
+* **Ý nghĩa:** `PUT` là phương thức chuẩn RESTful dùng để **thay thế / cập nhật toàn bộ** tài nguyên. Khi chủ shop bàn giao quyền quản trị cho nhân sự mới, họ chỉ cần nhập mật khẩu mới và gọi `api.put` để đổi thông tin đăng nhập ngay lập tức.
+
+---
+
+## 4. 🎓 KỊCH BẢN VẤN ĐÁP GIÁO VIÊN
+
+#### ❓ Câu 1: *"Hệ thống của em phân quyền 3 Role hoạt động theo cơ chế nào?"*
+> 🗣️ **Trả lời:**  
+> "Dạ thưa cô, hệ thống phân quyền dựa trên trường `role` lưu trong đối tượng `user` (`db.json` và `localStorage`). Khi đăng nhập:  
+> - `customer`: Chỉ xem được trang bán hàng `index.html`. Nếu cố truy cập `admin.html` thì Auth Gate sẽ chặn lại và đẩy về trang chủ.  
+> - `staff` (Kế toán): Auth Gate chỉ cho phép hiển thị duy nhất tab Quản Lý Đơn Hàng để đối soát và xuất hóa đơn PDF, các tab sản phẩm, thống kê và tài khoản bị ẩn hoàn toàn.  
+> - `admin`: Toàn quyền thao tác trên toàn bộ hệ thống ạ."
+
+#### ❓ Câu 2: *"Tại sao khi đổi credentials bàn giao tài khoản em lại dùng phương thức HTTP `PUT` thay vì `POST`?"*
+> 🗣️ **Trả lời:**  
+> "Dạ thưa cô, theo chuẩn RESTful API:  
+> - `POST` dùng để **Tạo mới** một bản ghi khi tài khoản chưa tồn tại.  
+> - Còn `PUT` dùng để **Cập nhật / Ghi đè toàn bộ** thông tin của một bản ghi đã có theo mã định danh `id` (`/users/:id`). Khi bàn giao tài khoản, bản ghi user đã tồn tại, em dùng `PUT` để cập nhật lại tên người nhận bàn giao, email và mật khẩu mới vào `db.json` ạ."
+
+---
+
+# PHẦN 5: XUẤT HÓA ĐƠN BÁN LẺ PDF CHO KẾ TOÁN
+
+## 1. 📍 Bản Đồ Vị Trí Code (Nó Nằm Ở Đâu?)
+
+| File | Vị trí code | Vai trò |
+| :--- | :--- | :--- |
+| **Nút Hành Động** | [`admin.html`](file:///d:/shopHoa/souce_shopHoa/admin.html) | Nút `#btnExportInvoicePdf` trong Footer của `#orderDetailModal`. |
+| **Logic Xuất PDF**| [`js/excel-pdf.js`](file:///d:/shopHoa/souce_shopHoa/js/excel-pdf.js) | Hàm `exportOrderInvoicePdf(order)`: Khởi tạo A4, vẽ thông tin khách hàng, bảng món hoa, dòng tổng kết và chữ ký. |
+| **Bắt Sự Kiện** | [`js/admin.js`](file:///d:/shopHoa/souce_shopHoa/js/admin.js) | Gắn click cho nút `#btnExportInvoicePdf` truyền đơn hàng đang chọn vào hàm xuất. |
+
+---
+
+## 2. 🔍 Mổ Xẻ Chi Tiết Code Trong `exportOrderInvoicePdf(order)`
+
+```javascript
+const { jsPDF } = window.jspdf;
+const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+// 1. In tiêu đề và thông tin khách hàng
+doc.text('TIEM HOA KEM NHUNG HANDMADE', 105, 16, { align: 'center' });
+doc.text('HOA DON BAN LE / PHIEU GIAO HANG', 105, 37, { align: 'center' });
+doc.text(`Ma don hang: #${order.id}`, 14, 46);
+doc.text(`Khach hang: ${order.customerName}`, 14, 52);
+
+// 2. Dùng AutoTable vẽ bảng danh sách hoa đã mua
+doc.autoTable({
+    head: [['STT', 'Ten Mau Hoa', 'Don Gia', 'SL', 'Thanh Tien']],
+    body: order.items.map((item, idx) => [
+        idx + 1, item.name, formatPrice(item.price), item.quantity, formatPrice(item.price * item.quantity)
+    ]),
+    startY: 69,
+    theme: 'grid',
+    headStyles: { fillColor: [16, 132, 116], textColor: [255, 255, 255] }
+});
+
+// 3. In tổng thanh toán và phần chữ ký xác nhận
+const finalY = doc.lastAutoTable.finalY + 6;
+doc.text(`TONG TIEN THANH TOAN: ${formatPrice(order.totalAmount)}`, 180, finalY, { align: 'right' });
+doc.text('Nguoi Nhan Hang', 40, finalY + 20);
+doc.text('Nhan Vien Ke Toan / Lap Phieu', 155, finalY + 20);
+
+doc.save(`Hoa_Don_${order.id}.pdf`);
+```
+
+---
+
+## 3. 🎓 KỊCH BẢN VẤN ĐÁP GIÁO VIÊN
+
+#### ❓ Câu 1: *"Tính năng xuất hóa đơn PDF của em phục vụ cho ai và mang lại giá trị gì?"*
+> 🗣️ **Trả lời:**  
+> "Dạ thưa cô, tính năng này phục vụ trực tiếp cho vai trò **Nhân viên Kế toán** của cửa hàng. Khi khách đặt hàng thành công, kế toán mở đơn hàng và bấm 'Xuất Hóa Đơn PDF'. File PDF tạo ra chuẩn in ấn khổ A4, có đầy đủ tên cửa hàng, mã đơn, danh sách sản phẩm, số tiền thanh toán và phần chữ ký bàn giao, dùng để kẹp vào gói hoa khi giao hàng cho khách ạ."
+
+#### ❓ Câu 2: *"Làm sao em vẽ được bảng danh sách món hoa tự động ngắt dòng và chia trang?"*
+> 🗣️ **Trả lời:**  
+> "Dạ, em sử dụng plugin `jsPDF-AutoTable`. Em truyền mảng `tableRows` được map từ `order.items`. Thư viện sẽ tự động đo đạc kích thước các cột, căn lề phải cho cột tiền, căn giữa cho số lượng, và tự động xuống dòng hoặc ngắt trang nếu đơn hàng có nhiều món hoa ạ."
+
+---
+
+# PHẦN 6: BÁO CÁO THỐNG KÊ DOANH THU & LỢI NHUẬN TÁCH BIỆT
+
+## 1. 📍 Bản Đồ Vị Trí Code (Nó Nằm Ở Đâu?)
+
+| File | Vị trí code | Vai trò |
+| :--- | :--- | :--- |
+| **Giao Diện Thống Kê** | [`admin.html`](file:///d:/shopHoa/souce_shopHoa/admin.html) | Section `#panel-statistics`: Bộ lọc Tháng/Quý, 4 thẻ KPI, biểu đồ Flexbox Bar Chart, và Bảng Table `#statsTable`. |
+| **Tính Toán Nghiệp Vụ** | [`js/admin.js`](file:///d:/shopHoa/souce_shopHoa/js/admin.js) | Hàm `calculateRevenueStats()` & `renderStatistics()`: Dùng `filter` và `reduce` gom nhóm doanh thu, tính giá vốn và lợi nhuận ròng. |
+| **Xuất File Báo Cáo** | [`js/excel-pdf.js`](file:///d:/shopHoa/souce_shopHoa/js/excel-pdf.js) | Hàm `exportRevenueStatisticsPdf()` và `exportRevenueStatisticsExcel()`. |
+
+---
+
+## 2. 🔍 Công Thức Tính Toán Tài Chính Cốt Lõi
+
+```
+[1. TỔNG DOANH THU (REVENUE)]
+  = Tổng số tiền của các đơn hàng thành công (status !== 'cancelled') trong kỳ.
+  = orders.reduce((sum, o) => sum + (o.totalAmount || o.finalTotal), 0)
+
+[2. CHI PHÍ GIÁ VỐN HÀNG BÁN (COGS - 65%)]
+  = Math.round(revenue * 0.65)   (Chi phí nguyên vật liệu kẽm nhung, phụ kiện, nhân công uốn hoa)
+
+[3. LỢI NHUẬN RÒNG (NET PROFIT - 35%)]
+  = Doanh thu - Chi phí giá vốn
+  = revenue - cost
+
+[4. TỶ SUẤT LỢI NHUẬN (PROFIT MARGIN)]
+  = Math.round((profit / revenue) * 100)  (Khoảng 35%)
+```
+
+---
+
+## 3. 🎓 KỊCH BẢN VẤN ĐÁP GIÁO VIÊN
+
+#### ❓ Câu 1: *"Trang thống kê của em tách biệt Lợi nhuận và Doanh thu như thế nào?"*
+> 🗣️ **Trả lời:**  
+> "Dạ thưa cô, trong kinh doanh cửa hàng hoa handmade, Doanh thu là toàn bộ số tiền thu được từ khách, còn Lợi nhuận là phần tiền lời thực tế sau khi trừ chi phí vốn. Em thiết kế công thức tài chính chuẩn:  
+> - Doanh thu = Tổng giá trị các đơn hàng thành công trong kỳ (dùng hàm `reduce()`).  
+> - Chi phí vốn = 65% doanh thu (chi phí mua dây kẽm, giấy gói, ruy băng).  
+> - Lợi nhuận ròng = Doanh thu trừ Chi phí vốn.  
+> Hệ thống hiển thị tách biệt 2 cột trên cả Biểu đồ thanh và Bảng Table dữ liệu chi tiết ạ."
+
+#### ❓ Câu 2: *"Tại sao em vừa có Dashboard vừa có Bảng Table trong trang Thống kê?"*
+> 🗣️ **Trả lời:**  
+> "Dạ thưa cô, Dashboard dạng thẻ KPI và biểu đồ giúp người quản trị nhìn lướt qua là nắm ngay xu hướng kinh doanh tăng hay giảm. Còn **Bảng Table** cung cấp số liệu chi tiết từng tháng/quý để người quản trị dễ dàng đối soát số liệu và bấm nút xuất ra file Excel/PDF để lưu trữ hoặc nộp báo cáo thuế ạ."
+
+---
+
+# PHẦN 7: THUẬT TOÁN PHÂN TRANG (PAGINATION) CHUẨN CÔNG THỨC CÔ DẠY
+
+## 1. 📍 Bản Đồ Vị Trí Code (Nó Nằm Ở Đâu?)
+
+| File | Vị trí code | Vai trò |
+| :--- | :--- | :--- |
+| **Công thức & Render** | [`js/admin.js`](file:///d:/shopHoa/souce_shopHoa/js/admin.js) | Hàm tái sử dụng `renderPaginationControls()`: Nhận `totalItems`, `currentPage`, `limit` và gọi `slice()`. |
+| **Bảng Mẫu Hoa** | [`js/admin.js`](file:///d:/shopHoa/souce_shopHoa/js/admin.js) | `renderProductsTable()` áp dụng phân trang cho danh sách hoa. |
+| **Bảng Đơn Hàng** | [`js/admin.js`](file:///d:/shopHoa/souce_shopHoa/js/admin.js) | `renderOrdersTable()` áp dụng phân trang cho danh sách đơn hàng. |
+| **Giao diện HTML** | [`admin.html`](file:///d:/shopHoa/souce_shopHoa/admin.html) | Thẻ `#productsPagination` và `#ordersPagination` chứa thanh điều hướng. |
+
+---
+
+## 2. 🔍 Mổ Xẻ Công Thức Bài Giảng Của Cô Giáo
+
+```javascript
+// 1. Limit: Số sản phẩm hiển thị trên 1 trang (5, 10, 20)
+const limit = pagination.limit;
+
+// 2. Page: Tổng số trang tính theo công thức của cô (Math.ceil)
+const totalPages = Math.ceil(totalItems / limit) || 1;
+
+// 3. Vị trí bắt đầu và kết thúc của trang hiện tại
+const startIndex = (currentPage - 1) * limit; // Trang 1: 0, Trang 2: 10
+const endIndex = startIndex + limit;         // Trang 1: 10, Trang 2: 20
+
+// 4. Dùng slice() để lấy đúng các phần tử của trang
+const pagedItems = allItems.slice(startIndex, endIndex);
+
+// 5. Render thanh nút bấm: « Pre  [1]  [2]  [3]  Next »
+```
+
+---
+
+## 3. 🎓 KỊCH BẢN VẤN ĐÁP GIÁO VIÊN
+
+#### ❓ Câu 1: *"Em giải thích công thức tính tổng số trang `Math.ceil(tongsp / limit)`?"*
+> 🗣️ **Trả lời:**  
+> "Dạ thưa cô, hàm `Math.ceil()` trong JavaScript dùng để **làm tròn lên** số nguyên gần nhất. Ví dụ cửa hàng có 101 sản phẩm, mỗi trang hiển thị 10 sản phẩm (`limit = 10`):  
+> `101 / 10 = 10.1` ➔ `Math.ceil(10.1) = 11 trang`.  
+> 10 trang đầu mỗi trang chứa 10 sản phẩm, còn trang thứ 11 sẽ chứa 1 sản phẩm còn lại. Nhờ đó không bao giờ có sản phẩm nào bị bỏ sót ạ."
+
+#### ❓ Câu 2: *"Tại sao em dùng hàm `slice()` để cắt mảng mà không dùng `splice()`?"*
+> 🗣️ **Trả lời:**  
+> "Dạ thưa cô, vì hàm `slice(start, end)` trả về một mảng con mới mà **không làm thay đổi mảng gốc** (Pure function / Immutability). Nếu dùng `splice()`, nó sẽ cắt và xóa trực tiếp các phần tử trong mảng gốc, làm hỏng dữ liệu của cửa hàng khi người dùng chuyển qua lại giữa các trang ạ."
+
 

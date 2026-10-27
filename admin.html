@@ -136,6 +136,25 @@
             </svg>
             <span>Quản Lý Đơn Hàng</span>
           </button>
+
+          <button class="nav-item" data-tab="statistics" id="navItemStatistics">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            <span>Thống Kê Doanh Thu</span>
+          </button>
+
+          <button class="nav-item" data-tab="users" id="navItemUsers">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <span>Quản Lý Tài Khoản</span>
+          </button>
         </nav>
       </div>
 
@@ -148,7 +167,7 @@
           <span>Xem Cửa Hàng Hoa</span>
         </a>
         <button type="button" class="btn-action" id="adminLogoutBtn" style="width: 100%; border: none; background: transparent; color: #94A3B8; text-align: center; padding: 6px; font-size: 12px; cursor: pointer;">
-          Đăng xuất quyền Admin
+          🚪 Đăng xuất hệ thống
         </button>
       </div>
     </aside>
@@ -165,9 +184,12 @@
 
         <div class="topbar-right">
           <span class="live-clock" id="liveClock">11:55:00</span>
-          <div class="admin-chip">
-            <span class="admin-chip-avatar">A</span>
-            <span>Admin Quản Trị</span>
+          <div class="admin-chip" id="adminUserChip">
+            <span class="admin-chip-avatar" id="adminAvatarDisplay">A</span>
+            <div style="display: flex; flex-direction: column; text-align: left;">
+              <span id="adminUserNameDisplay" style="font-weight: 700; font-size: 13px;">Admin Quản Trị</span>
+              <span id="adminUserRoleBadge" style="font-size: 11px; color: #108474; font-weight: 600;">👑 Quản Trị Viên</span>
+            </div>
           </div>
         </div>
       </header>
@@ -373,6 +395,11 @@
               </tbody>
             </table>
           </div>
+
+          <!-- THANH PHÂN TRANG MẪU HOA (CÔNG THỨC CHUẨN CỦA CÔ) -->
+          <div class="admin-pagination-container" id="productsPagination" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: #FFF; border-top: 1px solid var(--border-light); border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+            <!-- Render động bằng JS: Chọn limit, Tổng số sp, Nút Pre 1 2 3 Next -->
+          </div>
         </section>
 
         <!-- ====================================================================
@@ -513,6 +540,179 @@
                 </tr>
               </thead>
               <tbody id="adminOrdersTable">
+                <!-- Đổ động bằng JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- THANH PHÂN TRANG ĐƠN HÀNG (CÔNG THỨC CHUẨN CỦA CÔ) -->
+          <div class="admin-pagination-container" id="ordersPagination" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: #FFF; border-top: 1px solid var(--border-light); border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+            <!-- Render động bằng JS -->
+          </div>
+        </section>
+
+        <!-- ====================================================================
+             TAB 6: BÁO CÁO & THỐNG KÊ DOANH THU - LỢI NHUẬN (ADMIN)
+             ==================================================================== -->
+        <section class="tab-panel" id="panel-statistics">
+          <div class="panel-header">
+            <div class="panel-header-title">
+              <h2>Báo Cáo Doanh Thu & Lợi Nhuận Tách Biệt</h2>
+              <p>Phân tích hiệu quả kinh doanh theo Tháng / Quý, theo dõi doanh thu và biên lợi nhuận ròng</p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <button type="button" class="btn-action-primary" id="btnExportStatsPdf" style="display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; background: #108474; color: #FFF; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                📄 Xuất Báo Cáo PDF
+              </button>
+              <button type="button" class="btn-secondary" id="btnExportStatsExcel" style="display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border: 1px solid var(--border-light); background: #FFF; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                📥 Xuất File Excel
+              </button>
+            </div>
+          </div>
+
+          <!-- BỘ LỌC KỲ THỐNG KÊ -->
+          <div class="admin-toolbar" style="margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <span style="font-weight: 700; font-size: 13.5px; color: var(--text-dark);">Xem thống kê theo:</span>
+              <select id="statsPeriodType" class="admin-select" style="min-width: 170px;">
+                <option value="month">Từng Tháng Trong Năm</option>
+                <option value="quarter">Từng Quý (Q1 - Q4)</option>
+              </select>
+
+              <span style="font-weight: 700; font-size: 13.5px; color: var(--text-dark); margin-left: 10px;">Năm:</span>
+              <select id="statsYearSelect" class="admin-select" style="min-width: 100px;">
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 4 THẺ KPI DOANH THU & LỢI NHUẬN -->
+          <div class="kpi-grid" style="margin-bottom: 28px;">
+            <div class="kpi-card">
+              <div class="kpi-icon" style="background: rgba(16, 132, 116, 0.1); color: #108474;">📦</div>
+              <div class="kpi-info">
+                <span class="kpi-label">Đơn Hàng Hoàn Thành</span>
+                <span class="kpi-value" id="statCompletedOrders">0</span>
+                <span class="kpi-hint" style="color: #108474;">Tất cả đơn đã giao</span>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-icon" style="background: rgba(14, 165, 233, 0.1); color: #0EA5E9;">💰</div>
+              <div class="kpi-info">
+                <span class="kpi-label">Tổng Doanh Thu</span>
+                <span class="kpi-value" id="statTotalRevenue">0 đ</span>
+                <span class="kpi-hint" style="color: #0EA5E9;">Tổng giá trị thực nhận</span>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-icon" style="background: rgba(245, 158, 11, 0.1); color: #F59E0B;">🏷️</div>
+              <div class="kpi-info">
+                <span class="kpi-label">Chi Phí Vốn Hàng Bán</span>
+                <span class="kpi-value" id="statTotalCost">0 đ</span>
+                <span class="kpi-hint" style="color: #F59E0B;">Giá vốn kẽm nhung (65%)</span>
+              </div>
+            </div>
+
+            <div class="kpi-card" style="border: 2px solid #108474;">
+              <div class="kpi-icon" style="background: rgba(16, 132, 116, 0.15); color: #108474;">📈</div>
+              <div class="kpi-info">
+                <span class="kpi-label">Lợi Nhuận Ròng (35%)</span>
+                <span class="kpi-value" id="statTotalProfit" style="color: #108474;">0 đ</span>
+                <span class="kpi-hint" style="color: #108474; font-weight: 700;">Doanh thu - Chi phí vốn</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- BIỂU ĐỒ SO SÁNH TRỰC QUAN DOANH THU & LỢI NHUẬN (CSS FLEX BAR CHART) -->
+          <div class="panel-card" style="margin-bottom: 28px; padding: 22px; background: #FFF; border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+              <h3 style="font-size: 15px; font-weight: 700;">Biểu Đồ So Sánh Doanh Thu & Lợi Nhuận Qua Các Kỳ</h3>
+              <div style="display: flex; gap: 16px; font-size: 12px; font-weight: 600;">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span style="width: 12px; height: 12px; background: #0EA5E9; border-radius: 3px; display: inline-block;"></span> Doanh Thu
+                </span>
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span style="width: 12px; height: 12px; background: #108474; border-radius: 3px; display: inline-block;"></span> Lợi Nhuận Ròng
+                </span>
+              </div>
+            </div>
+            <div id="statsBarChartWrap" style="display: flex; align-items: flex-end; gap: 16px; height: 200px; padding: 15px 10px 5px; border-bottom: 2px solid var(--border-light); overflow-x: auto;">
+              <!-- Vẽ động cột biểu đồ bằng JS -->
+            </div>
+          </div>
+
+          <!-- BẢNG TABLE DỮ LIỆU THỐNG KÊ CHI TIẾT (ĐÁP ỨNG ĐÚNG YÊU CẦU: NGOÀI DASHBOARD CÒN CÓ TABLE ĐỂ XUẤT) -->
+          <div class="admin-table-wrap">
+            <table class="admin-table" id="statsTable">
+              <thead>
+                <tr>
+                  <th>Kỳ Báo Cáo</th>
+                  <th style="text-align: center;">Số Đơn Hàng</th>
+                  <th style="text-align: right;">Doanh Thu (VND)</th>
+                  <th style="text-align: right;">Chi Phí Vốn (65%)</th>
+                  <th style="text-align: right; color: #108474; font-weight: 700;">Lợi Nhuận Ròng (35%)</th>
+                  <th style="text-align: center;">Tỷ Suất LN</th>
+                </tr>
+              </thead>
+              <tbody id="statsTableBody">
+                <!-- Đổ động bằng JS -->
+              </tbody>
+              <tfoot id="statsTableFooter" style="background: #F8FAFC; font-weight: 700; border-top: 2px solid var(--border-light);">
+                <!-- Dòng tổng cộng đổ bằng JS -->
+              </tfoot>
+            </table>
+          </div>
+        </section>
+
+        <!-- ====================================================================
+             TAB 7: QUẢN LÝ TÀI KHOẢN & PHÂN QUYỀN HỆ THỐNG (ADMIN PUT CREDENTIALS)
+             ==================================================================== -->
+        <section class="tab-panel" id="panel-users">
+          <div class="panel-header">
+            <div class="panel-header-title">
+              <h2>Quản Lý Tài Khoản & Phân Quyền (3 Role)</h2>
+              <p>Phân quyền chi tiết cho Admin, Nhân viên Kế toán và Khách hàng; hỗ trợ PUT credentials để bàn giao</p>
+            </div>
+            <button type="button" class="btn-primary" id="btnAddUserBtn">
+              + Thêm Tài Khoản Mới
+            </button>
+          </div>
+
+          <div class="admin-toolbar">
+            <div class="toolbar-search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="userSearchInput" placeholder="Tìm theo tên hoặc email...">
+            </div>
+
+            <div class="toolbar-filters">
+              <select id="userRoleFilter" class="admin-select">
+                <option value="all">Tất cả vai trò</option>
+                <option value="admin">Quản trị viên (Admin)</option>
+                <option value="staff">Nhân viên Kế toán (Staff)</option>
+                <option value="customer">Khách hàng (Customer)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px; text-align: center;">STT</th>
+                  <th>Họ và Tên</th>
+                  <th>Email Đăng Nhập</th>
+                  <th>Vai Trò (Role)</th>
+                  <th>Thời Điểm Tạo</th>
+                  <th style="text-align: right;">Hành Động</th>
+                </tr>
+              </thead>
+              <tbody id="adminUsersTableBody">
                 <!-- Đổ động bằng JS -->
               </tbody>
             </table>
@@ -849,7 +1049,12 @@
           </select>
         </div>
 
-        <button type="button" class="btn-primary" id="saveOrderStatusBtn">Cập Nhật Trạng Thái</button>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn-action-primary" id="btnExportInvoicePdf" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: #108474; color: #FFF; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+            📄 Xuất Hóa Đơn PDF
+          </button>
+          <button type="button" class="btn-primary" id="saveOrderStatusBtn">Cập Nhật Trạng Thái</button>
+        </div>
       </div>
     </div>
   </div>
@@ -869,6 +1074,60 @@
           Đồng Ý Xóa
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL CHỈNH SỬA TÀI KHOẢN & BÀN GIAO (ADMIN PUT CREDENTIALS) -->
+  <div class="modal-backdrop hidden" id="userEditModal">
+    <div class="modal-card" style="max-width: 520px; width: 95%;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">👤</span>
+          <h3 id="userEditModalTitle" style="margin: 0; font-size: 17px;">Chỉnh Sửa Tài Khoản & Bàn Giao (PUT)</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="userEditModalClose">✕</button>
+      </div>
+
+      <form id="userEditForm">
+        <input type="hidden" id="userEditId">
+        <div class="modal-body" style="padding: 18px 22px;">
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label" for="userEditName" style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px;">Họ và Tên:</label>
+            <input type="text" id="userEditName" class="form-input" style="width: 100%;" required placeholder="Nhập họ tên đầy đủ">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label" for="userEditEmail" style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px;">Email Đăng Nhập:</label>
+            <input type="email" id="userEditEmail" class="form-input" style="width: 100%;" required placeholder="email@shophoa.com">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label" for="userEditPassword" style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px;">
+              Mật Khẩu Mới (Đổi Credentials Bàn Giao):
+            </label>
+            <input type="text" id="userEditPassword" class="form-input" style="width: 100%; font-family: monospace;" placeholder="Để trống nếu không đổi, hoặc nhập mật khẩu mới">
+            <span style="font-size: 11.5px; color: var(--text-muted); display: block; margin-top: 4px;">
+              💡 Dùng để cập nhật mật khẩu mới khi bàn giao quyền quản trị cho nhân sự khác.
+            </span>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label" for="userEditRole" style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px;">Quyền Hạn / Vai Trò (Role):</label>
+            <select id="userEditRole" class="admin-select" style="width: 100%;">
+              <option value="admin">👑 Quản Trị Viên Cấp Cao (Admin - Toàn quyền)</option>
+              <option value="staff">📑 Nhân Viên Kế Toán (Staff - Xem & xuất hóa đơn PDF)</option>
+              <option value="customer">🌸 Khách Hàng (Customer - Chỉ mua hàng)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn-secondary" id="userEditModalCancel">Hủy Bỏ</button>
+          <button type="submit" class="btn-primary" id="userEditSubmitBtn">
+            💾 Cập Nhật Tài Khoản (PUT API)
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 

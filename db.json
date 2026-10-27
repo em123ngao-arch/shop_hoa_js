@@ -367,8 +367,113 @@
       "subtotal": 500000,
       "discountAmount": 100000,
       "totalAmount": 400000,
-      "status": "pending",
+      "status": "completed",
       "createdAt": "2026-10-15T08:45:00.000Z"
+    },
+    {
+      "id": "DH-1004",
+      "customerName": "Phạm Quốc Hùng",
+      "phone": "0933112233",
+      "address": "120 Hai Bà Trưng, Quận 3, TP.HCM",
+      "note": "Hoa tặng mẹ dịp Tết",
+      "items": [
+        {
+          "id": 13,
+          "name": "Giỏ Hoa Kẽm Nhung Khai Trương Tài Lộc",
+          "price": 720000,
+          "quantity": 1,
+          "image": "./images/600k.png"
+        }
+      ],
+      "subtotal": 720000,
+      "discountAmount": 50000,
+      "totalAmount": 670000,
+      "status": "completed",
+      "createdAt": "2026-01-20T11:00:00.000Z"
+    },
+    {
+      "id": "DH-1005",
+      "customerName": "Võ Minh Đức",
+      "phone": "0944556677",
+      "address": "45 Pasteur, Quận 1, TP.HCM",
+      "note": "Tặng người yêu ngày Valentine",
+      "items": [
+        {
+          "id": 2,
+          "name": "Bó Hoa Hồng Kẽm Nhung Sunset",
+          "price": 420000,
+          "quantity": 2,
+          "image": "./images/350.png"
+        }
+      ],
+      "subtotal": 840000,
+      "discountAmount": 84000,
+      "totalAmount": 756000,
+      "status": "completed",
+      "createdAt": "2026-02-14T10:30:00.000Z"
+    },
+    {
+      "id": "DH-1006",
+      "customerName": "Đặng Thị Thảo",
+      "phone": "0977889900",
+      "address": "200 CMT8, Quận 10, TP.HCM",
+      "note": "Kỷ niệm Quốc tế Phụ Nữ 8/3",
+      "items": [
+        {
+          "id": 1,
+          "name": "Bó Hoa Kẽm Nhung Tulip Pastel",
+          "price": 350000,
+          "quantity": 3,
+          "image": "./images/300.png"
+        }
+      ],
+      "subtotal": 1050000,
+      "discountAmount": 105000,
+      "totalAmount": 945000,
+      "status": "completed",
+      "createdAt": "2026-03-08T09:15:00.000Z"
+    },
+    {
+      "id": "DH-1007",
+      "customerName": "Ngô Gia Bảo",
+      "phone": "0966123456",
+      "address": "15 Trần Hưng Đạo, Quận 5, TP.HCM",
+      "note": "Giao gấp buổi trưa",
+      "items": [
+        {
+          "id": 7,
+          "name": "Bình Hoa Sen Kẽm Nhung Thuần Khiết",
+          "price": 480000,
+          "quantity": 1,
+          "image": "./images/600k.png"
+        }
+      ],
+      "subtotal": 480000,
+      "discountAmount": 0,
+      "totalAmount": 480000,
+      "status": "completed",
+      "createdAt": "2026-05-18T12:00:00.000Z"
+    },
+    {
+      "id": "DH-1008",
+      "customerName": "Bùi Tuyết Nhi",
+      "phone": "0922334455",
+      "address": "72 Điện Biên Phủ, Quận Bình Thạnh, TP.HCM",
+      "note": "Gói quà cẩn thận giúp shop",
+      "items": [
+        {
+          "id": 16,
+          "name": "Bó Hoa Tulip Kẽm Nhung Trắng Sữa",
+          "price": 400000,
+          "quantity": 2,
+          "image": "./images/350.png"
+        }
+      ],
+      "subtotal": 800000,
+      "discountAmount": 80000,
+      "totalAmount": 720000,
+      "status": "completed",
+      "createdAt": "2026-08-22T15:20:00.000Z"
     }
   ],
   "banners": [
@@ -459,21 +564,51 @@
   ],
   "users": [
     {
-      "name": "Duy Bảo",
+      "name": "Quản Trị Viên Trưởng",
+      "email": "admin@shophoa.com",
+      "password": "123",
+      "role": "admin",
+      "createdAt": "2026-01-01T08:00:00.000Z",
+      "id": "USR-ADMIN"
+    },
+    {
+      "name": "Nguyễn Thị Kế Toán",
+      "email": "ketoan@shophoa.com",
+      "password": "123",
+      "role": "staff",
+      "createdAt": "2026-02-15T09:00:00.000Z",
+      "id": "USR-STAFF"
+    },
+    {
+      "name": "Trần Văn Khách Mua Hoa",
+      "email": "khachhang@shophoa.com",
+      "password": "123",
+      "role": "customer",
+      "createdAt": "2026-03-10T10:30:00.000Z",
+      "id": "USR-CUST"
+    },
+    {
+      "name": "Duy Bảo (Admin)",
       "email": "em123chim@gmail.com",
       "password": "123",
+      "role": "admin",
+      "createdAt": "2026-01-10T08:00:00.000Z",
       "id": "VVtERs9Tx18"
     },
     {
-      "name": "Ngân",
+      "name": "Ngân (Admin)",
       "email": "em123ngao@gmail.com",
       "password": "123",
+      "role": "admin",
+      "createdAt": "2026-01-12T08:00:00.000Z",
       "id": "wi-XRJopccA"
     },
     {
-      "name": "Bảo",
+      "name": "Bảo (Khách hàng)",
       "email": "lethuvan198181@gmail.com",
       "password": "123456",
+      "role": "customer",
+      "createdAt": "2026-04-05T14:20:00.000Z",
       "id": "2-u5jCl"
     }
   ],

@@ -38,11 +38,26 @@ async function login() {
             return
         }
         const user = users[0];
-        localStorage.setItem('user', JSON.stringify(user))
-        alert(`xin chao ${user.email || user.name}`)
-        window.location.href = 'index.html';
+        localStorage.setItem('user', JSON.stringify(user));
+
+        // Phân quyền điều hướng theo 3 Role
+        const role = user.role || 'customer';
+
+        if (role === 'admin') {
+            sessionStorage.setItem('admin_authenticated', 'true');
+            alert(`👑 Xin chào Quản Trị Viên: ${user.name || user.email}`);
+            window.location.href = 'admin.html';
+        } else if (role === 'staff') {
+            sessionStorage.setItem('admin_authenticated', 'true');
+            alert(`📑 Xin chào Nhân Viên Kế Toán: ${user.name || user.email}`);
+            window.location.href = 'admin.html';
+        } else {
+            sessionStorage.removeItem('admin_authenticated');
+            alert(`🌸 Xin chào quý khách: ${user.name || user.email}`);
+            window.location.href = 'index.html';
+        }
     } catch (error) {
-        console.log("error")
-        alert('not conecting server')
+        console.error("Lỗi đăng nhập:", error);
+        alert('Không thể kết nối đến máy chủ! Vui lòng kiểm tra server (npm run server).');
     }
 }
