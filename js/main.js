@@ -13,7 +13,7 @@ import {
   removeVoucher,
   saveOrder
 } from './storage.js';
-import { formatPrice, renderStars, showToast, updateCartBadge } from './utils.js';
+import { formatPrice, renderStars, showToast, updateCartBadge, renderHeaderAuth } from './utils.js';
 
 /**
  * main.js - Logic điều khiển trang chủ (index.html)
@@ -907,6 +907,7 @@ function initBirthdayModal() {
  * 11. KHỞI TẠO DỮ LIỆU BAN ĐẦU KHI MỞ TRANG
  */
 async function init() {
+  renderHeaderAuth(); // Khởi tạo lời chào tài khoản và phân quyền trên header
   updateCartBadge();
 
   try {

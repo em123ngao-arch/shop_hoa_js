@@ -72,10 +72,12 @@
         </button>
       </div>
 
-      <!-- Header Actions: Đăng Nhập, Đăng Ký, Giỏ hàng -->
+      <!-- Header Actions: Auth Area + Giỏ hàng -->
       <div class="header-actions">
-        <a href="./login.html">Đăng nhập</a>
-        <a href="./register.html">Đăng ký</a>
+        <div id="headerAuthArea" class="header-auth-area">
+          <a href="./login.html" class="auth-link">Đăng nhập</a>
+          <a href="./register.html" class="auth-link">Đăng ký</a>
+        </div>
         <button type="button" class="cart-btn" id="cartButton" title="Giỏ hàng của bạn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-2z"></path>

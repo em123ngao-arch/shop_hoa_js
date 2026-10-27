@@ -84,3 +84,90 @@ export function updateCartBadge() {
     cartBadge.textContent = '0';
   }
 }
+
+/**
+ * Hiển thị trạng thái đăng nhập trên Header
+ * Tự động nhận diện 3 Role: Admin, Staff (Kế toán), Customer (Khách hàng)
+ * - Nếu đã đăng nhập: Hiển thị "Xin chào, [Tên]", huy hiệu Role, Nút tắt vào Quản trị/Kế toán (nếu có quyền), Nút Đăng xuất
+ * - Nếu chưa đăng nhập: Hiển thị 2 liên kết "Đăng nhập" & "Đăng ký"
+ */
+export function renderHeaderAuth() {
+  const authContainer = document.getElementById('headerAuthArea');
+  if (!authContainer) return;
+
+  const savedUser = localStorage.getItem('user');
+  if (!savedUser) {
+    authContainer.innerHTML = `
+      <a href="./login.html" class="auth-link">Đăng nhập</a>
+      <a href="./register.html" class="auth-link">Đăng ký</a>
+    `;
+    return;
+  }
+
+  try {
+    const user = JSON.parse(savedUser);
+    const role = user.role || 'customer';
+
+    let roleBadge = '';
+    let adminBtn = '';
+
+    if (role === 'admin') {
+      roleBadge = `<span class="user-role-badge badge-admin" title="Quyền Quản Trị Viên Toàn Quyền">👑 Quản Trị</span>`;
+      adminBtn = `
+        <a href="./admin.html" class="admin-quick-btn admin-btn-pulse" title="Truy cập Trang Quản Trị Hệ Thống">
+          <span>⚙️ Quản Trị</span>
+        </a>
+      `;
+    } else if (role === 'staff') {
+      roleBadge = `<span class="user-role-badge badge-staff" title="Quyền Kế Toán: Hóa Đơn & Thống Kê">📑 Kế Toán</span>`;
+      adminBtn = `
+        <a href="./admin.html" class="admin-quick-btn staff-btn-pulse" title="Truy cập Báo Cáo Kế Toán & Hóa Đơn">
+          <span>📊 Kế Toán</span>
+        </a>
+      `;
+    } else {
+      roleBadge = `<span class="user-role-badge badge-cust" title="Tài Khoản Khách Hàng Thân Thiết">🌸 Khách Hàng</span>`;
+    }
+
+    authContainer.innerHTML = `
+      <div class="user-logged-box">
+        <div class="user-greeting">
+          <span class="user-hello">Xin chào,</span>
+          <strong class="user-display-name" title="${user.email}">${user.name || user.email}</strong>
+          ${roleBadge}
+        </div>
+        ${adminBtn}
+        <button type="button" id="btnLogoutHeader" class="btn-logout-header" title="Đăng xuất khỏi tài khoản">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>Đăng xuất</span>
+        </button>
+      </div>
+    `;
+
+    // Gắn sự kiện Đăng xuất
+    const btnLogout = document.getElementById('btnLogoutHeader');
+    if (btnLogout) {
+      btnLogout.addEventListener('click', () => {
+        if (confirm('Bạn có chắc chắn muốn đăng xuất tài khoản này?')) {
+          localStorage.removeItem('user');
+          sessionStorage.removeItem('admin_authenticated');
+          showToast('Đã đăng xuất tài khoản thành công!', 'success');
+          setTimeout(() => {
+            window.location.reload();
+          }, 350);
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Lỗi khi đọc tài khoản từ localStorage:', error);
+    localStorage.removeItem('user');
+    authContainer.innerHTML = `
+      <a href="./login.html" class="auth-link">Đăng nhập</a>
+      <a href="./register.html" class="auth-link">Đăng ký</a>
+    `;
+  }
+}
