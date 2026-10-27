@@ -237,8 +237,7 @@ Khi giáo viên hỏi: *"Code nhập Excel và xuất PDF em để ở đâu và
 | **Giao diện Admin** | [`admin.html`](file:///d:/shopHoa/souce_shopHoa/admin.html) | Chứa 3 nút hành động (`#btnDownloadTemplate`, `#btnTriggerImportExcel`, `#btnExportProductPdf`) và Modal xem trước (`#excelPreviewModal`). Nhúng thư viện `jsPDF`, `jsPDF-AutoTable`, `SheetJS (XLSX)`. |
 | **Module Xử lý File** | [`js/excel-pdf.js`](file:///d:/shopHoa/souce_shopHoa/js/excel-pdf.js) | **File nghiệp vụ chính**: Đọc file Excel, tạo file mẫu `.xlsx`, vẽ bảng báo cáo và xuất file `.pdf`. |
 | **Quản trị chung** | [`js/admin.js`](file:///d:/shopHoa/souce_shopHoa/js/admin.js) | Kết nối dữ liệu `allProducts`, `allCategories`, truyền bộ lọc sản phẩm vào module và gọi nạp lại bảng sau khi lưu. |
-| **Cơ sở dữ liệu** | [`db.json`](file:///d:/shopHoa/souce_shopHoa/db.json) | Bảng `"products": [ ... ]` lưu trữ thông tin sản phẩm hoa. |
-| **Code tham khảo của cô**| [`DoAnPDF/app.js`](file:///d:/shopHoa/souce_shopHoa/DoAnPDF/app.js) | Nguồn tài liệu bài giảng gốc của cô giáo trên lớp. |
+| **Bài giảng ôn tập của cô**| [`docs/doc-on-tap-cuaCo/`](file:///d:/shopHoa/souce_shopHoa/docs/doc-on-tap-cuaCo/) | Tài liệu đề bài và hướng dẫn ôn tập của cô giáo. |
 
 ---
 

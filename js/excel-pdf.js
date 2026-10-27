@@ -4,7 +4,7 @@ import { formatPrice, showToast } from './utils.js';
 /**
  * excel-pdf.js - Module Xử lý Nhập Excel (Import) và Xuất Báo Cáo PDF (Export)
  * Dành cho trang Quản trị viên (admin.html)
- * Kế thừa và phát triển từ bài giảng DoAnPDF của cô giáo
+ * Kế thừa và phát triển từ bài giảng xuất PDF & bảng tính của cô giáo
  */
 
 let pendingImportProducts = []; // Biến tạm lưu danh sách hoa vừa đọc từ Excel chờ người dùng bấm Lưu

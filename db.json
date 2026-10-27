@@ -586,30 +586,6 @@
       "role": "customer",
       "createdAt": "2026-03-10T10:30:00.000Z",
       "id": "USR-CUST"
-    },
-    {
-      "name": "Duy Bảo (Admin)",
-      "email": "em123chim@gmail.com",
-      "password": "123",
-      "role": "admin",
-      "createdAt": "2026-01-10T08:00:00.000Z",
-      "id": "VVtERs9Tx18"
-    },
-    {
-      "name": "Ngân (Admin)",
-      "email": "em123ngao@gmail.com",
-      "password": "123",
-      "role": "admin",
-      "createdAt": "2026-01-12T08:00:00.000Z",
-      "id": "wi-XRJopccA"
-    },
-    {
-      "name": "Bảo (Khách hàng)",
-      "email": "lethuvan198181@gmail.com",
-      "password": "123456",
-      "role": "customer",
-      "createdAt": "2026-04-05T14:20:00.000Z",
-      "id": "2-u5jCl"
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"
