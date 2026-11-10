@@ -16,6 +16,8 @@
     rel="stylesheet">
 
   <!-- CSS STYLESHEETS (Vanilla CSS thuần) -->
+  <link rel="icon" type="image/png" href="./images/favicon-flower.png">
+  <link rel="apple-touch-icon" href="./images/favicon-flower.png">
   <link rel="stylesheet" href="./css/reset.css">
   <link rel="stylesheet" href="./css/variables.css">
   <link rel="stylesheet" href="./css/style.css">
@@ -46,18 +48,9 @@
   <header class="header">
     <div class="container header-content">
       <!-- Logo Tiệm Hoa -->
-      <a href="./index.html" class="logo">
-        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M12 2a4 4 0 0 1 4 4c0 3-4 6-4 6s-4-3-4-6a4 4 0 0 1 4-4z"></path>
-          <path d="M12 22a4 4 0 0 1-4-4c0-3 4-6 4-6s4 3 4 6a4 4 0 0 1-4 4z"></path>
-          <path d="M2 12a4 4 0 0 1 4-4c3 0 6 4 6 4s-3 4-6 4a4 4 0 0 1-4-4z"></path>
-          <path d="M22 12a4 4 0 0 1-4 4c-3 0-6-4-6-4s3-4 6-4a4 4 0 0 1 4 4z"></path>
-        </svg>
-        <div>
-          <span>Tiệm Hoa Kẽm Nhung</span>
-          <span class="logo-sub">Handmade Florist</span>
-        </div>
+      <a href="./index.html" class="logo" aria-label="Trang chủ Tiệm Hoa Kẽm Nhung">
+        <img src="./images/logo-tiem-hoa.png" alt="Tiệm Hoa Kẽm Nhung - Handmade Florist" class="logo-img" width="168"
+          height="46">
       </a>
 
       <!-- Thanh Tìm Kiếm Thông Minh (Search Input) -->
@@ -134,7 +127,8 @@
       </button>
 
       <!-- Thanh Tiến Trình Auto-Slide 4s -->
-      <div class="hero-progress-wrap" id="heroProgressWrap" title="Tự động chuyển slide sau 4 giây (Rê chuột để tạm dừng)">
+      <div class="hero-progress-wrap" id="heroProgressWrap"
+        title="Tự động chuyển slide sau 4 giây (Rê chuột để tạm dừng)">
         <div class="hero-progress-bar" id="heroProgressBar"></div>
       </div>
 
@@ -199,12 +193,17 @@
       <div class="section-title-wrap">
         <div>
           <div class="flash-sale-badge-wrap">
-            <span class="flash-sale-badge">⚡ Flash Deals Giờ Vàng</span>
+            <span class="flash-sale-badge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                style="vertical-align: -2px; margin-right: 4px;">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>Ưu Đãi Giờ Vàng
+            </span>
             <span class="flash-sale-timer" id="flashSaleTimer">Kết thúc trong: <strong>03:45:12</strong></span>
           </div>
           <h2 class="section-main-title">Ưu Đãi Hoa Kẽm Nhung Giảm Đến 35%</h2>
         </div>
-        
+
         <!-- Thanh lọc nhanh các mức % sale -->
         <div class="sale-filter-pills" id="saleFilterPills">
           <button class="sale-pill active" data-sale="all">Tất Cả Sale</button>
@@ -243,20 +242,62 @@
   <section id="products" class="products-section">
     <div class="container">
       <!-- Toolbar: Tiêu đề và đếm số lượng -->
-      <div class="section-toolbar">
+      <div class="section-toolbar"
+        style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 24px;">
         <div>
           <h2 style="font-family: var(--font-serif); font-size: 24px; font-weight: 700;">
             Tất Cả Mẫu Hoa Nổi Bật
           </h2>
           <p class="products-count">
-            Hiển thị <strong id="productCount">16</strong> mẫu hoa kẽm nhung thủ công
+            Hiển thị <strong id="productCount" style="color: var(--color-primary);">16</strong> mẫu hoa kẽm nhung thủ
+            công
           </p>
+        </div>
+
+        <!-- Bộ Lọc Sắp Xếp Thực Tế Chuẩn Sàn TMĐT -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label for="catalogSortSelect" style="font-size: 13px; color: var(--text-muted); font-weight: 600;">Sắp xếp
+            theo:</label>
+          <select id="catalogSortSelect"
+            style="padding: 7px 14px; font-size: 13px; font-weight: 600; border-radius: 8px; border: 1px solid var(--border-light); background: #FFF; color: var(--text-dark); cursor: pointer; outline: none;">
+            <option value="newest" selected>Mới nhất lên đầu (Mặc định)</option>
+            <option value="bestseller">Bán chạy nhất</option>
+            <option value="price-asc">Giá: Thấp đến Cao</option>
+            <option value="price-desc">Giá: Cao đến Thấp</option>
+          </select>
         </div>
       </div>
 
-      <!-- Trạng thái Loading và Lỗi (Kế thừa từ code Thầy) -->
-      <div id="loading" class="loading">
-        Đang nạp các mẫu hoa...
+      <!-- Trạng thái Loading Khung Xương Shimmer (UX-08) -->
+      <div id="loading" class="skeleton-grid">
+        <div class="skeleton-card">
+          <div class="skeleton-box skeleton-card-img"></div>
+          <div class="skeleton-card-body">
+            <div class="skeleton-box skeleton-card-title"></div>
+            <div class="skeleton-box skeleton-card-price"></div>
+          </div>
+        </div>
+        <div class="skeleton-card">
+          <div class="skeleton-box skeleton-card-img"></div>
+          <div class="skeleton-card-body">
+            <div class="skeleton-box skeleton-card-title"></div>
+            <div class="skeleton-box skeleton-card-price"></div>
+          </div>
+        </div>
+        <div class="skeleton-card">
+          <div class="skeleton-box skeleton-card-img"></div>
+          <div class="skeleton-card-body">
+            <div class="skeleton-box skeleton-card-title"></div>
+            <div class="skeleton-box skeleton-card-price"></div>
+          </div>
+        </div>
+        <div class="skeleton-card">
+          <div class="skeleton-box skeleton-card-img"></div>
+          <div class="skeleton-card-body">
+            <div class="skeleton-box skeleton-card-title"></div>
+            <div class="skeleton-box skeleton-card-price"></div>
+          </div>
+        </div>
       </div>
 
       <div id="error" class="error hidden">
@@ -266,6 +307,12 @@
       <!-- Lưới sản phẩm hoa (Grid 4 cột Desktop / 2 cột Mobile) -->
       <div id="productList" class="product-grid">
         <!-- Danh sách hoa sẽ được render động bằng JavaScript (main.js) -->
+      </div>
+
+      <!-- Thanh Phân Trang Danh Sách Sản Phẩm (Chuẩn công thức cô dạy) -->
+      <div id="catalogPagination" class="pagination-bar"
+        style="margin-top: 36px; display: flex; justify-content: center; align-items: center; gap: 8px;">
+        <!-- Render động qua main.js -->
       </div>
     </div>
   </section>
@@ -335,7 +382,10 @@
     <div class="container">
       <div class="footer-content">
         <div>
-          <div class="footer-logo">Tiệm Hoa Kẽm Nhung</div>
+          <div class="footer-logo">
+            <img src="./images/logo-tiem-hoa.png" alt="Tiệm Hoa Kẽm Nhung" class="footer-logo-img" width="160"
+              height="44">
+          </div>
           <p class="footer-desc">
             Chuyên thiết kế các bó hoa sinh nhật, hoa kỷ niệm, giỏ hoa để bàn thủ công từ kẽm nhung cao cấp.
             Trao gửi thông điệp yêu thương vĩnh cửu tới người thương.
@@ -363,15 +413,37 @@
         <div class="footer-col">
           <h4>Liên Hệ</h4>
           <ul>
-            <li>📍 14 Trịnh Đình Thảo, Phường Hòa Thạnh, Quận Tân Phú, TP.HCM</li>
-            <li>📞 Hotline: 0374905296</li>
-            <li>⏰ 08:00 - 21:00 hàng ngày</li>
+            <li style="display: flex; align-items: flex-start; gap: 8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                style="margin-top: 2px; flex-shrink: 0;">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+              <span>14 Trịnh Đình Thảo, Phường Hòa Thạnh, Quận Tân Phú, TP.HCM</span>
+            </li>
+            <li style="display: flex; align-items: center; gap: 8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                style="flex-shrink: 0;">
+                <path
+                  d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z">
+                </path>
+              </svg>
+              <span>Hotline: 0374905296</span>
+            </li>
+            <li style="display: flex; align-items: center; gap: 8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                style="flex-shrink: 0;">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <span>08:00 - 21:00 hàng ngày</span>
+            </li>
           </ul>
         </div>
       </div>
 
       <div class="footer-bottom">
-        <p>© 2026 Tiệm Hoa Kẽm Nhung</p>
+        <p>&copy; 2026 Tiệm Hoa Kẽm Nhung</p>
       </div>
     </div>
   </footer>
@@ -380,14 +452,14 @@
        SIDE CART DRAWER & BACKDROP (SHOP-07)
        ======================================================================== -->
   <div class="cart-backdrop" id="cartBackdrop"></div>
-  
+
   <aside class="cart-drawer" id="cartDrawer" aria-label="Giỏ hàng của bạn">
     <div class="drawer-header">
       <div class="drawer-title-wrap">
         <h3>Giỏ Hàng Của Bạn</h3>
         <span class="drawer-count-tag" id="drawerCartCountTag">0 sản phẩm</span>
       </div>
-      <button class="drawer-close-btn" id="drawerCloseBtn" aria-label="Đóng giỏ hàng">✕</button>
+      <button class="drawer-close-btn" id="drawerCloseBtn" aria-label="Đóng giỏ hàng">&times;</button>
     </div>
 
     <!-- Danh sách sản phẩm trong giỏ -->
@@ -397,7 +469,14 @@
       </div>
 
       <div class="drawer-empty-state hidden" id="drawerCartEmpty">
-        <div class="empty-icon" style="font-size: 40px; margin-bottom: 12px;">🧺</div>
+        <div class="empty-icon"
+          style="margin-bottom: 12px; color: var(--text-muted); display: flex; justify-content: center;">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-2z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+        </div>
         <h4 style="font-size: 16px; margin-bottom: 6px;">Giỏ hàng của bạn đang trống</h4>
         <p style="font-size: 13.5px; color: var(--text-muted); margin-bottom: 18px;">
           Hãy khám phá các mẫu hoa kẽm nhung tinh tế của chúng tôi nhé!
@@ -418,6 +497,27 @@
         </div>
         <div id="appliedVoucherInfo" class="applied-voucher-info hidden">
           <!-- Hiển thị tag mã đã áp dụng kèm nút gỡ -->
+        </div>
+
+        <!-- Quick Voucher Wallet Trigger -->
+        <div class="voucher-wallet-trigger-wrap">
+          <button type="button" class="btn-toggle-voucher-wallet" id="btnToggleVoucherWallet"
+            title="Bấm để xem các mã ưu đãi đang mở">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+              <line x1="2" y1="10" x2="22" y2="10"></line>
+            </svg>
+            <span>Xem Ví Voucher (Mã có sẵn)</span>
+            <svg class="arrow-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Danh sách Voucher có sẵn -->
+        <div id="drawerAvailableVouchers" class="available-vouchers-list hidden">
+          <!-- Render động bằng JS -->
         </div>
       </div>
 
@@ -450,20 +550,416 @@
   <!-- POPUP CHÚC MỪNG SINH NHẬT KHÁCH HÀNG (SHOP-07) -->
   <div class="birthday-modal-backdrop hidden" id="birthdayModal">
     <div class="birthday-modal-card">
-      <button class="modal-close-btn" id="birthdayModalClose">✕</button>
-      <div class="birthday-icon" style="font-size: 42px; margin-bottom: 8px;">🎂</div>
+      <button class="modal-close-btn" id="birthdayModalClose">&times;</button>
+      <div class="birthday-icon"
+        style="margin-bottom: 8px; color: var(--color-primary); display: flex; justify-content: center;">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <polyline points="20 12 20 22 4 22 4 12"></polyline>
+          <rect x="2" y="7" width="20" height="5"></rect>
+          <line x1="12" y1="22" x2="12" y2="7"></line>
+          <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+          <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+        </svg>
+      </div>
       <span class="birthday-tag">HAPPY BIRTHDAY!</span>
       <h3 style="font-family: var(--font-serif); font-size: 22px; margin-bottom: 8px;">Mừng Sinh Nhật Khách Yêu!</h3>
       <p style="font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 18px;">
-        Tiệm Hoa Kẽm Nhung xin gửi tặng bạn món quà đặc biệt: <strong>Mã giảm giá 20%</strong> cho toàn bộ các bó hoa trong tháng sinh nhật của bạn.
+        Tiệm Hoa Kẽm Nhung xin gửi tặng bạn món quà đặc biệt: <strong>Mã giảm giá 20%</strong> cho toàn bộ các bó hoa
+        trong tháng sinh nhật của bạn.
       </p>
-      
+
       <div class="birthday-code-box">
         <span class="code-text" id="birthdayCodeText">SINHNHATVUI</span>
         <button class="copy-code-btn" id="copyBirthdayBtn">Sao Chép Mã</button>
       </div>
 
       <button class="modal-cta-btn" id="useBirthdayCodeBtn">Dùng Mã Ngay</button>
+    </div>
+  </div>
+
+  <!-- MODAL ĐẶT HÀNG & THANH TOÁN SEPAY (CHECKOUT WORKFLOW) -->
+  <div class="checkout-modal-backdrop hidden" id="checkoutModal">
+    <div class="checkout-modal-card">
+      <button class="modal-close-btn" id="checkoutModalClose" aria-label="Đóng">&times;</button>
+
+      <!-- BƯỚC 1: FORM THÔNG TIN ĐẶT HÀNG & PHƯƠNG THỨC THANH TOÁN -->
+      <div class="checkout-step-content" id="checkoutStepForm">
+        <div class="checkout-header">
+          <div class="checkout-step-badge">Bước 1 / 2</div>
+          <h3 class="checkout-title">Thông Tin Giao Hoa & Thanh Toán</h3>
+          <p class="checkout-subtitle">Vui lòng điền thông tin để Tiệm chuẩn bị hoa và giao đúng hẹn</p>
+        </div>
+
+        <form id="checkoutForm" novalidate>
+          <div class="checkout-body-grid">
+            <!-- Cột trái: Thông tin người nhận & lời chúc -->
+            <div class="checkout-col-form">
+              <h4 class="form-section-title">Thông Tin Người Đặt</h4>
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label for="checkoutSenderName">Họ và tên <span class="required">*</span></label>
+                  <input type="text" id="checkoutSenderName" placeholder="Nguyễn Văn A" autocomplete="name" required>
+                  <span class="field-error hidden" id="errorSenderName">Vui lòng nhập họ tên</span>
+                </div>
+                <div class="form-group">
+                  <label for="checkoutSenderPhone">Số điện thoại <span class="required">*</span></label>
+                  <input type="tel" id="checkoutSenderPhone" placeholder="0901234567" autocomplete="tel" required>
+                  <span class="field-error hidden" id="errorSenderPhone">SĐT không hợp lệ (10 số)</span>
+                </div>
+              </div>
+
+              <!-- Checkbox quà tặng gửi người khác -->
+              <div class="gift-toggle-box">
+                <label class="custom-checkbox-label">
+                  <input type="checkbox" id="checkoutIsGift">
+                  <span class="checkbox-custom"></span>
+                  <span class="checkbox-text"><strong>Gửi tặng người khác</strong> (Tôi là người mua, người nhận là
+                    người khác)</span>
+                </label>
+              </div>
+
+              <!-- Khung thông tin người nhận (ẩn/hiện) -->
+              <div class="gift-recipient-fields hidden" id="giftRecipientFields">
+                <div class="form-row-2">
+                  <div class="form-group">
+                    <label for="checkoutRecipientName">Tên người nhận hoa <span class="required">*</span></label>
+                    <input type="text" id="checkoutRecipientName" placeholder="Tên người nhận" autocomplete="name">
+                  </div>
+                  <div class="form-group">
+                    <label for="checkoutRecipientPhone">SĐT người nhận <span class="required">*</span></label>
+                    <input type="tel" id="checkoutRecipientPhone" placeholder="0987654321" autocomplete="tel">
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="checkoutAddress">Địa chỉ nhận hoa <span class="required">*</span></label>
+                <input type="text" id="checkoutAddress" placeholder="Số nhà, tên đường, phường/xã, quận/huyện, TP.HCM"
+                  autocomplete="street-address" required>
+                <span class="field-error hidden" id="errorAddress">Vui lòng nhập địa chỉ giao hàng</span>
+              </div>
+
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label for="checkoutDeliverySlot">Khung giờ giao hoa</label>
+                  <select id="checkoutDeliverySlot">
+                    <option value="Sáng (08:00 - 12:00)">Sáng (08:00 - 12:00)</option>
+                    <option value="Chiều (13:00 - 17:00)" selected>Chiều (13:00 - 17:00)</option>
+                    <option value="Tối (18:00 - 21:00)">Tối (18:00 - 21:00)</option>
+                    <option value="Hỏa tốc trong 2h">Hỏa tốc trong 2 giờ</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="checkoutEmail">Email nhận biên nhận điện tử</label>
+                  <input type="email" id="checkoutEmail" placeholder="email@gmail.com" autocomplete="email">
+                </div>
+              </div>
+
+              <!-- Lời nhắn thiệp mừng -->
+              <div class="gift-card-box">
+                <label class="custom-checkbox-label">
+                  <input type="checkbox" id="checkoutHasCard" checked>
+                  <span class="checkbox-custom"></span>
+                  <span class="checkbox-text"><strong>Đính kèm thiệp chúc mừng viết tay</strong> (Miễn phí)</span>
+                </label>
+                <div class="card-message-input-wrap" id="cardMessageWrap">
+                  <textarea id="checkoutCardMessage" rows="2"
+                    placeholder="Nhập lời nhắn gửi gắm (VD: Chúc mừng sinh nhật em yêu, mong em luôn rạng rỡ như đóa hoa này!)"></textarea>
+                  <!-- Cụm nút gợi ý lời chúc 1-Click -->
+                  <div class="wish-suggestions">
+                    <span class="wish-hint-label">Gợi ý nhanh:</span>
+                    <button type="button" class="wish-chip"
+                      data-wish="Chúc mừng sinh nhật! Chúc bạn tuổi mới luôn rạng rỡ, bình an và ngập tràn hạnh phúc như những đóa hoa này.">🎂
+                      Sinh nhật</button>
+                    <button type="button" class="wish-chip"
+                      data-wish="Cảm ơn người thương đã luôn đồng hành cùng mình. Mong tình cảm của chúng ta luôn bền lâu như hoa kẽm nhung không phai.">❤️
+                      Tình yêu / Kỷ niệm</button>
+                    <button type="button" class="wish-chip"
+                      data-wish="Chúc mừng lễ tốt nghiệp! Chúc bạn luôn vững bước và gặt hái thật nhiều thành công trên chặng đường sắp tới.">🎓
+                      Tốt nghiệp</button>
+                    <button type="button" class="wish-chip"
+                      data-wish="Gửi tặng bạn bó hoa nhỏ thay lời cảm ơn chân thành nhất vì sự giúp đỡ và đồng hành quý báu của bạn.">🌿
+                      Cảm ơn</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-top: 10px;">
+                <label for="checkoutNote">Ghi chú thêm cho tiệm</label>
+                <input type="text" id="checkoutNote" placeholder="VD: Giao hoa gọi trước 15 phút, bảo quản cẩn thận...">
+              </div>
+            </div>
+
+            <!-- Cột phải: Phương thức thanh toán & Tóm tắt đơn hàng -->
+            <div class="checkout-col-summary">
+              <h4 class="form-section-title">Chọn Phương Thức Thanh Toán</h4>
+
+              <div class="payment-methods-grid">
+                <!-- Option SePay -->
+                <label class="payment-card-label selected" id="labelPaymentSepay">
+                  <input type="radio" name="paymentMethod" value="sepay" checked>
+                  <div class="payment-card-indicator"></div>
+                  <div class="payment-card-content">
+                    <div class="payment-card-header">
+                      <span class="payment-badge-tag">Khuyên Dùng • Tự Động</span>
+                      <strong class="payment-name">Chuyển khoản VietQR (SePay)</strong>
+                    </div>
+                    <p class="payment-desc">Quét mã QR Napas 247 qua App ngân hàng, hệ thống tự động xác nhận sau 3-10
+                      giây.</p>
+                  </div>
+                </label>
+
+                <!-- Option COD -->
+                <label class="payment-card-label" id="labelPaymentCod">
+                  <input type="radio" name="paymentMethod" value="cod">
+                  <div class="payment-card-indicator"></div>
+                  <div class="payment-card-content">
+                    <strong class="payment-name">Thanh toán khi nhận hàng (COD)</strong>
+                    <p class="payment-desc">Thanh toán tiền mặt cho shipper khi nhận và kiểm tra hoa.</p>
+                  </div>
+                </label>
+              </div>
+
+              <!-- Tóm tắt thanh toán -->
+              <div class="checkout-summary-card">
+                <h5 class="summary-card-title">Tóm Tắt Đơn Hàng</h5>
+                <div class="checkout-items-preview" id="checkoutItemsPreview">
+                  <!-- Đổ danh sách sản phẩm -->
+                </div>
+                <div class="summary-lines">
+                  <div class="summary-line">
+                    <span>Tạm tính tiền hoa:</span>
+                    <span id="checkoutSubtotal">0 ₫</span>
+                  </div>
+                  <div class="summary-line discount-line hidden" id="checkoutDiscountLine">
+                    <span id="checkoutDiscountLabel">Giảm giá voucher:</span>
+                    <span id="checkoutDiscount">-0 ₫</span>
+                  </div>
+                  <div class="summary-line">
+                    <span>Phí giao hàng:</span>
+                    <span style="color: #108474; font-weight: 600;">Miễn phí (Freeship)</span>
+                  </div>
+                  <div class="summary-line total-line">
+                    <span>Tổng thanh toán:</span>
+                    <strong class="checkout-total-price" id="checkoutTotal">0 ₫</strong>
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" class="checkout-submit-btn" id="checkoutSubmitBtn">
+                Tiến Hành Thanh Toán →
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- BƯỚC 2: MÀN HÌNH CHUYỂN KHOẢN VIETQR QUA SEPAY (Khi chọn SePay) -->
+      <div class="checkout-step-content hidden" id="checkoutStepSepay">
+        <div class="checkout-header" style="text-align: center;">
+          <div class="checkout-step-badge">Bước 2 / 2</div>
+          <h3 class="checkout-title">Quét Mã VietQR Thanh Toán Tự Động</h3>
+          <p class="checkout-subtitle">Mở ứng dụng Ngân hàng bất kỳ hoặc Ví điện tử để quét mã Napas 247 bên dưới</p>
+        </div>
+
+        <div class="sepay-container-grid">
+          <!-- Cột trái: Mã QR Code động -->
+          <div class="sepay-qr-column">
+            <div class="sepay-qr-frame">
+              <div class="sepay-napas-header">
+                <span class="vietqr-logo-text">VietQR</span>
+                <span class="napas-badge">Napas 247</span>
+              </div>
+              <div class="sepay-qr-img-wrap">
+                <img id="sepayQrImage" src="" alt="Mã QR thanh toán SePay" class="sepay-qr-img">
+                <div class="qr-loading-spinner" id="sepayQrSpinner">
+                  <div class="spinner-ring"></div>
+                </div>
+              </div>
+              <div class="sepay-countdown-box">
+                <span class="countdown-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" style="vertical-align: -2px;">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg></span>
+                <span>Mã QR hiệu lực trong: <strong id="sepayCountdown">10:00</strong></span>
+              </div>
+            </div>
+
+            <!-- Radar pulse trạng thái chờ -->
+            <div class="sepay-status-pill">
+              <span class="radar-dot"></span>
+              <span id="sepayStatusText">Đang chờ hệ thống ghi nhận chuyển khoản...</span>
+            </div>
+          </div>
+
+          <!-- Cột phải: Thông tin chuyển khoản chi tiết & Copy 1-click -->
+          <div class="sepay-info-column">
+            <div class="bank-card-preview">
+              <div class="bank-brand-header">
+                <span class="bank-name-badge" id="sepayBankName">Sacombank</span>
+                <span class="bank-sub">Ngân hàng TMCP Sài Gòn Thương Tín</span>
+              </div>
+
+              <div class="copy-field-row">
+                <div class="copy-field-meta">
+                  <span class="field-label">Số tài khoản:</span>
+                  <strong class="field-value" id="sepayAccountNumber">70207003455</strong>
+                </div>
+                <button type="button" class="btn-copy-field" data-target="sepayAccountNumber" title="Sao chép">
+                  Sao chép
+                </button>
+              </div>
+
+              <div class="copy-field-row">
+                <div class="copy-field-meta">
+                  <span class="field-label">Chủ tài khoản:</span>
+                  <strong class="field-value" id="sepayAccountHolder">NGUYEN DUY BAO</strong>
+                </div>
+                <button type="button" class="btn-copy-field" data-target="sepayAccountHolder" title="Sao chép">
+                  Sao chép
+                </button>
+              </div>
+
+              <div class="copy-field-row highlight-amount">
+                <div class="copy-field-meta">
+                  <span class="field-label">Số tiền chính xác:</span>
+                  <strong class="field-value amount-val" id="sepayTransferAmount">0 ₫</strong>
+                </div>
+                <button type="button" class="btn-copy-field" data-target="sepayTransferAmountRaw"
+                  title="Sao chép số tiền">
+                  Sao chép
+                </button>
+                <input type="hidden" id="sepayTransferAmountRaw" value="0">
+              </div>
+
+              <div class="copy-field-row highlight-des">
+                <div class="copy-field-meta">
+                  <span class="field-label">Nội dung chuyển khoản (Bắt buộc giữ nguyên):</span>
+                  <strong class="field-value des-val" id="sepayTransferContent">DH1005</strong>
+                </div>
+                <button type="button" class="btn-copy-field" data-target="sepayTransferContent"
+                  title="Sao chép nội dung">
+                  Sao chép
+                </button>
+              </div>
+            </div>
+
+            <div class="sepay-notice-box">
+              <p><em>Hệ thống SePay tự động khớp giao dịch dựa trên đúng nội dung chuyển khoản. Đơn hàng sẽ tự động xác
+                  nhận thành công ngay sau khi tiền vào tài khoản.</em></p>
+            </div>
+
+            <!-- Nút Giả Lập / Demo phục vụ chấm bài đồ án -->
+            <div class="sepay-demo-tool-box">
+              <span class="demo-tag">Dành Cho Giảng Viên Chấm Điểm / Thử Nghiệm</span>
+              <p class="demo-desc">Bấm nút bên dưới để mô phỏng tín hiệu quét QR & thanh toán SePay thành công mà không
+                cần chuyển tiền thật:</p>
+              <button type="button" class="btn-demo-simulate-paid" id="btnSimulateSepayPaid">
+                Mô Phỏng Thanh Toán Thành Công
+              </button>
+            </div>
+
+            <button type="button" class="btn-back-checkout" id="btnBackToCheckoutForm">
+              ← Quay lại đổi thông tin
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BƯỚC 3: MÀN HÌNH ĐẶT HÀNG THÀNH CÔNG (ORDER SUCCESS) -->
+      <div class="checkout-step-content hidden" id="checkoutStepSuccess">
+        <div class="order-success-card">
+          <div class="success-checkmark-circle">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+
+          <h3 class="success-title">Đặt Hoa Thành Công!</h3>
+          <p class="success-subtitle" id="orderSuccessSubtitle">
+            Cảm ơn bạn đã lựa chọn Tiệm Hoa Kẽm Nhung. Đơn hàng của bạn đã được ghi nhận vào hệ thống.
+          </p>
+
+          <div class="order-success-details-box">
+            <div class="detail-row">
+              <span>Mã đơn hàng:</span>
+              <strong id="successOrderId">#DH-XXXX</strong>
+            </div>
+            <div class="detail-row">
+              <span>Người nhận hoa:</span>
+              <span id="successRecipientName">---</span>
+            </div>
+            <div class="detail-row">
+              <span>Địa chỉ giao:</span>
+              <span id="successAddress">---</span>
+            </div>
+            <div class="detail-row">
+              <span>Khung giờ giao:</span>
+              <span id="successDeliverySlot">Trong ngày</span>
+            </div>
+            <div class="detail-row">
+              <span>Hình thức thanh toán:</span>
+              <span id="successPaymentMethod">Chuyển khoản SePay (Đã thanh toán)</span>
+            </div>
+            <div class="detail-row total-highlight">
+              <span>Tổng thanh toán:</span>
+              <strong class="total-price" id="successTotalAmount">0 ₫</strong>
+            </div>
+          </div>
+
+          <!-- Nút hành động chính: Mở hóa đơn điện tử & Theo dõi đơn hàng -->
+          <div class="success-action-buttons">
+            <button type="button" class="btn-view-receipt-pdf" id="btnViewReceiptPdf">
+              Xem Hóa Đơn Điện Tử
+            </button>
+            <button type="button" class="btn-track-this-order" id="btnTrackThisOrder">
+              Theo Dõi Đơn Hàng Của Bạn
+            </button>
+            <button type="button" class="btn-continue-shopping" id="btnSuccessContinue">
+              Tiếp Tục Mua Sắm
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ĐƠN HÀNG CỦA TÔI & THEO DÕI TIẾN TRÌNH CẮM HOA -->
+  <div class="my-orders-modal-backdrop hidden" id="myOrdersModal">
+    <div class="my-orders-modal-card">
+      <div class="my-orders-header">
+        <div class="my-orders-header-title">
+          <span class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-2z"></path>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </svg></span>
+          <div>
+            <h3>Đơn Hàng Của Bạn</h3>
+            <p id="myOrdersUserSubtitle">Theo dõi tiến trình cắm hoa & giao hoa thời gian thực</p>
+          </div>
+        </div>
+        <button type="button" class="my-orders-close-btn" id="myOrdersModalClose" title="Đóng cửa sổ">&times;</button>
+      </div>
+
+      <!-- Ô tìm kiếm / tra cứu đơn hàng nhanh & Tabs -->
+      <div class="my-orders-search-bar">
+        <input type="text" id="myOrdersSearchInput"
+          placeholder="Nhập mã đơn (VD: DH1005), Tên hoặc Số điện thoại để tra cứu...">
+        <div class="my-orders-filter-tabs">
+          <button type="button" class="orders-tab-btn active" data-filter="all">Tất Cả</button>
+          <button type="button" class="orders-tab-btn" data-filter="unpaid">Chờ Chuyển Khoản</button>
+          <button type="button" class="orders-tab-btn" data-filter="processing">Đang Cắm / Giao</button>
+          <button type="button" class="orders-tab-btn" data-filter="completed">Hoàn Tất</button>
+        </div>
+      </div>
+
+      <!-- Danh sách đơn hàng -->
+      <div class="my-orders-list-body" id="myOrdersListContainer">
+        <!-- Render động bằng JS -->
+      </div>
     </div>
   </div>
 

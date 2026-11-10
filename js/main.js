@@ -1,3 +1,5 @@
+import { initCheckoutWorkflow, openCheckoutModal, closeCheckoutModal } from './checkout.js';
+import { exportOrderInvoicePdf } from './excel-pdf.js';
 import {
   fetchCategories,
   fetchProducts,
@@ -11,9 +13,19 @@ import {
   removeCartItem,
   applyVoucher,
   removeVoucher,
-  saveOrder
+  saveOrder,
+  fetchOrders,
+  fetchWishlistStorage,
+  toggleWishlistStorage
 } from './storage.js';
-import { formatPrice, renderStars, showToast, updateCartBadge, renderHeaderAuth } from './utils.js';
+import { formatPrice, renderStars, showToast, updateCartBadge, renderHeaderAuth, updateWishlistBadge } from './utils.js';
+import {
+  initUniversalCartDrawer,
+  openCartDrawer,
+  closeCartDrawer,
+  renderCartDrawer
+} from './cart-drawer.js';
+import { initMobileBottomNav } from './bottom-nav.js';
 
 /**
  * main.js - Logic điều khiển trang chủ (index.html)
@@ -23,7 +35,14 @@ import { formatPrice, renderStars, showToast, updateCartBadge, renderHeaderAuth 
 // Nơi lưu trữ trạng thái dữ liệu (State)
 let allCategories = [];
 let allProducts = [];
+let allPromotions = [];
+let currentWishlist = [];
 let currentCategoryId = 0;
+let catalogPagination = {
+  currentPage: 1,
+  limit: 8 // Hiển thị 8 mẫu hoa / trang (lưới 4 cột x 2 dòng cân đối)
+};
+let catalogSort = 'newest';
 
 // Các phần tử DOM chính
 const categoryList = document.querySelector('#categoryList');
@@ -67,7 +86,7 @@ function renderCategories(categories) {
 
       const catId = Number(btn.dataset.category);
       currentCategoryId = catId;
-      applyFilters();
+      applyFilters(true);
     });
   });
 }
@@ -91,15 +110,70 @@ function createProductCardHtml(product, defaultBadge = '') {
     ribbonHtml = `<div class="product-ribbon ribbon-new">Mẫu mới 2026</div>`;
   }
 
-  // Tính % giảm giá thực tế nếu có giá cũ (chỉ hiện khi có sale)
+  // Tính % giảm giá thực tế nếu có giá cũ (chỉ hiện khi có sale - UX-02)
   let discountBadgeHtml = '';
-  if (product.originalPrice && product.originalPrice > product.price) {
-    const discountPercent = Math.round((1 - product.price / product.originalPrice) * 100);
+  const hasRealSale = Boolean(product.originalPrice && Number(product.originalPrice) > Number(product.price));
+  if (hasRealSale) {
+    const discountPercent = Math.round((1 - Number(product.price) / Number(product.originalPrice)) * 100);
     // Chỉ hiển thị huy hiệu giảm giá khi mức giảm từ 5% trở lên (chuẩn TMĐT cao cấp)
     if (discountPercent >= 5) {
       discountBadgeHtml = `<span class="product-badge-discount">-${discountPercent}%</span>`;
     }
   }
+
+  // Tìm voucher hợp lệ áp dụng cho sản phẩm này (Cấp Sản phẩm hoặc Cấp Danh mục)
+  let voucherHintHtml = '';
+  const now = new Date();
+  const isProductOnSale = Boolean(product.originalPrice && product.originalPrice > product.price);
+
+  const applicablePromo = (allPromotions || []).find(p => {
+    if (!p.active) return false;
+    // Kiểm tra ngày bắt đầu
+    if (p.startDate && new Date(p.startDate) > now) return false;
+    // Kiểm tra ngày kết thúc (tính đến hết ngày 23:59:59)
+    if (p.endDate) {
+      const end = new Date(p.endDate);
+      end.setHours(23, 59, 59, 999);
+      if (end < now) return false;
+    }
+    // Kiểm tra số lượt sử dụng
+    if (typeof p.usageLimit === 'number' && typeof p.usedCount === 'number' && p.usedCount >= p.usageLimit) {
+      return false;
+    }
+    // Chặn hiển thị nhãn nếu sản phẩm đang Flash Sale và voucher cấm cộng dồn
+    if (p.excludeSaleItems && isProductOnSale) {
+      return false;
+    }
+    // Kiểm tra scope: ưu tiên mẫu hoa cụ thể, sau đó đến danh mục
+    if (p.scope === 'product' && Array.isArray(p.targetProductIds) && p.targetProductIds.includes(String(product.id))) {
+      return true;
+    }
+    if (p.scope === 'category' && Array.isArray(p.targetCategoryIds) && p.targetCategoryIds.includes(String(product.categoryId))) {
+      return true;
+    }
+    return false;
+  });
+
+  if (applicablePromo) {
+    const isPct = (applicablePromo.discountType || 'percent') === 'percent';
+    const val = applicablePromo.discountValue ?? applicablePromo.discountPercent ?? 0;
+    const txt = isPct ? `-${val}%` : `-${formatPrice(val)}`;
+    const labelPrefix = applicablePromo.scope === 'product' ? 'Mẫu này: Giảm' : 'Giảm';
+    voucherHintHtml = `
+      <div class="product-voucher-tag" title="${applicablePromo.desc || ''}">
+        <span>🎫 ${labelPrefix} ${txt} với <strong>${applicablePromo.code}</strong></span>
+      </div>
+    `;
+  }
+
+  const isFav = currentWishlist.includes(String(product.id));
+  const heartBtnHtml = `
+    <button type="button" class="card-heart-btn ${isFav ? 'active' : ''}" data-id="${product.id}" title="${isFav ? 'Bỏ yêu thích' : 'Lưu mẫu hoa yêu thích'}" aria-label="Yêu thích">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+      </svg>
+    </button>
+  `;
 
   return `
     <div class="product-card" data-id="${product.id}">
@@ -111,6 +185,9 @@ function createProductCardHtml(product, defaultBadge = '') {
         <a href="./detail.html?id=${product.id}" class="product-img-link">
           <img src="${product.image}" alt="${product.name}" loading="lazy">
         </a>
+
+        <!-- Nút Thả Tim Yêu Thích -->
+        ${heartBtnHtml}
 
         <!-- Dải băng nhãn ở đáy ảnh chuẩn Flower Chimp -->
         ${ribbonHtml}
@@ -134,9 +211,11 @@ function createProductCardHtml(product, defaultBadge = '') {
         </a>
 
         <div class="price-wrap">
-          ${product.originalPrice ? `<span class="was-price">${formatPrice(product.originalPrice)}</span>` : ''}
+          ${(product.originalPrice && Number(product.originalPrice) > Number(product.price)) ? `<span class="was-price">${formatPrice(product.originalPrice)}</span>` : ''}
           <span class="price">${formatPrice(product.price)}</span>
         </div>
+
+        ${voucherHintHtml}
 
         <div class="product-rating">
           ${renderStars(product.rating || 5)}
@@ -181,11 +260,100 @@ function renderProducts(products) {
         if (allBtn) allBtn.click();
       });
     }
+    const pagContainer = document.querySelector('#catalogPagination');
+    if (pagContainer) pagContainer.innerHTML = '';
     return;
   }
 
+  // Phân trang chuẩn công thức: Math.ceil(tongsp / limit)
+  const limit = catalogPagination.limit;
+  const totalItems = products.length;
+  const totalPages = Math.ceil(totalItems / limit) || 1;
+
+  if (catalogPagination.currentPage > totalPages) {
+    catalogPagination.currentPage = totalPages;
+  }
+
+  const startIndex = (catalogPagination.currentPage - 1) * limit;
+  const endIndex = startIndex + limit;
+  const pagedProducts = products.slice(startIndex, endIndex);
+
   // Sử dụng phương thức map() của ES6+
-  productList.innerHTML = products.map(p => createProductCardHtml(p)).join('');
+  productList.innerHTML = pagedProducts.map(p => createProductCardHtml(p)).join('');
+
+  // Hiển thị nút điều hướng phân trang
+  renderCatalogPagination(totalItems, totalPages);
+}
+
+/**
+ * 2.0.1. RENDER THANH ĐIỀU HƯỚNG PHÂN TRANG DANH SÁCH HOA
+ */
+function renderCatalogPagination(totalItems, totalPages) {
+  const container = document.querySelector('#catalogPagination');
+  if (!container) return;
+
+  if (totalPages <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const currentPage = catalogPagination.currentPage;
+  let pageButtonsHtml = '';
+  for (let i = 1; i <= totalPages; i++) {
+    const isActive = i === currentPage;
+    pageButtonsHtml += `
+      <button type="button" class="pagination-btn ${isActive ? 'active' : ''}" data-page="${i}">
+        ${i}
+      </button>
+    `;
+  }
+
+  container.innerHTML = `
+    <div class="pagination-container">
+      <button type="button" class="pagination-btn pagination-nav-btn page-prev" ${currentPage <= 1 ? 'disabled' : ''}>
+        « Trước
+      </button>
+      <div style="display: flex; gap: 6px;">
+        ${pageButtonsHtml}
+      </div>
+      <button type="button" class="pagination-btn pagination-nav-btn page-next" ${currentPage >= totalPages ? 'disabled' : ''}>
+        Sau »
+      </button>
+    </div>
+  `;
+
+  // Gắn sự kiện nút Trước
+  const prevBtn = container.querySelector('.page-prev');
+  if (prevBtn && currentPage > 1) {
+    prevBtn.addEventListener('click', () => {
+      catalogPagination.currentPage--;
+      applyFilters(false);
+      document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  // Gắn sự kiện nút Sau
+  const nextBtn = container.querySelector('.page-next');
+  if (nextBtn && currentPage < totalPages) {
+    nextBtn.addEventListener('click', () => {
+      catalogPagination.currentPage++;
+      applyFilters(false);
+      document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  // Gắn sự kiện từng số trang
+  const pageBtns = container.querySelectorAll('.pagination-btn[data-page]');
+  pageBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const pageNum = Number(e.currentTarget.getAttribute('data-page'));
+      if (pageNum && pageNum !== catalogPagination.currentPage) {
+        catalogPagination.currentPage = pageNum;
+        applyFilters(false);
+        document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
 }
 
 /**
@@ -212,11 +380,15 @@ function renderNewestProducts(products = []) {
  * 3. HÀM LỌC TỔNG HỢP (DANH MỤC + TÌM KIẾM REALTIME)
  * Sử dụng phương thức filter() của ES6+
  */
-function applyFilters() {
+function applyFilters(resetPage = false) {
+  if (resetPage) {
+    catalogPagination.currentPage = 1;
+  }
+
   const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
   // Sử dụng filter() để lọc kết hợp cả Danh mục và Từ khóa tìm kiếm
-  const filtered = allProducts.filter(product => {
+  let filtered = allProducts.filter(product => {
     // Điều kiện danh mục
     const matchCategory = (currentCategoryId === 0) || (product.categoryId === currentCategoryId);
 
@@ -228,6 +400,19 @@ function applyFilters() {
     return matchCategory && matchSearch;
   });
 
+  // Áp dụng sắp xếp danh sách sản phẩm
+  if (catalogSort === 'newest') {
+    filtered.sort((a, b) => Number(b.id) - Number(a.id));
+  } else if (catalogSort === 'price-asc') {
+    filtered.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+  } else if (catalogSort === 'price-desc') {
+    filtered.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
+  } else if (catalogSort === 'bestseller' || catalogSort === 'best-seller') {
+    filtered.sort((a, b) => Number(b.soldCount || 0) - Number(a.soldCount || 0));
+  } else if (catalogSort === 'id-asc') {
+    filtered.sort((a, b) => Number(a.id) - Number(b.id));
+  }
+
   renderProducts(filtered);
 }
 
@@ -237,7 +422,31 @@ function applyFilters() {
  */
 if (searchInput) {
   searchInput.addEventListener('input', () => {
-    applyFilters();
+    applyFilters(true);
+  });
+}
+
+
+// Lắng nghe sự kiện thay đổi sắp xếp
+const catalogSortSelect = document.querySelector('#catalogSortSelect');
+// Xu ly click "Kham pha them" o section Mau Hoa Moi Nhat -> Cuon xuong danh muc va chon sap xep moi nhat
+const moreArrivalsBtn = document.querySelector('.section-link-more');
+if (moreArrivalsBtn) {
+  moreArrivalsBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (catalogSortSelect) {
+      catalogSortSelect.value = 'newest';
+    }
+    catalogSort = 'newest';
+    applyFilters(true);
+    document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+if (catalogSortSelect) {
+  catalogSortSelect.addEventListener('change', (e) => {
+    catalogSort = e.target.value;
+    applyFilters(true);
   });
 }
 
@@ -253,21 +462,47 @@ if (searchBtn) {
  * Áp dụng cho cả 3 danh sách: Bán chạy, Mới nhất và Toàn bộ mẫu hoa
  */
 document.addEventListener('click', (event) => {
+  // Bắt sự kiện bấm Thả Tim Yêu Thích
+  const heartBtn = event.target.closest('.card-heart-btn');
+  if (heartBtn) {
+    event.preventDefault();
+    event.stopPropagation();
+    const rawId = heartBtn.dataset.id;
+    if (rawId) {
+      toggleWishlistStorage(rawId).then((res) => {
+        currentWishlist = res.wishlist;
+        heartBtn.classList.toggle('active', res.isFavorite);
+        heartBtn.title = res.isFavorite ? 'Bỏ yêu thích' : 'Lưu mẫu hoa yêu thích';
+        updateWishlistBadge();
+        showToast(res.isFavorite ? 'Đã thêm mẫu hoa vào danh sách yêu thích' : 'Đã bỏ mẫu hoa khỏi danh sách yêu thích', 'info');
+      });
+    }
+    return;
+  }
+
   const addBtn = event.target.closest('.add-cart');
   if (!addBtn) return;
 
   event.preventDefault();
-  const productId = Number(addBtn.dataset.id);
-  
-  // Sử dụng find() của ES6 để tìm sản phẩm hoa theo id
-  const product = allProducts.find(p => p.id === productId);
+  const rawId = addBtn.dataset.id;
+  if (!rawId) return;
+
+  // Sử dụng so sánh chuỗi tương thích 100% với db.json
+  const product = allProducts.find(p => String(p.id) === String(rawId));
 
   if (product) {
+    if (product.stock !== undefined && product.stock <= 0) {
+      showToast('Mẫu hoa này tạm thời hết hàng!', 'error');
+      return;
+    }
     addToCart(product, 1);
     updateCartBadge();
     showToast(`Đã thêm "${product.name}" vào giỏ hàng!`);
     if (typeof renderCartDrawer === 'function') {
       renderCartDrawer();
+    }
+    if (typeof openCartDrawer === 'function') {
+      openCartDrawer();
     }
   }
 });
@@ -295,13 +530,12 @@ function initHeroSlider(banners = []) {
   // Render danh sách slide bằng map() của ES6
   slidesContainer.innerHTML = banners.map((banner, index) => {
     const isSale = banner.theme === 'sale';
-    const tagEmoji = isSale ? '🔥' : (banner.theme === 'valentine' ? '💝' : (banner.theme === 'tet' ? '🧧' : '✨'));
     const ctaClass = isSale ? 'hero-cta hero-cta-sale' : 'hero-cta';
 
     return `
       <div class="hero-slide ${index === 0 ? 'active' : ''}" data-index="${index}" data-theme="${banner.theme || 'default'}">
         <div class="hero-text">
-          <span class="hero-tag">${tagEmoji} ${banner.tag || 'Bộ Sưu Tập Hoa Kẽm Nhung'}</span>
+          <span class="hero-tag">${banner.tag || 'Bộ Sưu Tập Hoa Kẽm Nhung'}</span>
           <h1 class="hero-title">${banner.title || banner.tenbanner}</h1>
           <p class="hero-desc">${banner.desc || ''}</p>
           <a href="${banner.link || '#products'}" class="${ctaClass}" data-theme="${banner.theme || 'default'}">
@@ -314,7 +548,7 @@ function initHeroSlider(banners = []) {
         </div>
 
         <div class="hero-image-wrap">
-          <img src="${banner.hinhbanner}" alt="${banner.tenbanner}" loading="eager" onerror="this.src='./images/350.png'">
+          <img src="${banner.hinhbanner || banner.image_url || banner.image || './images/350.png'}" alt="${banner.tenbanner || banner.title || 'Hoa Kẽm Nhung'}" loading="eager" onerror="this.src='./images/350.png'">
         </div>
       </div>
     `;
@@ -592,11 +826,11 @@ function renderVouchers(promotions = []) {
 
     const code = copyBtn.dataset.code;
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(code).catch(() => {});
+      navigator.clipboard.writeText(code).catch(() => { });
     }
 
     const originalText = copyBtn.textContent;
-    copyBtn.textContent = '✓ Đã Lưu Mã';
+    copyBtn.textContent = 'Đã Lưu Mã';
     copyBtn.classList.add('copied');
     showToast(`Đã lưu mã giảm giá: ${code}`);
 
@@ -615,230 +849,10 @@ function renderVouchers(promotions = []) {
 
 /**
  * 9. ĐIỀU KHIỂN SIDE CART DRAWER & VOUCHER CALCULATION (SHOP-07)
- * Trượt mượt mà từ mép phải màn hình, tính toán tổng tiền và áp dụng mã realtime
+ * Sử dụng Universal Cart Drawer dùng chung đồng bộ trên toàn hệ thống (cart-drawer.js)
  */
-let renderCartDrawer = () => {};
-let openCartDrawer = () => {};
-let closeCartDrawer = () => {};
-
 function initCartDrawer() {
-  const cartButton = document.querySelector('#cartButton');
-  const cartBackdrop = document.querySelector('#cartBackdrop');
-  const cartDrawer = document.querySelector('#cartDrawer');
-  const drawerCloseBtn = document.querySelector('#drawerCloseBtn');
-  const drawerContinueBtn = document.querySelector('#drawerContinueBtn');
-  const emptyCartExploreBtn = document.querySelector('#emptyCartExploreBtn');
-  const drawerCartItems = document.querySelector('#drawerCartItems');
-  const applyVoucherBtn = document.querySelector('#applyVoucherBtn');
-  const voucherInput = document.querySelector('#voucherInput');
-  const drawerCheckoutBtn = document.querySelector('#drawerCheckoutBtn');
-
-  openCartDrawer = function () {
-    if (!cartDrawer || !cartBackdrop) return;
-    cartDrawer.classList.add('open');
-    cartBackdrop.classList.add('open');
-    document.body.style.overflow = 'hidden';
-    renderCartDrawer();
-  };
-
-  closeCartDrawer = function () {
-    if (!cartDrawer || !cartBackdrop) return;
-    cartDrawer.classList.remove('open');
-    cartBackdrop.classList.remove('open');
-    document.body.style.overflow = '';
-  };
-
-  renderCartDrawer = function () {
-    const summary = getCartSummary();
-    const countTag = document.querySelector('#drawerCartCountTag');
-    const itemsContainer = document.querySelector('#drawerCartItems');
-    const emptyState = document.querySelector('#drawerCartEmpty');
-    const subtotalEl = document.querySelector('#drawerSubtotal');
-    const discountRow = document.querySelector('#drawerDiscountRow');
-    const discountLabel = document.querySelector('#drawerDiscountLabel');
-    const discountEl = document.querySelector('#drawerDiscount');
-    const totalEl = document.querySelector('#drawerTotal');
-    const appliedInfo = document.querySelector('#appliedVoucherInfo');
-
-    const totalCount = summary.items.reduce((sum, item) => sum + item.quantity, 0);
-    if (countTag) countTag.textContent = `${totalCount} sản phẩm`;
-
-    if (summary.items.length === 0) {
-      if (itemsContainer) itemsContainer.innerHTML = '';
-      if (emptyState) emptyState.classList.remove('hidden');
-      if (subtotalEl) subtotalEl.textContent = '0 ₫';
-      if (discountRow) discountRow.classList.add('hidden');
-      if (totalEl) totalEl.textContent = '0 ₫';
-      if (appliedInfo) appliedInfo.classList.add('hidden');
-      return;
-    }
-
-    if (emptyState) emptyState.classList.add('hidden');
-
-    if (itemsContainer) {
-      itemsContainer.innerHTML = summary.items.map(item => `
-        <div class="drawer-item" data-id="${item.id}">
-          <img src="${item.image}" alt="${item.name}" class="drawer-item-img">
-          <div class="drawer-item-info">
-            <div class="drawer-item-title" title="${item.name}">${item.name}</div>
-            <div class="drawer-item-price">${formatPrice(item.price)}</div>
-            <div class="drawer-item-actions">
-              <div class="drawer-qty-control">
-                <button type="button" class="qty-btn qty-minus" data-id="${item.id}">−</button>
-                <span class="qty-value">${item.quantity}</span>
-                <button type="button" class="qty-btn qty-plus" data-id="${item.id}">+</button>
-              </div>
-              <button type="button" class="drawer-item-delete" data-id="${item.id}" title="Xóa sản phẩm">Xóa</button>
-            </div>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    if (subtotalEl) subtotalEl.textContent = formatPrice(summary.subtotal);
-
-    if (summary.discountAmount > 0 && summary.appliedVoucher) {
-      if (discountRow) {
-        discountRow.classList.remove('hidden');
-        if (discountLabel) {
-          discountLabel.textContent = `Giảm giá (${summary.appliedVoucher.code} - ${summary.appliedVoucher.discountPercent}%):`;
-        }
-        if (discountEl) {
-          discountEl.textContent = `-${formatPrice(summary.discountAmount)}`;
-        }
-      }
-      if (appliedInfo) {
-        appliedInfo.classList.remove('hidden');
-        appliedInfo.innerHTML = `
-          <span>🎉 Mã <strong>${summary.appliedVoucher.code}</strong> (-${summary.appliedVoucher.discountPercent}%)</span>
-          <button type="button" class="remove-voucher-btn" id="removeVoucherBtn">Gỡ mã</button>
-        `;
-        const removeBtn = appliedInfo.querySelector('#removeVoucherBtn');
-        if (removeBtn) {
-          removeBtn.addEventListener('click', () => {
-            removeVoucher();
-            renderCartDrawer();
-            showToast('Đã gỡ bỏ mã giảm giá!');
-          });
-        }
-      }
-    } else {
-      if (discountRow) discountRow.classList.add('hidden');
-      if (appliedInfo) appliedInfo.classList.add('hidden');
-    }
-
-    if (totalEl) totalEl.textContent = formatPrice(summary.totalPrice);
-  };
-
-  // Mở giỏ hàng khi click icon giỏ hàng trên Header
-  if (cartButton) {
-    cartButton.addEventListener('click', (e) => {
-      e.preventDefault();
-      openCartDrawer();
-    });
-  }
-
-  // Đóng giỏ hàng
-  if (drawerCloseBtn) drawerCloseBtn.addEventListener('click', closeCartDrawer);
-  if (cartBackdrop) cartBackdrop.addEventListener('click', closeCartDrawer);
-  if (drawerContinueBtn) drawerContinueBtn.addEventListener('click', closeCartDrawer);
-  if (emptyCartExploreBtn) {
-    emptyCartExploreBtn.addEventListener('click', () => {
-      closeCartDrawer();
-      window.location.hash = '#products';
-    });
-  }
-
-  // Đóng bằng phím ESC
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && cartDrawer && cartDrawer.classList.contains('open')) {
-      closeCartDrawer();
-    }
-  });
-
-  // Sự kiện tăng giảm số lượng & xóa sản phẩm (Event Delegation)
-  if (drawerCartItems) {
-    drawerCartItems.addEventListener('click', (e) => {
-      const plusBtn = e.target.closest('.qty-plus');
-      const minusBtn = e.target.closest('.qty-minus');
-      const deleteBtn = e.target.closest('.drawer-item-delete');
-
-      if (plusBtn) {
-        const id = plusBtn.dataset.id;
-        updateCartQuantity(id, +1);
-        updateCartBadge();
-        renderCartDrawer();
-      } else if (minusBtn) {
-        const id = minusBtn.dataset.id;
-        updateCartQuantity(id, -1);
-        updateCartBadge();
-        renderCartDrawer();
-      } else if (deleteBtn) {
-        const id = deleteBtn.dataset.id;
-        removeCartItem(id);
-        updateCartBadge();
-        renderCartDrawer();
-        showToast('Đã xóa mẫu hoa khỏi giỏ hàng!');
-      }
-    });
-  }
-
-  // Áp dụng mã Voucher
-  if (applyVoucherBtn && voucherInput) {
-    const handleApply = async () => {
-      const code = voucherInput.value;
-      const result = await applyVoucher(code);
-      if (result.success) {
-        showToast(result.message);
-        renderCartDrawer();
-      } else {
-        showToast(result.message, 'error');
-      }
-    };
-
-    applyVoucherBtn.addEventListener('click', handleApply);
-    voucherInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleApply();
-      }
-    });
-  }
-
-  // Nút Tiến Hành Đặt Hàng
-  if (drawerCheckoutBtn) {
-    drawerCheckoutBtn.addEventListener('click', async () => {
-      const summary = getCartSummary();
-      if (summary.items.length === 0) {
-        showToast('Giỏ hàng của bạn đang trống! Vui lòng chọn hoa trước.', 'error');
-        return;
-      }
-
-      // Tạo đơn hàng lưu vào hệ thống để đồng bộ sang trang Admin Dashboard
-      const newOrder = await saveOrder({
-        customerName: 'Khách Đặt Hàng Trực Tuyến',
-        phone: '0908889999',
-        address: '14 Trịnh Đình Thảo, Hòa Thạnh, Tân Phú, TP.HCM',
-        note: 'Giao hỏa tốc trong ngày',
-        items: [...summary.items],
-        subtotal: summary.subtotal,
-        discountAmount: summary.discountAmount,
-        totalAmount: summary.totalPrice,
-        status: 'pending'
-      });
-
-      // Dọn sạch giỏ hàng và gỡ voucher sau khi đặt thành công
-      localStorage.removeItem('SHOP_HOA_CART');
-      localStorage.removeItem('SHOP_HOA_APPLIED_VOUCHER');
-      updateCartBadge();
-      renderCartDrawer();
-
-      showToast(`🎉 Đặt hàng thành công! Mã đơn: ${newOrder.id}`);
-      setTimeout(() => {
-        closeCartDrawer();
-      }, 1500);
-    });
-  }
+  initUniversalCartDrawer();
 }
 
 /**
@@ -870,9 +884,9 @@ function initBirthdayModal() {
     copyBtn.addEventListener('click', () => {
       const code = document.querySelector('#birthdayCodeText')?.textContent?.trim() || 'SINHNHATVUI';
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(code).catch(() => {});
+        navigator.clipboard.writeText(code).catch(() => { });
       }
-      copyBtn.textContent = '✓ Đã Lưu';
+      copyBtn.textContent = 'Đã Lưu';
       showToast(`Đã lưu mã giảm sinh nhật: ${code}`);
       const voucherInput = document.querySelector('#voucherInput');
       if (voucherInput) voucherInput.value = code;
@@ -909,24 +923,36 @@ function initBirthdayModal() {
 async function init() {
   renderHeaderAuth(); // Khởi tạo lời chào tài khoản và phân quyền trên header
   updateCartBadge();
+  initMobileBottomNav(); // Khởi tạo thanh điều hướng đáy màn hình trên di động (Pha 1)
 
   try {
     if (loadingElement) loadingElement.classList.remove('hidden');
 
-    // Nạp đồng thời banner, danh mục, sản phẩm, top bán chạy, sản phẩm mới và voucher khuyến mãi
-    const [banners, categories, products, bestSellers, newestProducts, promotions] = await Promise.all([
+    // Nạp đồng thời banner, danh mục, sản phẩm, top bán chạy, sản phẩm mới, voucher và danh sách yêu thích
+    const [banners, categories, products, bestSellers, newestProducts, promotions, wishlist] = await Promise.all([
       fetchBanners(),
       fetchCategories(),
       fetchProducts(),
       fetchBestSellers(4),
       fetchNewestProducts(4),
-      fetchPromotions()
+      fetchPromotions(),
+      fetchWishlistStorage()
     ]);
 
     allCategories = categories;
     allProducts = products;
+    allPromotions = promotions || [];
+    currentWishlist = wishlist || [];
+    updateWishlistBadge();
 
     if (loadingElement) loadingElement.classList.add('hidden');
+
+    // Nhận diện từ khóa tìm kiếm từ URL param nếu có (UX-06)
+    const urlParams = new URLSearchParams(window.location.search);
+    const searchParam = urlParams.get('search') || urlParams.get('q');
+    if (searchParam && searchInput) {
+      searchInput.value = searchParam;
+    }
 
     // Khởi tạo các thành phần giao diện
     initHeroSlider(banners);
@@ -936,9 +962,26 @@ async function init() {
     startFlashSaleTimer();
     renderVouchers(promotions);
     renderCategories(allCategories);
-    renderProducts(allProducts);
+    applyFilters(true);
     initCartDrawer();
     initBirthdayModal();
+    initCheckoutWorkflow();
+    initMyOrdersWorkflow();
+
+    // Tự động xử lý điều hướng khi bấm Mua Ngay hoặc Giỏ Hàng từ trang Chi Tiết
+    if (urlParams.get('openCheckout') === 'true') {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setTimeout(() => {
+        openCheckoutModal();
+      }, 350);
+    } else if (urlParams.get('openCart') === 'true') {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setTimeout(() => {
+        if (typeof openCartDrawer === 'function') {
+          openCartDrawer();
+        }
+      }, 350);
+    }
   } catch (error) {
     console.error('Lỗi khởi tạo dữ liệu trang chủ:', error);
     if (loadingElement) loadingElement.classList.add('hidden');
@@ -950,3 +993,379 @@ async function init() {
 init();
 
 
+
+/**
+ * ==========================================================================
+ * CHECKOUT & SEPAY VIETQR PAYMENT WORKFLOW (SHOP-11)
+ * ==========================================================================
+ */
+let currentCompletedOrder = null;
+let currentDraftOrder = null;
+let sepayCountdownTimer = null;
+let sepayPollingInterval = null;
+
+// Delegate sang module dùng chung checkout.js
+export { initCheckoutWorkflow, openCheckoutModal, closeCheckoutModal };
+
+/**
+ * ==========================================================================
+ * WORKFLOW: ĐƠN HÀNG CỦA TÔI & THEO DÕI TIẾN TRÌNH CẮM HOA (MY ORDERS)
+ * ==========================================================================
+ */
+let allLoadedOrders = [];
+
+export async function openMyOrdersModal(highlightOrderId = null) {
+  const modal = document.querySelector('#myOrdersModal');
+  const listContainer = document.querySelector('#myOrdersListContainer');
+  const userSubtitle = document.querySelector('#myOrdersUserSubtitle');
+  const searchInput = document.querySelector('#myOrdersSearchInput');
+
+  if (!modal) return;
+
+  try {
+    allLoadedOrders = await fetchOrders();
+  } catch (err) {
+    console.error('Lỗi nạp danh sách đơn hàng:', err);
+    allLoadedOrders = [];
+  }
+
+  // Nhận diện khách hàng đang đăng nhập
+  const currentUserJson = localStorage.getItem('user');
+  let currentUser = null;
+  if (currentUserJson) {
+    try { currentUser = JSON.parse(currentUserJson); } catch (e) { }
+  }
+
+  if (currentUser) {
+    if (userSubtitle) {
+      userSubtitle.textContent = `Khách hàng: ${currentUser.name || currentUser.email} (${currentUser.phone || 'Thành viên'})`;
+    }
+  } else {
+    if (userSubtitle) {
+      userSubtitle.textContent = 'Tra cứu tiến trình cắm hoa & giao hàng theo Mã đơn hoặc Số điện thoại';
+    }
+  }
+
+  // Lọc đơn hàng hiển thị
+  let displayedOrders = [...allLoadedOrders];
+  if (currentUser) {
+    const userOrders = allLoadedOrders.filter(o =>
+      (currentUser.name && o.customerName && o.customerName.toLowerCase().includes(currentUser.name.toLowerCase())) ||
+      (currentUser.phone && (o.phone === currentUser.phone || o.recipientPhone === currentUser.phone)) ||
+      (currentUser.email && o.email === currentUser.email)
+    );
+    // Nếu có đơn của user thì lọc, nếu chưa có (user mới) thì hiện toàn bộ đơn gần đây
+    if (userOrders.length > 0) {
+      displayedOrders = userOrders;
+    }
+  }
+
+  // Sắp xếp đơn mới nhất lên đầu
+  displayedOrders.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  if (highlightOrderId) {
+    if (searchInput) searchInput.value = highlightOrderId;
+    displayedOrders = displayedOrders.filter(o => String(o.id).includes(highlightOrderId));
+  } else if (searchInput) {
+    searchInput.value = '';
+  }
+
+  renderMyOrdersList(displayedOrders);
+  modal.classList.remove('hidden');
+}
+
+export function closeMyOrdersModal() {
+  const modal = document.querySelector('#myOrdersModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function renderMyOrdersList(orders = []) {
+  const listContainer = document.querySelector('#myOrdersListContainer');
+  if (!listContainer) return;
+
+  if (orders.length === 0) {
+    listContainer.innerHTML = `
+      <div class="my-orders-empty-state">
+        <div class="my-orders-empty-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-2z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg></div>
+        <h4>Chưa tìm thấy đơn hàng nào</h4>
+        <p>Không có đơn hàng nào khớp với tìm kiếm. Hãy khám phá ngay các mẫu hoa đẹp của tiệm nhé!</p>
+        <button type="button" class="btn-continue-shopping" style="max-width: 200px; margin: 0 auto;" id="btnOrdersExploreFlowers">
+          Khám Phá Mẫu Hoa
+        </button>
+      </div>
+    `;
+    const exploreBtn = listContainer.querySelector('#btnOrdersExploreFlowers');
+    if (exploreBtn) {
+      exploreBtn.addEventListener('click', () => {
+        closeMyOrdersModal();
+        window.location.hash = '#products';
+      });
+    }
+    return;
+  }
+
+  listContainer.innerHTML = orders.map(order => {
+    const isPaid = order.paymentStatus === 'paid';
+    const isSepay = order.paymentMethod === 'sepay';
+    const status = order.status || 'pending';
+
+    // Badge Thanh Toán
+    const paymentBadge = isSepay
+      ? `<span class="badge-pill" style="background: rgba(16, 132, 116, 0.1); color: #108474; border: 1px solid rgba(16, 132, 116, 0.25); font-weight: 700; font-size: 11.5px; padding: 2px 8px; border-radius: 10px;">SePay (${isPaid ? 'Đã Thanh Toán' : 'Chờ Chuyển Khoản'})</span>`
+      : `<span class="badge-pill" style="background: rgba(217, 119, 6, 0.1); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.25); font-weight: 700; font-size: 11.5px; padding: 2px 8px; border-radius: 10px;">COD (${isPaid ? 'Đã Thu Tiền' : 'Thu Khi Nhận'})</span>`;
+
+    // Tính trạng thái Stepper 4 bước chuẩn TMĐT
+    let step1Class = 'done';
+    let step2Class = 'done';
+    let step2Text = isPaid ? 'Đã Nhận Tiền' : 'Tiệm Đã Duyệt';
+    let step3Class = '';
+    let step4Class = '';
+
+    if (isSepay && !isPaid) {
+      step2Class = 'warning';
+      step2Text = 'Chờ Quét QR';
+    }
+
+    if (status === 'confirmed') {
+      step3Class = 'active';
+    } else if (status === 'shipping') {
+      step3Class = 'done';
+      step4Class = 'active';
+    } else if (status === 'completed') {
+      step3Class = 'done';
+      step4Class = 'done';
+    }
+
+    // Thông tin người nhận và giao hoa
+    const recipient = order.recipientName || order.customerName || 'Khách đặt trực tuyến';
+    const phone = order.recipientPhone || order.phone || '';
+    const address = order.address || 'Giao tại TP.HCM';
+    const slot = order.deliverySlot || 'Trong ngày';
+    const cardMsg = order.hasGreetingCard
+      ? `<div class="order-delivery-line" style="color: #be185d;"><span><strong>Thiệp viết tay:</strong> "${order.cardMessage || 'Kèm thiệp chúc mừng riêng'}"</span></div>`
+      : '';
+
+    // Danh sách món hoa
+    const itemsHtml = (order.items || []).map(item => `
+      <div class="order-item-mini-row">
+        <div class="order-item-mini-left">
+          <img src="${item.image || './images/300.png'}" alt="${item.name}" class="order-item-mini-thumb">
+          <span>${item.name} <strong style="color: #64748b; font-size: 11px;">× ${item.quantity}</strong></span>
+        </div>
+        <strong>${formatPrice(item.price * item.quantity)}</strong>
+      </div>
+    `).join('');
+
+    // Minh bạch giá tiền (Tạm tính, Giảm giá, Tổng cộng)
+    const itemsTotal = (order.items || []).reduce((sum, it) => sum + (Number(it.price) * Number(it.quantity)), 0);
+    const subtotal = order.subtotal || itemsTotal;
+    const discountAmount = order.discountAmount || (subtotal > (order.totalAmount || 0) ? (subtotal - order.totalAmount) : 0);
+
+    const formattedDate = order.createdAt
+      ? new Date(order.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })
+      : 'Vừa xong';
+
+    return `
+      <div class="user-order-card" data-order-id="${order.id}">
+        <div class="user-order-card-header">
+          <div class="order-code-meta">
+            <span class="order-code-title">
+              #${order.id}
+              <button type="button" class="btn-copy-field" data-target="code-${order.id}" style="padding: 2px 6px; font-size: 10.5px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer;" title="Sao chép mã đơn">Sao chép</button>
+              <input type="hidden" id="code-${order.id}" value="${order.id}">
+            </span>
+            <span class="order-date-time">${formattedDate}</span>
+          </div>
+          <div class="order-badges-wrap">
+            ${paymentBadge}
+          </div>
+        </div>
+
+        <!-- Hộp thông tin giao nhận thực tế của shop hoa -->
+        <div class="order-delivery-box">
+          <div class="order-delivery-line">
+            
+            <span><strong>Giao tới:</strong> ${recipient} (${phone}) • <em>${address}</em></span>
+          </div>
+          <div class="order-delivery-line">
+            
+            <span><strong>Khung giờ giao:</strong> ${slot}</span>
+          </div>
+          ${cardMsg}
+        </div>
+
+        <!-- Stepper 4 bước tiến trình -->
+        <div class="order-stepper-tracker">
+          <div class="stepper-step ${step1Class}">
+            <div class="stepper-circle">1</div>
+            <span class="stepper-label">Đã Đặt</span>
+          </div>
+          <div class="stepper-step ${step2Class}">
+            <div class="stepper-circle">2</div>
+            <span class="stepper-label">${step2Text}</span>
+          </div>
+          <div class="stepper-step ${step3Class}">
+            <div class="stepper-circle">3</div>
+            <span class="stepper-label">Đang Cắm Hoa</span>
+          </div>
+          <div class="stepper-step ${step4Class}">
+            <div class="stepper-circle">4</div>
+            <span class="stepper-label">Đang Giao Hoa</span>
+          </div>
+        </div>
+
+        <!-- Danh sách món hoa -->
+        <div class="order-items-mini-list">
+          ${itemsHtml}
+        </div>
+
+        <!-- Minh bạch chi tiết giá (Price Breakdown) -->
+        <div class="order-price-summary-box">
+          <div class="price-summary-row">
+            <span>Tiền hoa (${(order.items || []).length} mẫu):</span>
+            <span>${formatPrice(subtotal)}</span>
+          </div>
+          ${discountAmount > 0 ? `
+          <div class="price-summary-row discount-row">
+            <span>Ưu đãi giảm giá voucher:</span>
+            <span>-${formatPrice(discountAmount)}</span>
+          </div>` : ''}
+          <div class="price-summary-row total-row">
+            <span>Tổng thanh toán:</span>
+            <span>${formatPrice(order.totalAmount || 0)}</span>
+          </div>
+        </div>
+
+        <!-- Footer hành động -->
+        <div class="user-order-card-footer">
+          <div class="order-card-actions">
+            ${(isSepay && !isPaid && status !== 'cancelled') ? `
+            <button type="button" class="btn-order-pay-now" data-order-id="${order.id}" title="Quét mã QR VietQR Napas 247 để hoàn tất thanh toán">
+              Quét QR Thanh Toán Ngay
+            </button>` : ''}
+            <button type="button" class="btn-order-view-pdf" data-order-id="${order.id}" title="Xem và in lại hóa đơn điện tử">
+              Xem Hóa Đơn Điện Tử
+            </button>
+            <button type="button" class="btn-order-reorder" data-order-id="${order.id}" title="Thêm lại các mẫu hoa này vào giỏ">
+              Đặt Lại Đơn Này
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function initMyOrdersWorkflow() {
+  const modal = document.querySelector('#myOrdersModal');
+  const closeBtn = document.querySelector('#myOrdersModalClose');
+  const searchInput = document.querySelector('#myOrdersSearchInput');
+  const listContainer = document.querySelector('#myOrdersListContainer');
+
+  if (!modal) return;
+
+  if (closeBtn) closeBtn.addEventListener('click', closeMyOrdersModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeMyOrdersModal();
+  });
+
+  // Lắng nghe sự kiện từ Header (qua CustomEvent)
+  window.addEventListener('open-my-orders', (e) => {
+    openMyOrdersModal();
+  });
+
+  // Xử lý Tabs phân loại đơn hàng (Tất cả, Chờ chuyển khoản, Đang xử lý, Hoàn tất)
+  let activeTabFilter = 'all';
+  document.querySelectorAll('.orders-tab-btn').forEach(tabBtn => {
+    tabBtn.addEventListener('click', () => {
+      document.querySelectorAll('.orders-tab-btn').forEach(b => b.classList.remove('active'));
+      tabBtn.classList.add('active');
+      activeTabFilter = tabBtn.dataset.filter;
+      applyOrderFilters();
+    });
+  });
+
+  function applyOrderFilters() {
+    let filtered = [...allLoadedOrders];
+    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+    // 1. Lọc theo Tab
+    if (activeTabFilter === 'unpaid') {
+      filtered = filtered.filter(o => o.paymentMethod === 'sepay' && o.paymentStatus !== 'paid');
+    } else if (activeTabFilter === 'processing') {
+      filtered = filtered.filter(o => o.status === 'confirmed' || o.status === 'shipping');
+    } else if (activeTabFilter === 'completed') {
+      filtered = filtered.filter(o => o.status === 'completed' || o.paymentStatus === 'paid');
+    }
+
+    // 2. Lọc theo Search Query
+    if (query) {
+      filtered = filtered.filter(o =>
+        String(o.id).toLowerCase().includes(query) ||
+        (o.phone && o.phone.includes(query)) ||
+        (o.recipientPhone && o.recipientPhone.includes(query)) ||
+        (o.customerName && o.customerName.toLowerCase().includes(query)) ||
+        (o.recipientName && o.recipientName.toLowerCase().includes(query))
+      );
+    }
+
+    renderMyOrdersList(filtered);
+  }
+
+  // Tìm kiếm realtime theo mã đơn hoặc số điện thoại
+  if (searchInput) {
+    searchInput.addEventListener('input', applyOrderFilters);
+  }
+
+  // Event delegation cho các nút hành động trên Order Card
+  if (listContainer) {
+    listContainer.addEventListener('click', (e) => {
+      // 1. Xem Hóa đơn điện tử PDF
+      const pdfBtn = e.target.closest('.btn-order-view-pdf');
+      if (pdfBtn) {
+        const orderId = pdfBtn.dataset.orderId;
+        const order = allLoadedOrders.find(o => String(o.id) === String(orderId));
+        if (order) {
+          exportOrderInvoicePdf(order, { isReceipt: true });
+        } else {
+          showToast('Không tìm thấy dữ liệu đơn hàng!', 'error');
+        }
+        return;
+      }
+
+      // 2. Quét QR Thanh Toán Ngay cho đơn SePay chưa trả
+      const payBtn = e.target.closest('.btn-order-pay-now');
+      if (payBtn) {
+        const orderId = payBtn.dataset.orderId;
+        const order = allLoadedOrders.find(o => String(o.id) === String(orderId));
+        if (order) {
+          closeMyOrdersModal();
+          currentDraftOrder = order;
+          const checkoutModal = document.querySelector('#checkoutModal');
+          if (checkoutModal) checkoutModal.classList.remove('hidden');
+          showSepayQrStep(order);
+          showToast(`Đang mở mã VietQR cho đơn #${order.id}...`);
+        }
+        return;
+      }
+
+      // 3. Đặt Lại Đơn Này (Re-order)
+      const reorderBtn = e.target.closest('.btn-order-reorder');
+      if (reorderBtn) {
+        const orderId = reorderBtn.dataset.orderId;
+        const order = allLoadedOrders.find(o => String(o.id) === String(orderId));
+        if (order && order.items && order.items.length > 0) {
+          order.items.forEach(item => {
+            addToCart(item, item.quantity);
+          });
+          updateCartBadge();
+          showToast(`Đã thêm ${order.items.length} món hoa của đơn #${order.id} vào giỏ hàng!`, 'success');
+          closeMyOrdersModal();
+          if (typeof renderCartDrawer === 'function') renderCartDrawer();
+          if (typeof openCartDrawer === 'function') openCartDrawer();
+        }
+        return;
+      }
+    });
+  }
+}

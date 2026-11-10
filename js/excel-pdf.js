@@ -9,6 +9,30 @@ import { formatPrice, showToast } from './utils.js';
 
 let pendingImportProducts = []; // Biến tạm lưu danh sách hoa vừa đọc từ Excel chờ người dùng bấm Lưu
 
+/**
+ * Chuyển đổi chuỗi tiếng Việt có dấu thành không dấu để in PDF chuẩn định dạng giấy A4
+ * Đảm bảo 100% không bị vỡ font hay lỗi ký tự unicode trên thư viện jsPDF tiêu chuẩn
+ */
+export function toNonAccentVietnamese(str) {
+  if (!str) return '';
+  str = String(str);
+  str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
+  str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
+  str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
+  str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
+  str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
+  str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
+  str = str.replace(/đ/g, 'd');
+  str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, 'A');
+  str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, 'E');
+  str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, 'I');
+  str = str.replace(/Ò|Ó|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, 'O');
+  str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, 'U');
+  str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, 'Y');
+  str = str.replace(/Đ/g, 'D');
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 // ==========================================================================
 // 1. CHỨC NĂNG 1: TẢI FILE EXCEL MẪU CHUẨN (TEMPLATE)
 // ==========================================================================
@@ -373,7 +397,7 @@ export function initExcelPdf({ getProducts, getCategories, onProductsImported })
       }
 
       previewConfirmBtn.disabled = true;
-      previewConfirmBtn.textContent = '⏳ Đang lưu...';
+      previewConfirmBtn.textContent = 'Đang lưu dữ liệu...';
 
       try {
         let successCount = 0;
@@ -395,7 +419,7 @@ export function initExcelPdf({ getProducts, getCategories, onProductsImported })
         showToast('Có lỗi xảy ra khi lưu một số sản phẩm vào hệ thống!', 'error');
       } finally {
         previewConfirmBtn.disabled = false;
-        previewConfirmBtn.textContent = '✅ Xác Nhận Lưu Vào Hệ Thống';
+        previewConfirmBtn.textContent = 'Xác Nhận Lưu Vào Hệ Thống';
       }
     });
   }
@@ -435,10 +459,12 @@ export function initExcelPdf({ getProducts, getCategories, onProductsImported })
 // 4. CHỨC NĂNG 4: XUẤT HÓA ĐƠN BÁN LẺ DẠNG PDF CHO KẾ TOÁN (STAFF)
 // ==========================================================================
 /**
- * Xuất hóa đơn bán lẻ chi tiết của đơn hàng ra file PDF chuẩn in ấn A4
+ * Xuất hóa đơn bán lẻ hoặc biên nhận điện tử ra file PDF chuẩn in ấn A5 (148 x 210 mm)
+ * Hỗ trợ mở tab mới xem trước (preview) và đóng dấu điện tử [PAID / COD]
  * @param {object} order - Đối tượng đơn hàng cần in hóa đơn
+ * @param {object} options - Tùy chọn xuất ({ isReceipt: boolean, autoDownload: boolean })
  */
-export function exportOrderInvoicePdf(order) {
+export function exportOrderInvoicePdf(order, options = {}) {
   if (!order) {
     showToast('Không tìm thấy thông tin đơn hàng để in hóa đơn!', 'error');
     return;
@@ -449,81 +475,115 @@ export function exportOrderInvoicePdf(order) {
     return;
   }
 
+  const isReceipt = Boolean(options.isReceipt);
+  const autoDownload = Boolean(options.autoDownload);
+
   const { jsPDF } = window.jspdf;
+  // Khổ giấy A5 chuẩn thực tế shop hoa: 148mm x 210mm
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: 'a4'
+    format: [148, 210]
   });
+
+  const pageWidth = 148;
+  const pageCenterX = 74;
 
   // 1. HEADER CỬA HÀNG
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
+  doc.setFontSize(13);
   doc.setTextColor(16, 132, 116); // Màu xanh ngọc thương hiệu
-  doc.text('TIEM HOA KEM NHUNG HANDMADE', 105, 16, { align: 'center' });
+  doc.text('TIEM HOA KEM NHUNG HANDMADE', pageCenterX, 13, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('Chuyen Hoa Kem Nhung Thu Cong & Hoa Tuoi Nghe Thuat Cao Cap', 105, 21, { align: 'center' });
-  doc.text('Hotline: 0901.234.567 | Website: tiemplovers.vn | Dia chi: Quan 1, TP. Ho Chi Minh', 105, 26, { align: 'center' });
+  doc.text('Hoa Kem Nhung Thu Cong & Nghe Thuat Thu Cong Cao Cap', pageCenterX, 17, { align: 'center' });
+  doc.text('Hotline: 0901.234.567 | Website: tiemplovers.vn | Quan 1, TP.HCM', pageCenterX, 21, { align: 'center' });
 
   // Đường kẻ phân cách
   doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.5);
-  doc.line(14, 29, 196, 29);
+  doc.setLineWidth(0.4);
+  doc.line(10, 24, 138, 24);
 
-  // 2. TIÊU ĐỀ HÓA ĐƠN
+  // 2. TIÊU ĐỀ HÓA ĐƠN / BIÊN NHẬN
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
+  doc.setFontSize(11.5);
   doc.setTextColor(15, 23, 42);
-  doc.text('HOA DON BAN LE / PHIEU GIAO HANG', 105, 37, { align: 'center' });
+  const titleText = isReceipt 
+    ? 'BIEN NHAN THANH TOAN DIEN TU (E-RECEIPT)'
+    : 'HOA DON BAN LE DIEN TU (E-INVOICE)';
+  doc.text(titleText, pageCenterX, 30, { align: 'center' });
 
   // 3. THÔNG TIN KHÁCH HÀNG & ĐƠN HÀNG
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(8);
   doc.setTextColor(30, 41, 59);
 
-  const orderDate = order.createdAt ? new Date(order.createdAt).toLocaleDateString('vi-VN') : 'Vua dat';
+  const orderDate = order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : 'Vua dat';
   const orderId = order.id || 'DH-TEMP';
-  const customerName = order.customerName || order.recipientName || 'Khach vang lai';
+  const customerName = toNonAccentVietnamese(order.customerName || order.recipientName || 'Khach vang lai');
+  const recipientName = order.isGift && order.recipientName ? toNonAccentVietnamese(order.recipientName) : '';
   const phone = order.phone || '---';
-  const address = order.address || 'Nhan tai quay';
-  const note = order.note || 'Khong co';
+  const address = toNonAccentVietnamese(order.address || 'Nhan tai quay');
+  const hasCard = Boolean(order.hasGreetingCard || order.cardMessage);
+  const hasCardStr = hasCard ? 'Co (Thiep viet tay rieng)' : 'Khong';
+  const deliverySlot = toNonAccentVietnamese(order.deliverySlot || 'Tieu chuan trong ngay');
 
-  doc.text(`Ma don hang: #${orderId}`, 14, 46);
-  doc.text(`Ngay dat hang: ${orderDate}`, 120, 46);
-  doc.text(`Khach hang: ${customerName}`, 14, 52);
-  doc.text(`So dien thoai: ${phone}`, 120, 52);
-  doc.text(`Dia chi giao: ${address}`, 14, 58);
-  doc.text(`Ghi chu: ${note}`, 14, 64);
+  const isSepay = order.paymentMethod === 'sepay';
+  const isPaid = order.paymentStatus === 'paid' || order.status === 'completed';
+  const paymentMethodStr = isSepay ? 'Chuyen khoan SePay (VietQR)' : 'Thanh toan khi nhan (COD)';
 
-  // 4. BẢNG DANH SÁCH SẢN PHẨM (AUTOTABLE)
+  // Cột trái (X = 10)
+  doc.text(`Ma don hang: #${orderId}`, 10, 37);
+  doc.text(`Nguoi dat: ${customerName}`, 10, 42);
+  if (recipientName) {
+    doc.text(`Nguoi nhan hoa: ${recipientName}`, 10, 47);
+    doc.text(`Dia chi giao: ${address}`, 10, 52);
+    doc.text(`Kem thiep mung: ${hasCardStr}`, 10, 57);
+  } else {
+    doc.text(`Dia chi giao: ${address}`, 10, 47);
+    doc.text(`Kem thiep mung: ${hasCardStr}`, 10, 52);
+  }
+
+  // Cột phải (X = 76)
+  doc.text(`Ngay dat: ${orderDate}`, 76, 37);
+  doc.text(`Dien thoai: ${phone}`, 76, 42);
+  doc.text(`Khung gio: ${deliverySlot}`, 76, 47);
+  doc.text(`Hinh thuc: ${paymentMethodStr}`, 76, 52);
+
+  // 4. BẢNG DANH SÁCH HOA (AUTOTABLE CHUẨN A5 - RỘNG 128MM)
+  const formatMoneyPdf = (amount) => Number(amount || 0).toLocaleString('vi-VN') + ' VND';
+
   const items = Array.isArray(order.items) ? order.items : [];
   const tableRows = items.map((item, index) => {
     const qty = Number(item.quantity) || 1;
     const price = Number(item.price) || 0;
     const total = qty * price;
+    const itemName = item.name || 'Mau hoa kem nhung handmade';
+    const fullItemName = item.addonsText ? `${itemName} (+ PK: ${item.addonsText})` : itemName;
     return [
       (index + 1).toString(),
-      item.name || 'San pham hoa',
-      formatPrice(price),
+      toNonAccentVietnamese(fullItemName),
+      formatMoneyPdf(price),
       qty.toString(),
-      formatPrice(total)
+      formatMoneyPdf(total)
     ];
   });
 
   const tableHeaders = ['STT', 'Ten Mau Hoa', 'Don Gia', 'SL', 'Thanh Tien'];
+  const tableStartY = recipientName ? 62 : 57;
 
   doc.autoTable({
     head: [tableHeaders],
     body: tableRows,
-    startY: 69,
+    startY: tableStartY,
     theme: 'grid',
+    margin: { left: 10, right: 10 },
     styles: {
       font: 'helvetica',
-      fontSize: 9,
-      cellPadding: 3.5,
+      fontSize: 7.5,
+      cellPadding: 2.5,
       textColor: [30, 41, 59]
     },
     headStyles: {
@@ -533,59 +593,131 @@ export function exportOrderInvoicePdf(order) {
       halign: 'center'
     },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 12 },
-      1: { halign: 'left', cellWidth: 85 },
-      2: { halign: 'right', cellWidth: 30 },
-      3: { halign: 'center', cellWidth: 18 },
-      4: { halign: 'right', cellWidth: 35 }
+      0: { halign: 'center', cellWidth: 10 },
+      1: { halign: 'left', cellWidth: 58 },
+      2: { halign: 'right', cellWidth: 24 },
+      3: { halign: 'center', cellWidth: 12 },
+      4: { halign: 'right', cellWidth: 24 }
     }
   });
 
-  // 5. TỔNG KẾT TIỀN HÓA ĐƠN
-  const finalY = doc.lastAutoTable.finalY + 6;
+  // 5. TỔNG KẾT TIỀN HÓA ĐƠN & DẤU MỘC ĐIỆN TỬ
+  const finalY = doc.lastAutoTable.finalY + 5;
   const subtotal = order.subtotal || order.total || 0;
   const discount = order.discountAmount || 0;
   const totalAmount = order.totalAmount || order.finalTotal || (subtotal - discount);
 
-  doc.setFontSize(9.5);
-  doc.text('Tam tinh:', 125, finalY);
-  doc.text(formatPrice(subtotal), 180, finalY, { align: 'right' });
+  // TỔNG TIỀN PHÍA PHẢI (X = 76 -> 138)
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(51, 65, 85);
+  doc.text('Tam tinh tien hoa:', 76, finalY);
+  doc.text(formatMoneyPdf(subtotal), 138, finalY, { align: 'right' });
 
   if (discount > 0) {
-    doc.text('Giam gia Voucher:', 125, finalY + 5);
-    doc.text(`- ${formatPrice(discount)}`, 180, finalY + 5, { align: 'right' });
+    doc.text('Giam gia Voucher:', 76, finalY + 4.5);
+    doc.text(`- ${formatMoneyPdf(discount)}`, 138, finalY + 4.5, { align: 'right' });
   }
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
+  doc.setFontSize(9.5);
   doc.setTextColor(16, 132, 116);
-  doc.text('TONG TIEN THANH TOAN:', 125, finalY + (discount > 0 ? 11 : 6));
-  doc.text(formatPrice(totalAmount), 180, finalY + (discount > 0 ? 11 : 6), { align: 'right' });
+  const totalY = finalY + (discount > 0 ? 10 : 5.5);
+  doc.text('TONG THANH TOAN:', 76, totalY);
+  doc.text(formatMoneyPdf(totalAmount), 138, totalY, { align: 'right' });
 
-  // 6. PHẦN CHỮ KÝ XÁC NHẬN (KẾ TOÁN & KHÁCH HÀNG)
-  const signY = finalY + (discount > 0 ? 25 : 20);
+  // 6. DẤU MỘC ĐIỆN TỬ PHÍA TRÁI (DIGITAL STAMP)
+  const stampX = 10;
+  const stampY = finalY - 1;
+  const stampW = 58;
+  const stampH = 18;
+
+  if (isPaid) {
+    // Dấu mộc xanh lá: ĐÃ THANH TOÁN (PAID)
+    doc.setDrawColor(22, 163, 74);
+    doc.setLineWidth(0.8);
+    doc.roundedRect(stampX, stampY, stampW, stampH, 2, 2);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(stampX + 1, stampY + 1, stampW - 2, stampH - 2, 1.5, 1.5);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(22, 163, 74);
+    doc.text('[ DA THANH TOAN / PAID ]', stampX + (stampW / 2), stampY + 6.5, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(21, 128, 61);
+    const txCode = order.sepayTransaction?.code || orderId.replace('DH-', 'SEPAY-');
+    doc.text(`Cong SePay VietQR (Napas 247)`, stampX + (stampW / 2), stampY + 11, { align: 'center' });
+    doc.text(`Ma GD: ${txCode}`, stampX + (stampW / 2), stampY + 15, { align: 'center' });
+  } else {
+    // Dấu mộc cam: CHỜ THU TIỀN (COD)
+    doc.setDrawColor(217, 119, 6);
+    doc.setLineWidth(0.8);
+    doc.roundedRect(stampX, stampY, stampW, stampH, 2, 2);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(stampX + 1, stampY + 1, stampW - 2, stampH - 2, 1.5, 1.5);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(217, 119, 6);
+    doc.text('[ CHO THU TIEN (COD) ]', stampX + (stampW / 2), stampY + 7, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(180, 83, 9);
+    doc.text('Thu tien mat khi giao hoa', stampX + (stampW / 2), stampY + 12, { align: 'center' });
+    doc.text(`Can thu: ${formatMoneyPdf(totalAmount)}`, stampX + (stampW / 2), stampY + 15.5, { align: 'center' });
+  }
+
+  // 7. CHỮ KÝ XÁC NHẬN CHỨNG TỪ
+  const signY = totalY + 15;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(51, 65, 85);
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
 
-  doc.text('Nguoi Nhan Hang', 40, signY, { align: 'center' });
-  doc.setFontSize(8);
-  doc.text('(Ky va ghi ro ho ten)', 40, signY + 4, { align: 'center' });
+  doc.text('Nguoi Nhan Hang', 35, signY, { align: 'center' });
+  doc.setFontSize(6.5);
+  doc.text('(Ky va ghi ro ho ten)', 35, signY + 3.5, { align: 'center' });
 
-  doc.setFontSize(9);
-  doc.text('Nhan Vien Ke Toan / Lap Phieu', 155, signY, { align: 'center' });
-  doc.setFontSize(8);
-  doc.text('(Ky va ghi ro ho ten)', 155, signY + 4, { align: 'center' });
+  doc.setFontSize(7.5);
+  doc.text('Dai Dien Shop Hoa', 110, signY, { align: 'center' });
+  doc.setFontSize(6.5);
+  doc.text('(Ke toan / Thu ngan)', 110, signY + 3.5, { align: 'center' });
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Nguyen Thi Ke Toan', 110, signY + 12, { align: 'center' });
 
-  // Chữ ký điện tử của hệ thống
+  // Lời cảm ơn chân trang
   doc.setFont('helvetica', 'italic');
-  doc.setFontSize(8);
+  doc.setFontSize(6.5);
   doc.setTextColor(148, 163, 184);
-  doc.text('Cam on quy khach da tin tuong ung ho Tiem Hoa Kem Nhung Handmade!', 105, signY + 30, { align: 'center' });
+  doc.text('Cam on quy khach da tin yeu va lua chon Tiem Hoa Kem Nhung!', pageCenterX, 202, { align: 'center' });
+  doc.text('Chung tu hop le kem phieu xuat kho noi bo - TiemLovers.vn', pageCenterX, 205, { align: 'center' });
 
-  // 7. LƯU VÀ TẢI FILE PDF
-  doc.save(`Hoa_Don_${orderId}.pdf`);
-  showToast(`Đã xuất hóa đơn PDF thành công cho đơn #${orderId}!`, 'success');
+  // 8. MỞ TAB MỚI XEM TRƯỚC (PREVIEW) HOẶC TẢI VỀ
+  const fileName = isReceipt ? `Bien_Nhan_${orderId}.pdf` : `Hoa_Don_${orderId}.pdf`;
+
+  if (autoDownload) {
+    doc.save(fileName);
+    showToast(`Đã tải hóa đơn #${orderId} về máy!`, 'success');
+  } else {
+    try {
+      const blobUrl = doc.output('bloburl');
+      const win = window.open(blobUrl, '_blank');
+      if (win) {
+        showToast(isReceipt ? 'Đã mở Biên nhận điện tử trong tab mới!' : `Đã mở Hóa đơn điện tử #${orderId} trong tab mới!`, 'success');
+      } else {
+        // Nếu bị trình duyệt chặn popup, fallback sang tải về
+        doc.save(fileName);
+        showToast(`Trình duyệt chặn popup, đã tự động tải ${fileName} về máy!`, 'info');
+      }
+    } catch (e) {
+      doc.save(fileName);
+      showToast(`Đã xuất file ${fileName} thành công!`, 'success');
+    }
+  }
 }
 
 // ==========================================================================

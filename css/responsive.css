@@ -3,6 +3,18 @@
    Áp dụng CSS Media Queries thuần theo FRONTEND_RULES.md (Mục 16 Đề bài)
    ========================================================================== */
 
+/* ==========================================================================
+   STICKY BUY BAR BASE
+   ========================================================================== */
+.sticky-buy-bar {
+  display: none;
+}
+
+/* DESKTOP DEFAULTS: Ẩn thanh Bottom Nav trên màn hình lớn */
+.mobile-bottom-nav {
+  display: none;
+}
+
 /* --------------------------------------------------------------------------
    1. TABLET SCREENS (768px - 1023px)
    -------------------------------------------------------------------------- */
@@ -44,26 +56,63 @@
    2. MOBILE SCREENS (< 768px) - Chuẩn sàn TMĐT Flower Chimp
    -------------------------------------------------------------------------- */
 @media (max-width: 767px) {
-  /* Header & Search */
+
+  /* Header & Search - Tối ưu Mobile chuẩn Flower Chimp (UX-01 & UX-03) */
   .header-content {
     flex-wrap: wrap;
-    padding: 12px 16px;
-    gap: 12px;
+    padding: 10px 14px;
+    gap: 10px;
   }
 
   .logo {
-    font-size: 20px;
+    font-size: 19px;
+    flex-shrink: 0;
+  }
+
+  .logo-img {
+    height: 34px;
+    max-width: 140px;
   }
 
   .logo-icon {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
+  }
+
+  .header-actions {
+    gap: 8px;
+  }
+
+  /* Ràng buộc kỹ thuật UX-01 & UX-03: Giới hạn tên hiển thị trong .user-menu-pill */
+  .user-menu-pill {
+    padding: 3px 8px 3px 4px;
+    gap: 5px;
+  }
+
+  .user-menu-pill .user-short-name {
+    max-width: 115px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+
+  .user-avatar-badge {
+    width: 24px;
+    height: 24px;
+    font-size: 11px;
+  }
+
+  .user-dropdown-menu {
+    right: -10px;
+    width: 220px;
   }
 
   .search-box {
     order: 3;
     max-width: 100%;
     width: 100%;
+    min-width: 100%;
   }
 
   .search-input {
@@ -138,14 +187,31 @@
     font-size: 11.5px;
   }
 
-  /* Category Bar */
+  /* Category Bar - Swipe ngang mượt mà trên Mobile (UX-07) */
   .category-section {
-    padding: 20px 0 14px;
+    padding: 16px 0 10px;
+  }
+
+  .category-list {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    justify-content: flex-start;
+    padding: 4px 16px 8px;
+    gap: 8px;
+  }
+
+  .category-list::-webkit-scrollbar {
+    display: none;
   }
 
   .category-btn {
-    padding: 7px 14px;
-    font-size: 12.5px;
+    padding: 6px 14px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   /* Product Grid: BẮT BUỘC 2 CỘT CHUẨN ĐỀ BÀI */
@@ -177,14 +243,26 @@
   }
 
   .quick-add-btn {
-    opacity: 1;
-    transform: translateY(0);
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    position: absolute;
     bottom: 8px;
-    left: 8px;
     right: 8px;
-    padding: 7px 10px;
-    font-size: 11.5px;
-    background: rgba(255, 255, 255, 0.94);
+    left: auto;
+    min-height: 38px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--color-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-btn);
+    box-shadow: var(--shadow-card);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
   }
 
   .product-badge {
@@ -251,5 +329,195 @@
     width: 100%;
     max-width: 100vw;
   }
-}
 
+  /* Skeleton Loading Mobile */
+  .detail-skeleton-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .detail-thumbnails {
+    justify-content: center;
+  }
+
+  /* Padding đáy trên Mobile khi trang chi tiết có Sticky Buy Bar */
+  body.has-sticky-bar {
+    padding-bottom: 75px;
+  }
+
+  /* Sticky Buy Bar chân trang Mobile */
+  .sticky-buy-bar.is-visible {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    padding: 10px 16px;
+    background: var(--bg-page);
+    border-top: 1px solid var(--border-light);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+    z-index: 990;
+    box-sizing: border-box;
+  }
+
+  .sticky-price-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sticky-label {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .sticky-price {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--color-sale-price);
+  }
+
+  .sticky-cta-group {
+    display: flex;
+    gap: 8px;
+  }
+
+  .sticky-btn-cart,
+  .sticky-btn-buy {
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 13.5px;
+    border-radius: var(--radius-btn);
+  }
+
+  /* Tự động nâng nút Chatbot lên cao khi Sticky Bar xuất hiện (UX-05) */
+  body.has-sticky-bar .chat-launcher-btn,
+  body.sticky-bar-active .chat-launcher-btn,
+  body.sticky-bar-active #aiChatWidget,
+  body.sticky-bar-active .chatbot-toggler,
+  body.sticky-bar-active #chatbotToggleBtn {
+    bottom: 82px !important;
+    transition: bottom 0.25s ease;
+  }
+
+  /* Skeleton Grid Mobile (UX-08) */
+  .skeleton-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  /* --------------------------------------------------------------------------
+     MOBILE BOTTOM NAVIGATION BAR (Thumb-zone Ergonomics)
+     -------------------------------------------------------------------------- */
+  body {
+    padding-bottom: var(--bottom-nav-h, calc(60px + env(safe-area-inset-bottom, 0px)));
+  }
+
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--bottom-nav-h, calc(60px + env(safe-area-inset-bottom, 0px)));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: rgba(255, 255, 255, 0.96);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border-light, #E8E8E8);
+    z-index: var(--z-bottom-nav, 990);
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04);
+    transition: transform 0.28s ease, opacity 0.25s ease;
+  }
+
+  .mobile-bottom-nav.keyboard-hidden {
+    transform: translateY(100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted, #7B7B7B);
+    cursor: pointer;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--font-sans, sans-serif);
+    transition: color 0.2s ease, transform 0.15s ease;
+    text-decoration: none;
+    flex: 1;
+    max-width: 72px;
+  }
+
+  .bottom-nav-item svg {
+    transition: transform 0.2s ease, stroke 0.2s ease;
+  }
+
+  .bottom-nav-item.active {
+    color: var(--color-primary, #108474);
+    font-weight: 600;
+  }
+
+  .bottom-nav-item.active svg {
+    stroke: var(--color-primary, #108474);
+  }
+
+  .bottom-nav-item:active {
+    transform: scale(0.92);
+  }
+
+  .bottom-nav-cart-icon-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .bottom-nav-badge {
+    position: absolute;
+    top: -5px;
+    right: -9px;
+    background: var(--color-sale-price, #D92D20);
+    color: #FFFFFF;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    box-shadow: 0 2px 5px rgba(217, 45, 32, 0.35);
+  }
+
+  /* Chống va chạm Chatbot & Toast với Bottom Nav */
+  .chat-launcher-btn,
+  #aiChatWidget,
+  .chatbot-toggler {
+    bottom: calc(var(--bottom-nav-h, 60px) + 14px) !important;
+    z-index: var(--z-chat-launcher, 1020);
+    transition: bottom 0.25s ease;
+  }
+
+  .toast-container {
+    bottom: calc(var(--bottom-nav-h, 60px) + 14px) !important;
+    z-index: var(--z-toast, 1200);
+  }
+
+  /* Khi có cả Sticky Buy Bar và Bottom Nav trên trang Chi Tiết */
+  body.has-sticky-bar .mobile-bottom-nav {
+    display: none !important;
+  }
+}

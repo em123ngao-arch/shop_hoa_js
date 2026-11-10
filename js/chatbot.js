@@ -5,6 +5,7 @@ import {
   addToCart
 } from './storage.js';
 import { formatPrice, showToast, updateCartBadge } from './utils.js';
+import { chatApi } from './api.js';
 
 /**
  * chatbot.js - Trợ Lý Tư Vấn Hoa Nghệ Thuật (AI Florist ChatBot + Dual-Engine RAG)
@@ -565,30 +566,20 @@ async function handleSendMessage(userText) {
   if (typingIndicator) typingIndicator.classList.remove('hidden');
   chatBody.scrollTop = chatBody.scrollHeight;
 
-  let apiKey = localStorage.getItem(STORAGE_KEYS.GEMINI_KEY);
-  if (!apiKey || apiKey.length < 20) {
-    apiKey = DEFAULT_GEMINI_KEY;
-  }
-
   let botReply = '';
   let recommendIds = [];
 
   try {
-    if (apiKey) {
-      // Chế độ 1: Gọi Gemini 1.5 / 2.5 Flash API trực tiếp
-      const rawGemini = await callGeminiAPI(apiKey, text);
-      const parsed = parseBotResponse(rawGemini);
-      botReply = parsed.cleanText;
-      recommendIds = parsed.recommendIds;
+    // Chế độ 1: Ưu tiên gọi qua Server-side Proxy (/api/chat) giấu kín Gemini API Key trong .env
+    const proxyRes = await chatApi.sendMessage(text, chatHistory);
+    if (proxyRes.data && proxyRes.data.reply) {
+      botReply = proxyRes.data.reply;
+      recommendIds = (proxyRes.data.suggestedProducts || []).map(p => p.id);
     } else {
-      // Chế độ 2: Smart Local RAG Fallback
-      await new Promise(r => setTimeout(r, 650)); // Giả lập độ trễ suy nghĩ tự nhiên
-      const localResult = smartLocalRAG(text);
-      botReply = localResult.text;
-      recommendIds = localResult.recommendIds;
+      throw new Error('Proxy không trả về dữ liệu hợp lệ');
     }
   } catch (err) {
-    console.warn('[AI Florist] Gemini API lỗi, chuyển sang Smart Local RAG:', err.message);
+    console.warn('[AI Florist] Gọi Server Proxy lỗi hoặc server chưa chạy, chuyển sang Smart Local RAG:', err.message);
     const localResult = smartLocalRAG(text);
     botReply = localResult.text;
     recommendIds = localResult.recommendIds;

@@ -308,6 +308,82 @@
   "cart": [],
   "orders": [
     {
+      "customerName": "Test Price Override",
+      "phone": "0901234567",
+      "totalAmount": 700000,
+      "items": [
+        {
+          "id": "1",
+          "price": 350000,
+          "quantity": 2,
+          "originalPrice": 350000,
+          "categoryId": "1"
+        }
+      ],
+      "id": "DH-0864",
+      "userId": null,
+      "createdAt": "2026-11-10T11:40:40.865Z",
+      "status": "pending",
+      "paymentMethod": "cod",
+      "paymentStatus": "pending",
+      "subtotal": 700000,
+      "discountAmount": 0,
+      "voucherCode": null,
+      "voucherSnapshot": null
+    },
+    {
+      "customerName": "Hacker Fake Item",
+      "phone": "0909999888",
+      "items": [
+        {
+          "id": "FAKE-999",
+          "name": "Hoa Hack",
+          "price": 1,
+          "quantity": 1,
+          "originalPrice": 1,
+          "categoryId": ""
+        }
+      ],
+      "id": "DH-9548",
+      "userId": null,
+      "createdAt": "2026-11-10T11:38:59.548Z",
+      "status": "pending",
+      "paymentMethod": "cod",
+      "paymentStatus": "pending",
+      "subtotal": 1,
+      "discountAmount": 0,
+      "voucherCode": null,
+      "voucherSnapshot": null,
+      "totalAmount": 1
+    },
+    {
+      "customerName": "Hacker Test Giá",
+      "phone": "0909999888",
+      "email": "hacker@example.com",
+      "address": "123 Test Street",
+      "totalAmount": 700000,
+      "items": [
+        {
+          "id": "1",
+          "name": "Bó Hoa Kẽm Nhung Tulip Pastel",
+          "price": 350000,
+          "quantity": 2,
+          "originalPrice": 350000,
+          "categoryId": "1"
+        }
+      ],
+      "id": "DH-9470",
+      "userId": null,
+      "createdAt": "2026-11-10T11:38:59.470Z",
+      "status": "pending",
+      "paymentMethod": "cod",
+      "paymentStatus": "pending",
+      "subtotal": 700000,
+      "discountAmount": 0,
+      "voucherCode": null,
+      "voucherSnapshot": null
+    },
+    {
       "id": "DH-1001",
       "customerName": "Nguyễn Thị Mai",
       "phone": "0901234567",
@@ -562,31 +638,38 @@
       "active": false
     }
   ],
-  "users": [
+  "users": [],
+  "$schema": "./node_modules/json-server/schema.json",
+  "notifications": [
     {
-      "name": "Quản Trị Viên Trưởng",
-      "email": "admin@shophoa.com",
-      "password": "123",
-      "role": "admin",
-      "createdAt": "2026-01-01T08:00:00.000Z",
-      "id": "USR-ADMIN"
+      "id": "NOTIF-1794310840866-rn2d",
+      "userId": "0901234567",
+      "orderId": "DH-0864",
+      "status": "pending",
+      "title": "Tạo đơn hàng thành công #DH-0864",
+      "message": "Đơn hàng #DH-0864 (700.000đ) đã được gửi tới Tiệm Hoa Kẽm Nhung.",
+      "read": false,
+      "createdAt": "2026-11-10T11:40:40.880Z"
     },
     {
-      "name": "Nguyễn Thị Kế Toán",
-      "email": "ketoan@shophoa.com",
-      "password": "123",
-      "role": "staff",
-      "createdAt": "2026-02-15T09:00:00.000Z",
-      "id": "USR-STAFF"
+      "id": "NOTIF-1794310739548-qz8j",
+      "userId": "0909999888",
+      "orderId": "DH-9548",
+      "status": "pending",
+      "title": "Tạo đơn hàng thành công #DH-9548",
+      "message": "Đơn hàng #DH-9548 (1đ) đã được gửi tới Tiệm Hoa Kẽm Nhung.",
+      "read": false,
+      "createdAt": "2026-11-10T11:38:59.548Z"
     },
     {
-      "name": "Trần Văn Khách Mua Hoa",
-      "email": "khachhang@shophoa.com",
-      "password": "123",
-      "role": "customer",
-      "createdAt": "2026-03-10T10:30:00.000Z",
-      "id": "USR-CUST"
+      "id": "NOTIF-1794310739476-fp0x",
+      "userId": "0909999888",
+      "orderId": "DH-9470",
+      "status": "pending",
+      "title": "Tạo đơn hàng thành công #DH-9470",
+      "message": "Đơn hàng #DH-9470 (700.000đ) đã được gửi tới Tiệm Hoa Kẽm Nhung.",
+      "read": false,
+      "createdAt": "2026-11-10T11:38:59.534Z"
     }
-  ],
-  "$schema": "./node_modules/json-server/schema.json"
+  ]
 }

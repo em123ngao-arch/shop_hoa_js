@@ -1,0 +1,509 @@
+{
+  "categories": [
+    {
+      "id": 1,
+      "name": "Trà sữa",
+      "description": "Các loại trà sữa truyền thống và hiện đại"
+    },
+    {
+      "id": 2,
+      "name": "Trà trái cây",
+      "description": "Trà kết hợp cùng trái cây tươi"
+    },
+    {
+      "id": 3,
+      "name": "Trà nguyên chất",
+      "description": "Các loại trà thanh mát, ít ngọt"
+    },
+    {
+      "id": 4,
+      "name": "Cà phê",
+      "description": "Cà phê và các thức uống từ cà phê"
+    },
+    {
+      "id": 5,
+      "name": "Đá xay",
+      "description": "Thức uống đá xay mát lạnh"
+    }
+  ],
+  "products": [
+    {
+      "id": 1,
+      "name": "Trà Sữa Trân Châu Đường Đen",
+      "price": 45000,
+      "categoryId": 1,
+      "image": "https://images.unsplash.com/photo-1558857563-b371033873b8",
+      "description": "Trà sữa béo thơm kết hợp trân châu đường đen",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.9,
+      "sold": 1250,
+      "status": true
+    },
+    {
+      "id": 2,
+      "name": "Trà Sữa Trân Châu Truyền Thống",
+      "price": 39000,
+      "categoryId": 1,
+      "image": "https://images.unsplash.com/photo-1525385133512-2f3bdd039054",
+      "description": "Hương vị trà sữa truyền thống, thơm béo",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.8,
+      "sold": 980,
+      "status": true
+    },
+    {
+      "id": 3,
+      "name": "Trà Sữa Matcha",
+      "price": 49000,
+      "categoryId": 1,
+      "image": "https://images.unsplash.com/photo-1515823662972-da6a2e4d3002",
+      "description": "Matcha Nhật Bản kết hợp sữa tươi béo nhẹ",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.7,
+      "sold": 760,
+      "status": true
+    },
+    {
+      "id": 4,
+      "name": "Trà Sữa Khoai Môn",
+      "price": 45000,
+      "categoryId": 1,
+      "image": "https://images.unsplash.com/photo-1525803377221-9f5b5d1e0e1a",
+      "description": "Trà sữa khoai môn thơm ngậy",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.6,
+      "sold": 620,
+      "status": true
+    },
+    {
+      "id": 5,
+      "name": "Trà Sữa Socola",
+      "price": 45000,
+      "categoryId": 1,
+      "image": "https://images.unsplash.com/photo-1577968897966-3d4325b36b61",
+      "description": "Vị socola đậm đà kết hợp trà sữa",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.5,
+      "sold": 540,
+      "status": true
+    },
+    {
+      "id": 6,
+      "name": "Trà Sữa Dâu",
+      "price": 47000,
+      "categoryId": 1,
+      "image": "https://images.unsplash.com/photo-1546173159-315724a31696",
+      "description": "Trà sữa dâu thơm nhẹ, vị ngọt dễ uống",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.6,
+      "sold": 430,
+      "status": true
+    },
+    {
+      "id": 7,
+      "name": "Trà Đào Cam Sả",
+      "price": 45000,
+      "categoryId": 2,
+      "image": "https://images.unsplash.com/photo-1556679343-c7306c1976bc",
+      "description": "Trà đào kết hợp cam tươi và sả",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.9,
+      "sold": 1500,
+      "status": true
+    },
+    {
+      "id": 8,
+      "name": "Trà Vải",
+      "price": 42000,
+      "categoryId": 2,
+      "image": "https://images.unsplash.com/photo-1556679343-c7306c1976bc",
+      "description": "Trà thanh mát kết hợp vải ngọt tự nhiên",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.7,
+      "sold": 870,
+      "status": true
+    },
+    {
+      "id": 9,
+      "name": "Trà Dâu Tây",
+      "price": 45000,
+      "categoryId": 2,
+      "image": "https://images.unsplash.com/photo-1498557850523-fd3d118b962e",
+      "description": "Trà dâu tươi chua ngọt",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.8,
+      "sold": 720,
+      "status": true
+    },
+    {
+      "id": 10,
+      "name": "Trà Xoài Nhiệt Đới",
+      "price": 45000,
+      "categoryId": 2,
+      "image": "https://images.unsplash.com/photo-1551024709-8f23befc6f87",
+      "description": "Trà xoài mang hương vị nhiệt đới",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.6,
+      "sold": 650,
+      "status": true
+    },
+    {
+      "id": 11,
+      "name": "Trà Chanh Dây",
+      "price": 40000,
+      "categoryId": 2,
+      "image": "https://images.unsplash.com/photo-1497534446932-c925b458314e",
+      "description": "Chanh dây chua nhẹ, thanh mát",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.7,
+      "sold": 590,
+      "status": true
+    },
+    {
+      "id": 12,
+      "name": "Trà Kiwi",
+      "price": 45000,
+      "categoryId": 2,
+      "image": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd",
+      "description": "Trà kiwi tươi mát",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.5,
+      "sold": 390,
+      "status": true
+    },
+    {
+      "id": 13,
+      "name": "Trà Ô Long",
+      "price": 35000,
+      "categoryId": 3,
+      "image": "https://images.unsplash.com/photo-1544787219-7f47ccb76574",
+      "description": "Trà ô long thơm dịu, hậu vị thanh",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.6,
+      "sold": 510,
+      "status": true
+    },
+    {
+      "id": 14,
+      "name": "Trà Xanh",
+      "price": 32000,
+      "categoryId": 3,
+      "image": "https://images.unsplash.com/photo-1556679343-c7306c1976bc",
+      "description": "Trà xanh nguyên chất thanh mát",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.5,
+      "sold": 420,
+      "status": true
+    },
+    {
+      "id": 15,
+      "name": "Trà Earl Grey",
+      "price": 38000,
+      "categoryId": 3,
+      "image": "https://images.unsplash.com/photo-1597318181409-cf64d0d5d8a5",
+      "description": "Trà Earl Grey thơm hương cam bergamot",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.7,
+      "sold": 310,
+      "status": true
+    },
+    {
+      "id": 16,
+      "name": "Trà Hoa Cúc",
+      "price": 35000,
+      "categoryId": 3,
+      "image": "https://images.unsplash.com/photo-1594631252845-29fc4cc8cde9",
+      "description": "Trà hoa cúc nhẹ nhàng, thư giãn",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.6,
+      "sold": 280,
+      "status": true
+    },
+    {
+      "id": 17,
+      "name": "Cà Phê Sữa",
+      "price": 35000,
+      "categoryId": 4,
+      "image": "https://images.unsplash.com/photo-1461023058943-07fcbe16d735",
+      "description": "Cà phê đậm đà kết hợp sữa đặc",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.8,
+      "sold": 930,
+      "status": true
+    },
+    {
+      "id": 18,
+      "name": "Cà Phê Đen",
+      "price": 30000,
+      "categoryId": 4,
+      "image": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085",
+      "description": "Cà phê đen truyền thống",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.7,
+      "sold": 750,
+      "status": true
+    },
+    {
+      "id": 19,
+      "name": "Bạc Xỉu",
+      "price": 38000,
+      "categoryId": 4,
+      "image": "https://images.unsplash.com/photo-1517701604599-bb29b565090c",
+      "description": "Cà phê sữa nhiều sữa, vị nhẹ",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.8,
+      "sold": 680,
+      "status": true
+    },
+    {
+      "id": 20,
+      "name": "Cà Phê Dừa",
+      "price": 49000,
+      "categoryId": 4,
+      "image": "https://images.unsplash.com/photo-1512568400610-62da28bc8a13",
+      "description": "Cà phê kết hợp kem dừa béo thơm",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.9,
+      "sold": 840,
+      "status": true
+    },
+    {
+      "id": 21,
+      "name": "Đá Xay Matcha",
+      "price": 55000,
+      "categoryId": 5,
+      "image": "https://images.unsplash.com/photo-1515823662972-da6a2e4d3002",
+      "description": "Matcha đá xay mát lạnh",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.8,
+      "sold": 470,
+      "status": true
+    },
+    {
+      "id": 22,
+      "name": "Đá Xay Socola",
+      "price": 55000,
+      "categoryId": 5,
+      "image": "https://images.unsplash.com/photo-1572490122747-3968b75cc699",
+      "description": "Socola đá xay đậm vị",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.7,
+      "sold": 520,
+      "status": true
+    },
+    {
+      "id": 23,
+      "name": "Đá Xay Cookies",
+      "price": 59000,
+      "categoryId": 5,
+      "image": "https://images.unsplash.com/photo-1579954115545-a95591f28bfc",
+      "description": "Cookies đá xay kết hợp kem tươi",
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 4.9,
+      "sold": 610,
+      "status": true
+    },
+    {
+      "name": "traà hoa hồng",
+      "price": 23000,
+      "categoryId": 2,
+      "image": "http://localhost:3001/images/1792425458264-couhdp.jpg",
+      "description": "",
+      "status": true,
+      "sizes": [
+        "M",
+        "L"
+      ],
+      "rating": 0,
+      "sold": 0,
+      "id": 24
+    }
+  ],
+  "toppings": [
+    {
+      "id": 1,
+      "name": "Trân châu đen",
+      "price": 10000,
+      "status": true
+    },
+    {
+      "id": 2,
+      "name": "Trân châu trắng",
+      "price": 10000,
+      "status": true
+    },
+    {
+      "id": 3,
+      "name": "Thạch dừa",
+      "price": 8000,
+      "status": true
+    },
+    {
+      "id": 4,
+      "name": "Thạch trái cây",
+      "price": 8000,
+      "status": true
+    },
+    {
+      "id": 5,
+      "name": "Pudding trứng",
+      "price": 12000,
+      "status": true
+    },
+    {
+      "id": 6,
+      "name": "Kem cheese",
+      "price": 15000,
+      "status": true
+    },
+    {
+      "id": 7,
+      "name": "Hạt thủy tinh",
+      "price": 10000,
+      "status": true
+    }
+  ],
+  "orders": [
+    {
+      "id": 1,
+      "customerName": "Nguyễn Văn An",
+      "phone": "0901234567",
+      "address": "Quận Tân Phú, TP.HCM",
+      "items": [
+        {
+          "productId": 1,
+          "productName": "Trà Sữa Trân Châu Đường Đen",
+          "size": "L",
+          "quantity": 2,
+          "price": 45000,
+          "toppings": [
+            {
+              "toppingId": 1,
+              "name": "Trân châu đen",
+              "price": 10000
+            }
+          ]
+        },
+        {
+          "productId": 7,
+          "productName": "Trà Đào Cam Sả",
+          "size": "M",
+          "quantity": 1,
+          "price": 45000,
+          "toppings": []
+        }
+      ],
+      "total": 155000,
+      "status": "Đang giao",
+      "createdAt": "2026-09-30T10:30:00"
+    },
+    {
+      "id": 2,
+      "customerName": "Trần Thị Mai",
+      "phone": "0912345678",
+      "address": "Quận 10, TP.HCM",
+      "items": [
+        {
+          "productId": 3,
+          "productName": "Trà Sữa Matcha",
+          "size": "L",
+          "quantity": 1,
+          "price": 49000,
+          "toppings": [
+            {
+              "toppingId": 5,
+              "name": "Pudding trứng",
+              "price": 12000
+            }
+          ]
+        }
+      ],
+      "total": 61000,
+      "status": "Hoàn thành",
+      "createdAt": "2026-09-29T15:20:00"
+    }
+  ],
+  "user": [
+    {
+      "name": "TUẤN",
+      "email": "an@gmail.com",
+      "password": "123",
+      "id": 1
+    },
+    {
+      "name": "anh",
+      "email": "teo@gmail.com",
+      "password": "12345",
+      "id": 2
+    }
+  ]
+}
