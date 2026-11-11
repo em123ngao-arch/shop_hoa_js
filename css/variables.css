@@ -44,4 +44,15 @@
   --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.08);
   --transition-fast: 0.25s ease;
   --transition-smooth: 0.4s ease;
+
+  /* --- 7. THANG Z-INDEX & ĐIỀU HƯỚNG DI ĐỘNG (Layering Architecture) --- */
+  --bottom-nav-h: calc(60px + env(safe-area-inset-bottom, 0px));
+  --z-header: 1000;
+  --z-bottom-nav: 990;
+  --z-chat-launcher: 1020;
+  --z-cart-backdrop: 1040;
+  --z-cart-drawer: 1050;
+  --z-modal-backdrop: 1090;
+  --z-modal: 1100;
+  --z-toast: 1200;
 }

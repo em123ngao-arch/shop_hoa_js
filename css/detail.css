@@ -147,13 +147,14 @@
   padding: 16px 20px;
   margin-bottom: 24px;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 14px;
+  flex-wrap: wrap;
 }
 
 .detail-price {
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--color-sale-price);
 }
 
@@ -164,12 +165,13 @@
 }
 
 .detail-save-badge {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
-  background-color: var(--badge-sale-bg);
-  color: var(--badge-sale-text);
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
+  background-color: #FFF1F0;
+  color: var(--color-sale-price);
+  border: 1px solid rgba(217, 45, 32, 0.25);
+  padding: 4px 10px;
+  border-radius: 20px;
 }
 
 /* Mô tả sản phẩm */
@@ -314,3 +316,135 @@
   margin-bottom: 24px;
   text-align: center;
 }
+
+/* ==========================================================================
+   NÂNG CẤP UI/UX: SKELETON LOADING, THUMBNAILS & ADD-ON OPTIONS
+   ========================================================================== */
+
+/* 1. SKELETON SHIMMER LOADING */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.detail-skeleton-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  padding: 24px 0;
+}
+
+.skeleton-box {
+  background: linear-gradient(90deg, var(--bg-surface) 25%, var(--border-subtle) 50%, var(--bg-surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+}
+
+.skeleton-image {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+}
+
+.skeleton-tag {
+  width: 140px;
+  height: 20px;
+  margin-bottom: 12px;
+}
+
+.skeleton-title {
+  width: 85%;
+  height: 36px;
+  margin-bottom: 16px;
+}
+
+.skeleton-meta {
+  width: 60%;
+  height: 20px;
+  margin-bottom: 24px;
+}
+
+.skeleton-price {
+  width: 100%;
+  height: 64px;
+  margin-bottom: 24px;
+}
+
+.skeleton-actions {
+  width: 100%;
+  height: 48px;
+}
+
+/* 2. THUMBNAILS GALLERY */
+.detail-thumbnails {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.thumb-item {
+  width: 68px;
+  height: 68px;
+  padding: 2px;
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--bg-page);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.thumb-item.active,
+.thumb-item:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
+.thumb-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+/* 3. ADD-ON OPTIONS (TÙY CHỌN PHỤ KIỆN) */
+.addon-options {
+  margin: 18px 0;
+}
+
+.addon-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.addon-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--bg-cream);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.addon-chip input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  cursor: pointer;
+  width: 15px;
+  height: 15px;
+}
+
+.addon-chip:has(input:checked) {
+  background: var(--badge-handmade-bg);
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
