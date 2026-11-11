@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin - Quản lý sản phẩm</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    form { display: grid; gap: 8px; max-width: 420px; margin-bottom: 20px; }
+    input, select, textarea, button { padding: 6px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    img { width: 60px; height: 60px; object-fit: cover; }
+    .pagination { display: flex; justify-content: center; gap: 6px; margin-top: 15px; }
+    .pagination button { padding: 6px 12px; border: 1px solid #ccc; background: #fff; cursor: pointer; border-radius: 4px; }
+    .pagination button.active { background: #007bff; color: #fff; border-color: #007bff; }
+    .pagination button:disabled { opacity: 0.5; cursor: not-allowed; color: #aaa; }
+  </style>
+</head>
+<body>
+  <h1>Quản lý sản phẩm</h1>
+
+  <form id="productForm">
+    <input type="hidden" id="productId">
+    <input type="text" id="name" placeholder="Tên sản phẩm" required>
+    <input type="number" id="price" placeholder="Giá" min="0" required>
+    <select id="categoryId" required></select>
+    <input type="file" id="imageFile" accept="image/*">
+    <input type="url" id="image" placeholder="Link hình ảnh (tự điền sau khi chọn file)" required>
+    <img id="preview" alt="" style="display:none">
+    <textarea id="description" placeholder="Mô tả"></textarea>
+    <label><input type="checkbox" id="status" checked> Đang bán</label>
+    <button type="submit" id="submitBtn">Thêm sản phẩm</button>
+    <button type="button" id="cancelBtn" style="display:none">Hủy sửa</button>
+  </form>
+
+  <div style="margin-bottom: 12px;">
+    <button type="button" id="exportExcelBtn">Xuất danh sách sản phẩm ra Excel</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Hình</th><th>Tên</th><th>Giá</th><th>Danh mục</th><th>Trạng thái</th><th>Thao tác</th></tr>
+    </thead>
+    <tbody id="productList"></tbody>
+  </table>
+
+  <!-- Vùng chứa các nút phân trang -->
+  <div id="pagination" class="pagination"></div>
+
+  <!-- Nạp axios và thư viện xuất Excel (SheetJS) trước file admin.js -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
