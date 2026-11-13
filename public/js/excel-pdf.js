@@ -298,7 +298,7 @@ export function handleExcelFile(file, categories, onPreviewOpen) {
           categoryId: matchedCategory.id,
           categoryName: matchedCategory.name,
           categorySlug: matchedCategory.slug || 'kem-nhung',
-          image: './images/300.png',
+          image: './images/300.webp',
           stock: isNaN(stock) ? 10 : stock,
           soldCount: 0,
           rating: 5,

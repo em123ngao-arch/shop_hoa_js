@@ -30,7 +30,7 @@ function safeMediaUrl(value) {
     const parsed = new URL(candidate, window.location.origin);
     if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return candidate;
   } catch {}
-  return './images/300.png';
+  return './images/300.webp';
 }
 
 /**

@@ -129,7 +129,7 @@ export function addToCart(product, quantity = 1) {
       name: prodName,
       price: prodPrice,
       originalPrice: Number(targetProduct.originalPrice || targetProduct.price) || prodPrice,
-      image: targetProduct.image || targetProduct.image_url || targetProduct.hinhbanner || './images/300.png',
+      image: targetProduct.image || targetProduct.image_url || targetProduct.hinhbanner || './images/300.webp',
       categoryId: targetProduct.categoryId !== undefined ? String(targetProduct.categoryId) : '1',
       categoryName: targetProduct.categoryName || 'Hoa Kẽm Nhung',
       quantity: Math.max(1, Number(quantity) || 1),

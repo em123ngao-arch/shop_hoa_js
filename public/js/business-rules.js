@@ -598,7 +598,7 @@ export function aggregateProductDeliveryAndRevenue(orders = [], products = [], c
     statsMap.set(String(p.id), {
       productId: String(p.id),
       name: p.name,
-      image: p.image || p.image_url || './images/300.png',
+      image: p.image || p.image_url || './images/300.webp',
       categoryId: String(p.categoryId ?? p.category_id ?? ''),
       categoryName: p.categoryName || catNameById.get(String(p.categoryId ?? p.category_id ?? '')) || 'Hoa Kẽm Nhung',
       price: Number(p.price || 0),
@@ -626,7 +626,7 @@ export function aggregateProductDeliveryAndRevenue(orders = [], products = [], c
         statsMap.set(pid, {
           productId: pid,
           name: item.productName || item.name || refProd?.name || `Mẫu hoa #${pid}`,
-          image: item.imageUrl || item.image || refProd?.image || './images/300.png',
+          image: item.imageUrl || item.image || refProd?.image || './images/300.webp',
           categoryId: String(item.categoryId || refProd?.categoryId || ''),
           categoryName: catNameById.get(String(item.categoryId || refProd?.categoryId || '')) || 'Hoa Kẽm Nhung',
           price: Number(item.unitPrice ?? item.price ?? refProd?.price ?? 0),
