@@ -533,7 +533,7 @@ function initHeroSlider(banners = []) {
         </div>
 
         <div class="hero-image-wrap">
-          <img src="${banner.hinhbanner || banner.image_url || banner.image || './images/350.png'}" alt="${banner.tenbanner || banner.title || 'Hoa Kẽm Nhung'}" loading="eager" onerror="this.src='./images/350.png'">
+          <img src="${banner.hinhbanner || banner.image_url || banner.image || './images/350.webp'}" alt="${banner.tenbanner || banner.title || 'Hoa Kẽm Nhung'}" loading="eager" onerror="this.src='./images/350.webp'">
         </div>
       </div>
     `;
@@ -1142,7 +1142,7 @@ function renderMyOrdersList(orders = []) {
     const itemsHtml = (order.items || []).map(item => `
       <div class="order-item-mini-row">
         <div class="order-item-mini-left">
-          <img src="${escapeHTML(item.image || './images/300.png')}" alt="${escapeHTML(item.name)}" class="order-item-mini-thumb">
+          <img src="${escapeHTML(item.image || './images/300.webp')}" alt="${escapeHTML(item.name)}" class="order-item-mini-thumb">
           <span>${escapeHTML(item.name)} <strong style="color: #64748b; font-size: 11px;">× ${item.quantity}</strong></span>
         </div>
         <strong>${formatPrice(item.price * item.quantity)}</strong>

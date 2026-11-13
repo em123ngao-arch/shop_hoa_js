@@ -534,7 +534,7 @@ function renderOrdersList(orders = []) {
       return `
       <div class="order-product-row">
         <div class="order-product-info">
-        <img src="${escapeHTML(item.image || item.imageUrl || './images/300.png')}" alt="${escapeHTML(item.name || item.title || item.productName)}" class="order-flower-thumb" onerror="this.src='./images/300.png'">
+        <img src="${escapeHTML(item.image || item.imageUrl || './images/300.webp')}" alt="${escapeHTML(item.name || item.title || item.productName)}" class="order-flower-thumb" onerror="this.src='./images/300.webp'">
           <div>
             <h4 class="order-flower-title">${escapeHTML(item.name || item.title || item.productName)}</h4>
             <p class="order-flower-meta">Phân loại: ${escapeHTML(item.categoryName || 'Hoa Handmade')} &bull; Số lượng: &times;${escapeHTML(item.quantity || 1)}</p>
@@ -904,7 +904,7 @@ function setupOrdersPageEvents() {
                 id: prodId,
                 name: prodName,
                 price: prodPrice,
-                image: item.image || item.imageUrl || './images/300.png',
+                image: item.image || item.imageUrl || './images/300.webp',
                 categoryName: item.categoryName || 'Hoa Kẽm Nhung'
               }, item.quantity || 1);
             }

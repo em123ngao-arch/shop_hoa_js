@@ -6,6 +6,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -72,6 +73,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
+app.use(compression());
 app.use(createOriginGuard(allowedOrigins));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -84,9 +86,38 @@ app.use((req, res, next) => {
   next();
 });
 
+// Tối ưu tốc độ tải ảnh: Tự động phục vụ WebP (nhẹ hơn 94%) khi yêu cầu ảnh .png hoặc .jpg nếu có bản .webp
+app.use(['/images', '/public/images'], (req, res, next) => {
+  if (req.path.match(/\.(png|jpg|jpeg)$/i)) {
+    const webpFilename = req.path.replace(/\.(png|jpg|jpeg)$/i, '.webp');
+    const webpPath = path.join(__dirname, 'public', 'images', webpFilename);
+    if (fs.existsSync(webpPath)) {
+      res.setHeader('Content-Type', 'image/webp');
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+      return res.sendFile(webpPath);
+    }
+  }
+  next();
+});
+
+// Cấu hình HTTP Caching chuẩn cho static assets (Ảnh, Fonts, CSS, JS)
+const staticOptions = {
+  maxAge: '1d',
+  etag: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    } else if (filePath.match(/\.(webp|png|jpg|jpeg|svg|gif|ico|woff2?|ttf|eot)$/i)) {
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); // 7 ngày
+    } else if (filePath.match(/\.(css|js)$/i)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 ngày
+    }
+  }
+};
+
 // Phục vụ static files cho Frontend từ public/ và thư mục uploads (chặn lộ file mã nguồn ở gốc)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), staticOptions));
+app.use(express.static(path.join(__dirname, 'public'), staticOptions));
 
 // Endpoint giam sat trang thai (Health Check) phuc vu Render & Cron-job.org keep-alive
 app.get(['/api/health', '/health'], async (req, res) => {

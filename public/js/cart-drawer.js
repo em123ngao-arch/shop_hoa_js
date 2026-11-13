@@ -234,7 +234,7 @@ export function renderCartDrawer() {
   if (itemsContainer) {
     itemsContainer.innerHTML = summary.items.map(item => `
       <div class="drawer-item" data-id="${item.id}">
-        <img src="${item.image || './images/300.png'}" alt="${item.name || item.title}" class="drawer-item-img" onerror="this.src='./images/300.png'">
+        <img src="${item.image || './images/300.webp'}" alt="${item.name || item.title}" class="drawer-item-img" onerror="this.src='./images/300.webp'">
         <div class="drawer-item-info">
           <div class="drawer-item-title" title="${item.name || item.title}">${item.name || item.title}</div>
           ${item.addonsText ? `<div class="cart-item-addons" style="margin: 3px 0 5px 0;">+ Phụ kiện: ${item.addonsText}</div>` : ''}

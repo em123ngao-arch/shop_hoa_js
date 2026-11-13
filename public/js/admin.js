@@ -47,7 +47,7 @@ import {
   exportRevenueStatisticsExcel
 } from './excel-pdf.js';
 
-function safeAdminMediaUrl(value, fallback = './images/300.png') {
+function safeAdminMediaUrl(value, fallback = './images/300.webp') {
   const candidate = String(value || '').trim();
   if (/^(?:\/|\.\/)(?!\/)/.test(candidate)) return escapeHTML(candidate);
   try {
@@ -648,7 +648,7 @@ function renderDashboard() {
       topListEl.innerHTML = top5.map((p, idx) => `
         <div class="top-seller-row">
           <span class="top-seller-rank ${idx === 0 ? 'rank-1' : ''}">${idx + 1}</span>
-          <img src="${safeAdminMediaUrl(p.image)}" alt="${escapeHTML(p.name)}" class="top-seller-thumb" onerror="this.src='./images/300.png'">
+          <img src="${safeAdminMediaUrl(p.image)}" alt="${escapeHTML(p.name)}" class="top-seller-thumb" onerror="this.src='./images/300.webp'">
           <div class="top-seller-info">
             <div class="top-seller-name">${escapeHTML(p.name)}</div>
             <div class="top-seller-meta">Đã giao: <strong>${p.deliveredQty}</strong> • Đang/Chưa giao: ${p.shippingQty + p.undeliveredQty}</div>
@@ -1026,7 +1026,7 @@ function renderProductsTable() {
     return `
       <tr data-id="${escapeHTML(p.id)}" style="${!isProdActive ? 'opacity: 0.72; background: #F8FAFC;' : ''}">
         <td>
-          <img src="${safeAdminMediaUrl(p.image)}" alt="${escapeHTML(p.name)}" class="table-thumb" onerror="this.src='./images/300.png'">
+          <img src="${safeAdminMediaUrl(p.image)}" alt="${escapeHTML(p.name)}" class="table-thumb" onerror="this.src='./images/300.webp'">
         </td>
         <td>
           <div class="table-title">${escapeHTML(p.name)}</div>
@@ -1318,7 +1318,7 @@ function initProductCrud() {
       const catObj = allCategories.find(c => Number(c.id) === catId) || {};
 
       let image = document.querySelector('#prodImageUrl').value || document.querySelector('#prodImageUrlInput').value;
-      if (!image) image = './images/300.png';
+      if (!image) image = './images/300.webp';
 
       const costPriceVal = costPriceInput ? (Number(costPriceInput.value) || 0) : 0;
       const isActiveVal = isActiveSelect ? (isActiveSelect.value === 'true') : true;
@@ -1571,7 +1571,7 @@ function renderBannersTable() {
     else if (b.theme === 'valentine') { themeBadge = 'badge-rose'; themeLabel = 'Valentine'; }
     else if (b.theme === 'sale') { themeBadge = 'badge-amber'; themeLabel = 'Siêu Sale'; }
 
-    const bannerImg = b.hinhbanner || b.image_url || b.image || './images/350.png';
+    const bannerImg = b.hinhbanner || b.image_url || b.image || './images/350.webp';
     const bannerName = b.tenbanner || b.title || 'Banner';
     const bannerOrder = b.order ?? b.display_order ?? 1;
     const isBannerActive = (b.active !== undefined ? b.active : b.is_active) ?? true;
@@ -1579,7 +1579,7 @@ function renderBannersTable() {
     return `
       <tr data-id="${escapeHTML(b.id)}">
         <td>
-          <img src="${safeAdminMediaUrl(bannerImg, './images/350.png')}" alt="${escapeHTML(bannerName)}" class="table-thumb" style="width: 70px; height: 42px; object-fit: cover;" onerror="this.src='./images/350.png'">
+          <img src="${safeAdminMediaUrl(bannerImg, './images/350.webp')}" alt="${escapeHTML(bannerName)}" class="table-thumb" style="width: 70px; height: 42px; object-fit: cover;" onerror="this.src='./images/350.webp'">
         </td>
         <td>
           <div class="table-title">${escapeHTML(bannerName)}</div>
@@ -1681,7 +1681,7 @@ function initBannerCrud() {
       e.preventDefault();
       const id = document.querySelector('#bannerFormId').value;
       let hinhbanner = document.querySelector('#bannerImageUrl').value || document.querySelector('#bannerImageUrlInput').value;
-      if (!hinhbanner) hinhbanner = './images/350.png';
+      if (!hinhbanner) hinhbanner = './images/350.webp';
 
       const bannerData = {
         tenbanner: document.querySelector('#bannerTenInput').value.trim(),
@@ -2420,8 +2420,8 @@ function initOrderManagement() {
 
     if (bodyEl) {
       const safeItemImage = value => {
-        const candidate = String(value || './images/300.png');
-        return escapeHTML(candidate.startsWith('/') || candidate.startsWith('./') || /^https?:\/\//i.test(candidate) ? candidate : './images/300.png');
+        const candidate = String(value || './images/300.webp');
+        return escapeHTML(candidate.startsWith('/') || candidate.startsWith('./') || /^https?:\/\//i.test(candidate) ? candidate : './images/300.webp');
       };
       const itemsHtml = (order.items || []).map(item => `
         <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed var(--border-light);">
@@ -3383,7 +3383,7 @@ function renderStatsProductMatrix(productStats, periodTitle = '') {
     <tr>
       <td>
         <div style="display: flex; align-items: center; gap: 10px;">
-          <img src="${safeAdminMediaUrl(item.image)}" alt="${escapeHTML(item.name)}" style="width: 38px; height: 38px; border-radius: 6px; object-fit: cover; flex-shrink: 0;" onerror="this.src='./images/300.png'">
+          <img src="${safeAdminMediaUrl(item.image)}" alt="${escapeHTML(item.name)}" style="width: 38px; height: 38px; border-radius: 6px; object-fit: cover; flex-shrink: 0;" onerror="this.src='./images/300.webp'">
           <div>
             <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHTML(item.name)}</div>
             <div style="font-size: 11.5px; color: var(--text-muted);">${escapeHTML(item.categoryName)} • #${escapeHTML(item.productId)}</div>
