@@ -41,5 +41,9 @@ export class UserRepositoryPort {
   async update(id, updateData) {
     throw new Error('Phương thức update() chưa được triển khai');
   }
+
+  async incrementTokenVersion(id) {
+    throw new Error('Phương thức incrementTokenVersion() chưa được triển khai');
+  }
 }
 

@@ -23,6 +23,18 @@ export class AuthUseCase {
     throw new Error('Phương thức login() chưa được triển khai');
   }
 
+  async forgotPassword(email) {
+    throw new Error('Phương thức forgotPassword() chưa được triển khai');
+  }
+
+  async resetPassword(resetDTO) {
+    throw new Error('Phương thức resetPassword() chưa được triển khai');
+  }
+
+  async logoutAllDevices(userId) {
+    throw new Error('Phương thức logoutAllDevices() chưa được triển khai');
+  }
+
   /**
    * Lấy thông tin cá nhân của người dùng đang đăng nhập
    * @param {string} userId

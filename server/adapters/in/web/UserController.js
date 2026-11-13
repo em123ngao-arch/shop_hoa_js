@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import { fileURLToPath } from 'url';
+import { saveProcessedMedia } from '../../out/storage/MediaStorageService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,25 +32,31 @@ export class UserController {
       }
 
       const rawBase64 = req.body.avatarBase64 || req.body.avatar;
-      if (!rawBase64 || typeof rawBase64 !== 'string') {
+      if (typeof rawBase64 !== 'string' || rawBase64.length > 5_000_000 || !/^data:image\/(?:png|jpeg|webp);base64,/i.test(rawBase64)) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Du lieu anh Base64 khong hop le' } });
       }
 
       // 1. Tach header base64 va lay Buffer
       const base64Data = rawBase64.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Buffer.from(base64Data, 'base64');
+      if (!buffer.length || buffer.length > 3_750_000) {
+        return res.status(413).json({ error: { code: 'IMAGE_TOO_LARGE', message: 'Avatar vượt quá dung lượng cho phép' } });
+      }
 
       // 2. Khu doc toan dien bang Sharp (Image Sanitization):
       // Giai ma byte anh -> Ve lai pixel 200x200 format WebP -> Loai bo hoan toan Polyglot/ma doc
       const sanitizedFilename = `avatar-${user.id}.webp`;
-      const filePath = path.join(UPLOADS_DIR, sanitizedFilename);
 
-      await sharp(buffer)
+      const processedBuffer = await sharp(buffer, { limitInputPixels: 20_000_000 })
         .resize(200, 200, { fit: 'cover' })
         .webp({ quality: 85 })
-        .toFile(filePath);
+        .toBuffer();
 
-      const avatarUrl = `/uploads/avatars/${sanitizedFilename}?t=${Date.now()}`;
+      const avatarUrl = await saveProcessedMedia(processedBuffer, {
+        folder: 'avatars',
+        filename: sanitizedFilename,
+        publicId: `avatar-${user.id}`
+      });
 
       // 3. Cap nhat vao MySQL
       const updatedUser = await this.prisma.users.update({

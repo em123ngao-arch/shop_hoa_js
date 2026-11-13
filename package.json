@@ -6,26 +6,31 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
+    "build": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "node prisma/seed.js",
     "server": "node server.js",
     "test": "node test-auth-http.js && node test-all-features-http.js",
     "test:auth": "node test-auth-http.js",
     "test:all": "node test-all-features-http.js",
-    "vite": "vite"
+    "test:e2e": "node scripts/test-phase-a-e2e.js"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
     "axios": "^1.7.9",
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.11.0",
     "cors": "^2.8.6",
+    "exceljs": "^4.4.0",
     "express": "^5.3.0",
     "jsonwebtoken": "^9.0.3",
-    "sharp": "^0.35.5",
-    "xlsx": "^0.18.5"
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
+    "nodemailer": "^10.5.0",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
-    "json-server": "^0.17.4",
     "playwright": "^1.64.1",
-    "prisma": "^6.4.1",
-    "vite": "^6.4.3"
+    "prisma": "^6.4.1"
   }
 }

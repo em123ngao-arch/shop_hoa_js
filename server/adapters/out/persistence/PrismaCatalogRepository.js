@@ -3,6 +3,8 @@
  * Thuoc tang Adapters / Out / Persistence
  */
 
+import { ValidationError, NotFoundError } from '../../../domain/errors/DomainErrors.js';
+
 export class PrismaCatalogRepository {
   constructor(prismaClient) {
     this.prisma = prismaClient;
@@ -16,7 +18,7 @@ export class PrismaCatalogRepository {
     const validReviews = (p.reviews || []).filter(r => !r.is_hidden);
     const avgRating = validReviews.length > 0
       ? Math.round((validReviews.reduce((sum, r) => sum + r.rating, 0) / validReviews.length) * 10) / 10
-      : 5;
+      : null;
 
     return {
       id: p.id,
@@ -25,6 +27,7 @@ export class PrismaCatalogRepository {
       originalPrice: p.original_price,
       original_price: p.original_price,
       costPrice: p.cost_price,
+      cost_price: p.cost_price,
       stock: p.stock,
       image: p.image_url,
       image_url: p.image_url,
@@ -114,6 +117,10 @@ export class PrismaCatalogRepository {
    */
   async createProduct(data) {
     const id = data.id || `PROD-${Date.now().toString(36).toUpperCase()}`;
+    const stock = Number(data.stock || 0);
+    if (Number.isNaN(stock) || stock < 0) {
+      throw new ValidationError('Số lượng tồn kho ban đầu không được là số âm');
+    }
     const raw = await this.prisma.products.create({
       data: {
         id,
@@ -122,7 +129,7 @@ export class PrismaCatalogRepository {
         price: Number(data.price),
         original_price: Number(data.originalPrice || data.original_price || data.price),
         cost_price: Number(data.costPrice || data.cost_price || 0),
-        stock: Number(data.stock || 0),
+        stock,
         image_url: data.image || data.image_url || './images/300.png',
         description: data.description || '',
         badge: data.badge || null,
@@ -146,7 +153,27 @@ export class PrismaCatalogRepository {
     if (data.costPrice !== undefined || data.cost_price !== undefined) {
       updatePayload.cost_price = Number(data.costPrice ?? data.cost_price);
     }
-    if (data.stock !== undefined) updatePayload.stock = Number(data.stock);
+    if (data.stockDelta !== undefined) {
+      const delta = Number(data.stockDelta);
+      if (!Number.isNaN(delta)) {
+        if (delta < 0 && typeof this.prisma.products.findUnique === 'function') {
+          const current = await this.prisma.products.findUnique({
+            where: { id: String(id) },
+            select: { stock: true }
+          });
+          if (current && (Number(current.stock || 0) + delta) < 0) {
+            throw new ValidationError(`Số lượng tồn kho không đủ để giảm (tồn kho hiện tại: ${current.stock}, không thể giảm ${Math.abs(delta)})`);
+          }
+        }
+        updatePayload.stock = { increment: delta };
+      }
+    } else if (data.stock !== undefined) {
+      const targetStock = Number(data.stock);
+      if (Number.isNaN(targetStock) || targetStock < 0) {
+        throw new ValidationError('Số lượng tồn kho không được là số âm');
+      }
+      updatePayload.stock = targetStock;
+    }
     if (data.image !== undefined || data.image_url !== undefined) {
       updatePayload.image_url = data.image ?? data.image_url;
     }
@@ -168,11 +195,21 @@ export class PrismaCatalogRepository {
   }
 
   /**
-   * Xoa san pham (Admin CRUD)
+   * Xoa san pham (Admin CRUD) - Chan xoa neu da co don hang de tranh loi khoa ngoai 500
    */
   async deleteProduct(id) {
+    const cleanId = String(id);
+    const orderItemCount = await this.prisma.order_items.count({
+      where: { product_id: cleanId }
+    });
+    if (orderItemCount > 0) {
+      throw new ValidationError(
+        `Mẫu hoa này đã có ${orderItemCount} đơn hàng liên quan, không thể xóa vĩnh viễn. Vui lòng chuyển sang trạng thái "Ngừng kinh doanh" để bảo toàn lịch sử kế toán và giao dịch!`
+      );
+    }
+
     await this.prisma.products.delete({
-      where: { id: String(id) }
+      where: { id: cleanId }
     });
     return true;
   }
@@ -418,6 +455,161 @@ export class PrismaCatalogRepository {
       isActive: v.is_active,
       active: v.is_active
     };
+  }
+
+  /**
+   * Tao moi 1 voucher khuyen mai
+   */
+  async createVoucher(data) {
+    const code = String(data.code || '').trim().toUpperCase();
+    if (!code) throw new ValidationError('Mã voucher không được để trống');
+    if (!data.name) throw new ValidationError('Tên chương trình ưu đãi không được để trống');
+
+    const existing = await this.prisma.vouchers.findUnique({ where: { code } });
+    if (existing) {
+      throw new ValidationError(`Mã voucher "${code}" đã tồn tại trong hệ thống`);
+    }
+
+    const id = data.id || `vouch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const discountType = data.discountType === 'fixed' ? 'fixed' : 'percent';
+    const discountValue = Number(data.discountValue ?? data.discountPercent) || 0;
+    const minOrder = Number(data.minOrder) || 0;
+    const maxDiscount = (discountType === 'percent' && data.maxDiscount) ? Number(data.maxDiscount) : null;
+    const scope = ['all', 'category', 'product'].includes(data.scope) ? data.scope : 'all';
+    const targetCategoryIds = Array.isArray(data.targetCategoryIds) ? JSON.stringify(data.targetCategoryIds) : null;
+    const targetProductIds = Array.isArray(data.targetProductIds) ? JSON.stringify(data.targetProductIds) : null;
+    const usageLimit = Number(data.usageLimit) > 0 ? Number(data.usageLimit) : 100;
+    const usedCount = Number(data.usedCount) || 0;
+    const startDate = data.startDate ? new Date(data.startDate) : null;
+    const endDate = data.endDate ? new Date(data.endDate) : null;
+    const isActive = data.active !== undefined ? Boolean(data.active) : (data.isActive !== undefined ? Boolean(data.isActive) : true);
+
+    const record = await this.prisma.vouchers.create({
+      data: {
+        id,
+        code,
+        name: String(data.name).trim(),
+        discount_type: discountType,
+        discount_value: discountValue,
+        min_order: minOrder,
+        max_discount: maxDiscount,
+        scope,
+        target_category_ids: targetCategoryIds,
+        target_product_ids: targetProductIds,
+        usage_limit: usageLimit,
+        used_count: usedCount,
+        start_date: startDate,
+        end_date: endDate,
+        is_active: isActive
+      }
+    });
+
+    return {
+      id: record.id,
+      code: record.code,
+      name: record.name,
+      discountType: record.discount_type,
+      discount_type: record.discount_type,
+      discountValue: record.discount_value,
+      discount_value: record.discount_value,
+      minOrder: record.min_order,
+      min_order: record.min_order,
+      maxDiscount: record.max_discount,
+      max_discount: record.max_discount,
+      scope: record.scope,
+      targetCategoryIds: record.target_category_ids ? JSON.parse(record.target_category_ids) : [],
+      targetProductIds: record.target_product_ids ? JSON.parse(record.target_product_ids) : [],
+      usageLimit: record.usage_limit,
+      usedCount: record.used_count,
+      startDate: record.start_date,
+      endDate: record.end_date,
+      isActive: record.is_active,
+      active: record.is_active
+    };
+  }
+
+  /**
+   * Cap nhat thong tin voucher
+   */
+  async updateVoucher(id, data) {
+    const existing = await this.prisma.vouchers.findUnique({ where: { id: String(id) } });
+    if (!existing) {
+      throw new NotFoundError(`Không tìm thấy voucher #${id}`);
+    }
+
+    const updateData = {};
+    if (data.code !== undefined) {
+      const newCode = String(data.code).trim().toUpperCase();
+      if (!newCode) throw new ValidationError('Mã voucher không được để trống');
+      if (newCode !== existing.code) {
+        const dup = await this.prisma.vouchers.findUnique({ where: { code: newCode } });
+        if (dup && dup.id !== existing.id) {
+          throw new ValidationError(`Mã voucher "${newCode}" đã được sử dụng`);
+        }
+        updateData.code = newCode;
+      }
+    }
+    if (data.name !== undefined) updateData.name = String(data.name).trim();
+    if (data.discountType !== undefined) updateData.discount_type = data.discountType === 'fixed' ? 'fixed' : 'percent';
+    if (data.discountValue !== undefined || data.discountPercent !== undefined) {
+      updateData.discount_value = Number(data.discountValue ?? data.discountPercent) || 0;
+    }
+    if (data.minOrder !== undefined) updateData.min_order = Number(data.minOrder) || 0;
+    if (data.maxDiscount !== undefined) updateData.max_discount = data.maxDiscount ? Number(data.maxDiscount) : null;
+    if (data.scope !== undefined) updateData.scope = data.scope;
+    if (data.targetCategoryIds !== undefined) {
+      updateData.target_category_ids = Array.isArray(data.targetCategoryIds) ? JSON.stringify(data.targetCategoryIds) : null;
+    }
+    if (data.targetProductIds !== undefined) {
+      updateData.target_product_ids = Array.isArray(data.targetProductIds) ? JSON.stringify(data.targetProductIds) : null;
+    }
+    if (data.usageLimit !== undefined) updateData.usage_limit = Number(data.usageLimit) || 100;
+    if (data.usedCount !== undefined) updateData.used_count = Number(data.usedCount) || 0;
+    if (data.startDate !== undefined) updateData.start_date = data.startDate ? new Date(data.startDate) : null;
+    if (data.endDate !== undefined) updateData.end_date = data.endDate ? new Date(data.endDate) : null;
+    if (data.active !== undefined || data.isActive !== undefined) {
+      updateData.is_active = data.active !== undefined ? Boolean(data.active) : Boolean(data.isActive);
+    }
+
+    const record = await this.prisma.vouchers.update({
+      where: { id: String(id) },
+      data: updateData
+    });
+
+    return {
+      id: record.id,
+      code: record.code,
+      name: record.name,
+      discountType: record.discount_type,
+      discount_type: record.discount_type,
+      discountValue: record.discount_value,
+      discount_value: record.discount_value,
+      minOrder: record.min_order,
+      min_order: record.min_order,
+      maxDiscount: record.max_discount,
+      max_discount: record.max_discount,
+      scope: record.scope,
+      targetCategoryIds: record.target_category_ids ? JSON.parse(record.target_category_ids) : [],
+      targetProductIds: record.target_product_ids ? JSON.parse(record.target_product_ids) : [],
+      usageLimit: record.usage_limit,
+      usedCount: record.used_count,
+      startDate: record.start_date,
+      endDate: record.end_date,
+      isActive: record.is_active,
+      active: record.is_active
+    };
+  }
+
+  /**
+   * Xoa voucher
+   */
+  async deleteVoucher(id) {
+    const existing = await this.prisma.vouchers.findUnique({ where: { id: String(id) } });
+    if (!existing) {
+      throw new NotFoundError(`Không tìm thấy voucher #${id}`);
+    }
+    await this.prisma.vouchers.delete({ where: { id: String(id) } });
+    return true;
   }
 }
 

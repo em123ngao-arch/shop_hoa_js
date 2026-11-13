@@ -3,6 +3,8 @@
  * Thuoc tang Domain / State Machines (Pure JavaScript, 0 dependencies)
  */
 
+import { ValidationError } from '../errors/DomainErrors.js';
+
 export const ORDER_STATUSES = Object.freeze({
   PENDING: 'pending',
   CONFIRMED: 'confirmed',
@@ -23,7 +25,7 @@ export const STATUS_MESSAGES = Object.freeze({
 const VALID_TRANSITIONS = Object.freeze({
   [ORDER_STATUSES.PENDING]: [ORDER_STATUSES.CONFIRMED, ORDER_STATUSES.CANCELLED],
   [ORDER_STATUSES.CONFIRMED]: [ORDER_STATUSES.SHIPPING, ORDER_STATUSES.CANCELLED],
-  [ORDER_STATUSES.SHIPPING]: [ORDER_STATUSES.COMPLETED],
+  [ORDER_STATUSES.SHIPPING]: [ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED],
   [ORDER_STATUSES.COMPLETED]: [], // Trang thai cuoi - Bat bien
   [ORDER_STATUSES.CANCELLED]: []  // Trang thai cuoi - Bat bien
 });
@@ -40,6 +42,33 @@ export class OrderStateMachine {
     if (fromStatus === toStatus) return true; // Idempotent
     const allowed = VALID_TRANSITIONS[fromStatus];
     return Array.isArray(allowed) && allowed.includes(toStatus);
+  }
+
+  /**
+   * Kiem tra quy tac chuyen trang thai don hang kem dieu kien thanh toan
+   * Chan tuyet doi duyet/giao/hoan thanh don SePay khi chua nhan duoc thanh toan
+   * @param {Object} params
+   * @param {string} params.fromStatus
+   * @param {string} params.toStatus
+   * @param {string} [params.paymentMethod='cod']
+   * @param {string} [params.paymentStatus='pending']
+   */
+  static assertCanTransition({ fromStatus, toStatus, paymentMethod = 'cod', paymentStatus = 'pending' }) {
+    if (!this.canTransition(fromStatus, toStatus)) {
+      throw new ValidationError(`Luồng chuyển trạng thái không hợp lệ: Không thể chuyển từ "${fromStatus}" sang "${toStatus}"`);
+    }
+
+    const isPaidOrPartiallyRefunded = ['paid', 'partially_refunded'].includes(String(paymentStatus).toLowerCase());
+    if (
+      String(paymentMethod).toLowerCase() === 'sepay' &&
+      toStatus !== ORDER_STATUSES.CANCELLED &&
+      toStatus !== fromStatus &&
+      !isPaidOrPartiallyRefunded
+    ) {
+      throw new ValidationError(
+        'Đơn hàng thanh toán VietQR (SePay) chưa nhận được tiền từ ngân hàng, không thể duyệt, giao hàng hoặc hoàn tất.'
+      );
+    }
   }
 
   /**
@@ -60,4 +89,6 @@ export class OrderStateMachine {
     return STATUS_MESSAGES[status] || 'Trạng thái đơn hàng đã được cập nhật.';
   }
 }
+
+export const OrderStatus = OrderStateMachine;
 

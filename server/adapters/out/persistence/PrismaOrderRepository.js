@@ -3,181 +3,202 @@
  * Thuoc tang Adapters / Out / Persistence
  */
 
-import { ValidationError, NotFoundError } from '../../../domain/errors/DomainErrors.js';
+import { ValidationError, NotFoundError, ForbiddenError } from '../../../domain/errors/DomainErrors.js';
 import { OrderStateMachine } from '../../../domain/state-machines/OrderStatus.js';
+import { OrderRepositoryPort } from '../../../ports/out/OrderRepositoryPort.js';
+import crypto from 'crypto';
 
-export class PrismaOrderRepository {
+export class PrismaOrderRepository extends OrderRepositoryPort {
   constructor(prismaClient) {
+    super();
     this.prisma = prismaClient;
   }
 
   /**
-   * Tao don hang moi voi giao dich ACID, kiem tra gia & tru kho dong thoi
+   * Tra cuu danh sach phu kien hoat dong theo ID
+   */
+  async findActiveAddonsByIds(addonIds) {
+    if (!Array.isArray(addonIds) || addonIds.length === 0) return [];
+    return this.prisma.addons.findMany({
+      where: { id: { in: addonIds }, is_active: true }
+    });
+  }
+
+  /**
+   * Tra cuu danh sach san pham hoat dong de tinh gia
+   */
+  async findProductsForPricing(productIds) {
+    if (!Array.isArray(productIds) || productIds.length === 0) return [];
+    return this.prisma.products.findMany({
+      where: {
+        OR: [
+          { id: { in: productIds } },
+          { id: { in: productIds.map(id => /^\d+$/.test(id) ? `PROD-${id.padStart(3, '0')}` : id) } }
+        ]
+      }
+    });
+  }
+
+  /**
+   * Tra cuu voucher hop le theo ma
+   */
+  async findVoucherByCode(code) {
+    if (!code || typeof code !== 'string') return null;
+    return this.prisma.vouchers.findUnique({
+      where: { code: code.trim().toUpperCase() }
+    });
+  }
+
+  /**
+   * Tru kho nguyen tu va giu luot dung voucher ben trong transaction
+   */
+  async _reserveStockAndVoucher(tx, verifiedItems, appliedVoucherCode) {
+    for (const item of verifiedItems) {
+      const prod = await tx.products.findUnique({ where: { id: item.productId } });
+      if (!prod || !prod.is_active) {
+        throw new ValidationError(`Sản phẩm '${item.productName || item.productId}' không tồn tại hoặc đã ngừng kinh doanh`);
+      }
+      if (prod.stock < item.quantity) {
+        throw new ValidationError(`Sản phẩm "${prod.name}" chỉ còn ${prod.stock} bó trong kho, không đủ đáp ứng số lượng ${item.quantity}`);
+      }
+
+      // Snapshot giá vốn thực tế của sản phẩm tại thời điểm đặt hàng để bảo toàn kế toán lịch sử
+      item.costPrice = Number(prod.cost_price || 0);
+      item.cost_price = Number(prod.cost_price || 0);
+
+      const stockUpdate = await tx.products.updateMany({
+        where: { id: item.productId, is_active: true, stock: { gte: item.quantity } },
+        data: { stock: { decrement: item.quantity } }
+      });
+      if (stockUpdate.count !== 1) {
+        throw new ValidationError(`Sản phẩm "${prod.name}" vừa hết số lượng yêu cầu. Vui lòng tải lại giỏ hàng.`);
+      }
+    }
+
+    if (appliedVoucherCode) {
+      const voucher = await tx.vouchers.findUnique({ where: { code: appliedVoucherCode } });
+      if (voucher) {
+        const voucherClaim = await tx.vouchers.updateMany({
+          where: {
+            id: voucher.id,
+            is_active: true,
+            ...(voucher.usage_limit === null ? {} : { used_count: { lt: voucher.usage_limit } })
+          },
+          data: { used_count: { increment: 1 } }
+        });
+        if (voucherClaim.count !== 1) {
+          throw new ValidationError('Mã ưu đãi vừa hết lượt sử dụng. Vui lòng thử lại không áp dụng mã.');
+        }
+      }
+    }
+  }
+
+  /**
+   * Luu danh sach order_items va order_item_addons
+   */
+  async _insertOrderItemsAndAddons(tx, orderId, verifiedItems) {
+    await tx.order_items.createMany({
+      data: verifiedItems.map(item => ({
+        id: item.id,
+        order_id: orderId,
+        product_id: item.productId,
+        product_name: item.productName,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        cost_price: Number(item.costPrice ?? item.cost_price ?? 0)
+      }))
+    });
+
+    const allItemAddons = [];
+    for (const item of verifiedItems) {
+      if (Array.isArray(item.addons) && item.addons.length > 0) {
+        for (const addon of item.addons) {
+          allItemAddons.push({
+            id: addon.id,
+            order_item_id: item.id,
+            addon_id: addon.addonId,
+            addon_name: addon.addonName,
+            unit_price: addon.unitPrice
+          });
+        }
+      }
+    }
+    if (allItemAddons.length > 0) {
+      await tx.order_item_addons.createMany({
+        data: allItemAddons
+      });
+    }
+  }
+
+  /**
+   * Chuan hoa cac truong du lieu ghi vao bang orders
+   */
+  _buildOrderWriteFields(orderData) {
+    const subtotal = Number(orderData.subtotal || 0);
+    const discountAmount = Number(orderData.discountAmount || 0);
+    const shippingFee = Number(orderData.shippingFee || 0);
+    const totalAmount = Number(orderData.totalAmount !== undefined ? orderData.totalAmount : Math.max(0, subtotal + shippingFee - discountAmount));
+
+    return {
+      customer_name: (orderData.customerName || orderData.customer_name || 'Khách Hàng').trim(),
+      customer_phone: (orderData.customerPhone || orderData.customer_phone || orderData.phone || '').trim(),
+      customer_email: (orderData.email || orderData.customerEmail || orderData.customer_email || '').trim() || null,
+      recipient_name: (orderData.recipientName || orderData.recipient_name || orderData.customerName || '').trim() || null,
+      recipient_phone: (orderData.recipientPhone || orderData.recipient_phone || orderData.phone || '').trim() || null,
+      is_gift: Boolean(orderData.isGift || orderData.is_gift),
+      is_anonymous: Boolean(orderData.isAnonymous || orderData.is_anonymous),
+      shipping_address: (orderData.shippingAddress || orderData.shipping_address || orderData.address || '').trim(),
+      delivery_date: (orderData.deliveryDate || orderData.delivery_date || '').trim() || null,
+      delivery_slot: (orderData.deliverySlot || orderData.delivery_slot || '').trim() || null,
+      has_greeting_card: Boolean(orderData.hasGreetingCard || orderData.has_greeting_card),
+      card_message: (orderData.cardMessage || orderData.card_message || '').trim() || null,
+      customer_note: (orderData.note || orderData.customerNote || orderData.customer_note || '').trim() || null,
+      shipping_fee: shippingFee,
+      subtotal,
+      discount_amount: discountAmount,
+      total_amount: totalAmount,
+      payment_method: orderData.paymentMethod,
+      voucher_code: orderData.appliedVoucherCode || null
+    };
+  }
+
+  /**
+   * Tao don hang moi voi giao dich ACID, thuc thi khoa tru kho nguyen tu va luu tru ban ghi
+   * Tuan thu Hexagonal: Nhan specifications da qua kiem duyet tu OrderService (Application Layer)
    */
   async createOrder({ orderData, userId = null }) {
-    if (!orderData || !Array.isArray(orderData.items) || orderData.items.length === 0) {
-      throw new ValidationError('Danh sách sản phẩm trong đơn hàng không được để trống');
+    const verifiedItems = orderData?.verifiedItems;
+    if (!Array.isArray(verifiedItems) || verifiedItems.length === 0) {
+      throw new ValidationError('Danh sách sản phẩm hợp lệ trong đơn hàng không được để trống');
     }
+
+    const appliedVoucherCode = orderData.appliedVoucherCode || null;
+    const voucherSnapshot = orderData.voucherSnapshot || null;
+    const writeFields = this._buildOrderWriteFields(orderData);
 
     // Thuc thi ben trong Prisma Transaction (ACID Isolation)
     return await this.prisma.$transaction(async (tx) => {
-      let subtotal = 0;
-      const verifiedItems = [];
+      await this._reserveStockAndVoucher(tx, verifiedItems, appliedVoucherCode);
 
-      // 1. Kiem tra tung san pham trong CSDL, kiem tra ton kho & tru kho
-      for (const item of orderData.items) {
-        const prodId = String(item.id || item.productId);
-        const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+      // Sinh ma don hang duy nhat (12 ky tu gon de khong bi cat ngan khi chuyen khoan Ngan hang)
+      const orderId = crypto.randomUUID();
+      const orderCode = `DH${Date.now().toString(36).toUpperCase()}${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
-        // Tim san pham trong MySQL (ho tro ca ID dang PROD-001 hoac so nguyen 1)
-        let prod = await tx.products.findUnique({ where: { id: prodId } });
-        if (!prod && /^\d+$/.test(prodId)) {
-          prod = await tx.products.findUnique({ where: { id: `PROD-${prodId.padStart(3, '0')}` } });
-        }
-
-        if (!prod || !prod.is_active) {
-          throw new ValidationError(`Sản phẩm '${item.name || prodId}' không tồn tại hoặc đã ngừng kinh doanh`);
-        }
-
-        if (prod.stock < qty) {
-          throw new ValidationError(`Sản phẩm "${prod.name}" chỉ còn ${prod.stock} bó trong kho, không đủ đáp ứng số lượng ${qty}`);
-        }
-
-        // Tru ton kho nguyen tu (Atomic Stock Decrement)
-        await tx.products.update({
-          where: { id: prod.id },
-          data: { stock: { decrement: qty } }
-        });
-
-        const unitPrice = Number(prod.price);
-        subtotal += unitPrice * qty;
-
-        verifiedItems.push({
-          id: `ITEM-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-          productId: prod.id,
-          productName: prod.name,
-          unitPrice: unitPrice,
-          quantity: qty,
-          originalPrice: Number(prod.original_price || prod.price),
-          categoryId: prod.category_id,
-          imageUrl: prod.image_url
-        });
-      }
-
-      // 2. Kiem tra & tinh toan Voucher giam gia tren Server
-      let discountAmount = 0;
-      let appliedVoucherCode = null;
-      let voucherSnapshot = null;
-      const rawCode = orderData.voucherCode || orderData.voucher_code;
-
-      if (rawCode && typeof rawCode === 'string') {
-        const cleanCode = rawCode.trim().toUpperCase();
-        const voucher = await tx.vouchers.findUnique({ where: { code: cleanCode } });
-
-        if (voucher && voucher.is_active) {
-          const now = new Date();
-          const isStarted = !voucher.start_date || voucher.start_date <= now;
-          const isNotExpired = !voucher.end_date || voucher.end_date >= now;
-          const hasLimit = voucher.usage_limit === null || voucher.used_count < voucher.usage_limit;
-
-          if (isStarted && isNotExpired && hasLimit && subtotal >= voucher.min_order) {
-            let eligibleItems = verifiedItems;
-            let targetIds = [];
-            try {
-              targetIds = JSON.parse(voucher.scope === 'category'
-                ? (voucher.target_category_ids || '[]')
-                : (voucher.target_product_ids || '[]'));
-            } catch (e) {
-              targetIds = [];
-            }
-            if (voucher.scope === 'category') {
-              eligibleItems = verifiedItems.filter(item => targetIds.includes(String(item.categoryId)));
-            } else if (voucher.scope === 'product') {
-              eligibleItems = verifiedItems.filter(item => targetIds.includes(String(item.productId)));
-            }
-            const eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-            if (eligibleAmount <= 0) {
-              eligibleItems = [];
-            }
-            if (voucher.discount_type === 'percent') {
-              discountAmount = Math.round((eligibleAmount * voucher.discount_value) / 100);
-              if (voucher.max_discount && discountAmount > voucher.max_discount) {
-                discountAmount = voucher.max_discount;
-              }
-            } else {
-              discountAmount = Math.min(voucher.discount_value, eligibleAmount);
-            }
-
-            if (discountAmount > 0) {
-              appliedVoucherCode = voucher.code;
-              voucherSnapshot = {
-                code: voucher.code,
-                name: voucher.name,
-                discountType: voucher.discount_type,
-                discountValue: voucher.discount_value,
-                discountAmount: discountAmount,
-                eligibleAmount
-              };
-
-              // Tang luot su dung voucher nguyen tu
-              await tx.vouchers.update({
-                where: { id: voucher.id },
-                data: { used_count: { increment: 1 } }
-              });
-            }
-          }
-        }
-      }
-
-      // Phi van chuyen do server tinh theo chinh sach cong khai, khong tin so tien gui tu browser.
-      const shippingFee = subtotal >= 350000 ? 0 : 30000;
-      const totalAmount = Math.max(0, subtotal + shippingFee - discountAmount);
-
-      // Sinh ma don hang duy nhat
-      const orderId = orderData.id || `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-      const orderCode = orderData.orderCode || `DH${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-
-      // 3. Luu don hang vao bang orders
+      // Luu don hang vao bang orders (khong chap nhan status/payment_status tu client)
       const createdOrder = await tx.orders.create({
         data: {
           id: orderId,
           order_code: orderCode,
           user_id: userId,
-          customer_name: (orderData.customerName || orderData.customer_name || 'Khách Hàng').trim(),
-          customer_phone: (orderData.customerPhone || orderData.customer_phone || orderData.phone || '').trim(),
-          customer_email: (orderData.email || orderData.customerEmail || orderData.customer_email || '').trim() || null,
-          recipient_name: (orderData.recipientName || orderData.recipient_name || orderData.customerName || '').trim() || null,
-          recipient_phone: (orderData.recipientPhone || orderData.recipient_phone || orderData.phone || '').trim() || null,
-          is_gift: Boolean(orderData.isGift || orderData.is_gift),
-          shipping_address: (orderData.shippingAddress || orderData.shipping_address || orderData.address || '').trim(),
-          delivery_slot: (orderData.deliverySlot || orderData.delivery_slot || '').trim() || null,
-          has_greeting_card: Boolean(orderData.hasGreetingCard || orderData.has_greeting_card),
-          card_message: (orderData.cardMessage || orderData.card_message || '').trim() || null,
-          customer_note: (orderData.note || orderData.customerNote || orderData.customer_note || '').trim() || null,
-          shipping_fee: shippingFee,
-          subtotal: subtotal,
-          discount_amount: discountAmount,
-          total_amount: totalAmount,
-          status: orderData.status || (orderData.paymentMethod === 'sepay' && orderData.paymentStatus === 'paid' ? 'confirmed' : 'pending'),
-          payment_method: orderData.paymentMethod || orderData.payment_method || 'cod',
-          payment_status: orderData.paymentStatus || orderData.payment_status || 'pending',
-          voucher_code: appliedVoucherCode
+          ...writeFields,
+          status: 'pending',
+          payment_status: 'pending'
         }
       });
 
-      // 4. Luu danh sach san pham vao bang order_items
-      await tx.order_items.createMany({
-        data: verifiedItems.map(item => ({
-          id: item.id,
-          order_id: createdOrder.id,
-          product_id: item.productId,
-          product_name: item.productName,
-          quantity: item.quantity,
-          unit_price: item.unitPrice
-        }))
-      });
+      await this._insertOrderItemsAndAddons(tx, createdOrder.id, verifiedItems);
 
-      // 5. Tu dong sinh thong bao dau tien neu co user_id
+      // Tu dong sinh thong bao dau tien neu co user_id
       if (userId) {
         await tx.notifications.create({
           data: {
@@ -185,13 +206,94 @@ export class PrismaOrderRepository {
             user_id: userId,
             order_id: createdOrder.id,
             title: `Tạo đơn hàng thành công #${createdOrder.order_code}`,
-            message: `Đơn hàng #${createdOrder.order_code} (${totalAmount.toLocaleString()}đ) đã được gửi tới Tiệm Hoa Kẽm Nhung.`,
+            message: `Đơn hàng #${createdOrder.order_code} (${writeFields.total_amount.toLocaleString()}đ) đã được gửi tới Tiệm Hoa Kẽm Nhung.`,
             is_read: false
           }
         });
       }
 
       return this._mapToDTO(createdOrder, verifiedItems, voucherSnapshot);
+    });
+  }
+
+  /**
+   * Cap nhat don hang nhap dang pending & chua thanh toan trong cung ACID transaction
+   */
+  async updateDraftOrder({ orderId, userId = null, orderData }) {
+    const verifiedItems = orderData?.verifiedItems;
+    if (!Array.isArray(verifiedItems) || verifiedItems.length === 0) {
+      throw new ValidationError('Danh sách sản phẩm hợp lệ trong đơn hàng không được để trống');
+    }
+
+    const appliedVoucherCode = orderData.appliedVoucherCode || null;
+    const voucherSnapshot = orderData.voucherSnapshot || null;
+    const writeFields = this._buildOrderWriteFields(orderData);
+
+    return await this.prisma.$transaction(async (tx) => {
+      const existingOrder = await tx.orders.findFirst({
+        where: { OR: [{ id: orderId }, { order_code: orderId }] },
+        include: { order_items: true, payment_transactions: true }
+      });
+
+      if (!existingOrder) {
+        throw new NotFoundError(`Không tìm thấy đơn hàng nháp #${orderId}`);
+      }
+      if (existingOrder.user_id && existingOrder.user_id !== userId) {
+        throw new ForbiddenError('Bạn không có quyền chỉnh sửa đơn hàng này');
+      }
+      if (existingOrder.payment_status === 'paid' || (existingOrder.payment_transactions && existingOrder.payment_transactions.length > 0)) {
+        throw new ValidationError('Đơn hàng này đã được thanh toán, không thể chỉnh sửa.');
+      }
+      if (existingOrder.status !== 'pending' || existingOrder.payment_status !== 'pending') {
+        throw new ValidationError('Đơn hàng nháp trước đó đã hết hạn hoặc đã bị hủy, vui lòng đặt lại.');
+      }
+
+      // Hoan ton kho & voucher cu truoc khi giu cho moi (an toan trong ACID transaction)
+      for (const oldItem of existingOrder.order_items) {
+        await tx.products.update({
+          where: { id: oldItem.product_id },
+          data: { stock: { increment: oldItem.quantity } }
+        });
+      }
+      if (existingOrder.voucher_code) {
+        await tx.vouchers.updateMany({
+          where: { code: existingOrder.voucher_code, used_count: { gt: 0 } },
+          data: { used_count: { decrement: 1 } }
+        });
+      }
+
+      await tx.order_items.deleteMany({ where: { order_id: existingOrder.id } });
+      await this._reserveStockAndVoucher(tx, verifiedItems, appliedVoucherCode);
+
+      const claimed = await tx.orders.updateMany({
+        where: {
+          id: existingOrder.id,
+          status: 'pending',
+          payment_status: 'pending'
+        },
+        data: {
+          ...writeFields,
+          ...(existingOrder.user_id === null && userId ? { user_id: userId } : {})
+        }
+      });
+      if (claimed.count !== 1) {
+        throw new ValidationError('Đơn hàng vừa được xử lý ở một yêu cầu khác. Hãy tải lại trang.');
+      }
+
+      await this._insertOrderItemsAndAddons(tx, existingOrder.id, verifiedItems);
+
+      const effectiveUserId = existingOrder.user_id || userId;
+      if (effectiveUserId) {
+        await tx.notifications.updateMany({
+          where: { order_id: existingOrder.id, user_id: effectiveUserId },
+          data: {
+            message: `Đơn hàng #${existingOrder.order_code} (${writeFields.total_amount.toLocaleString()}đ) đã được cập nhật tới Tiệm Hoa Kẽm Nhung.`
+          }
+        });
+      }
+
+      const updatedOrder = await tx.orders.findUnique({ where: { id: existingOrder.id } });
+      return this._mapToDTO(updatedOrder, verifiedItems, voucherSnapshot);
     });
   }
 
@@ -213,10 +315,14 @@ export class PrismaOrderRepository {
           include: {
             products: {
               select: { image_url: true, category_id: true }
-            }
+            },
+            order_item_addons: true
           }
         },
-        payment_transactions: true
+        payment_transactions: true,
+        refund_requests: {
+          orderBy: { requested_at: 'desc' }
+        }
       }
     });
 
@@ -228,8 +334,17 @@ export class PrismaOrderRepository {
       quantity: i.quantity,
       unitPrice: i.unit_price,
       price: i.unit_price,
+      costPrice: i.cost_price ?? 0,
+      cost_price: i.cost_price ?? 0,
       imageUrl: i.products?.image_url || '/images/bloom-of-spring.png',
-      categoryId: i.products?.category_id
+      categoryId: i.products?.category_id,
+      addons: (i.order_item_addons || []).map(a => ({
+        id: a.id,
+        addonId: a.addon_id,
+        name: a.addon_name,
+        price: a.unit_price
+      })),
+      addonsText: (i.order_item_addons || []).map(a => a.addon_name).join(', ')
     }))));
   }
 
@@ -249,10 +364,14 @@ export class PrismaOrderRepository {
           include: {
             products: {
               select: { image_url: true, category_id: true }
-            }
+            },
+            order_item_addons: true
           }
         },
-        payment_transactions: true
+        payment_transactions: true,
+        refund_requests: {
+          orderBy: { requested_at: 'desc' }
+        }
       }
     });
 
@@ -266,8 +385,17 @@ export class PrismaOrderRepository {
       quantity: i.quantity,
       unitPrice: i.unit_price,
       price: i.unit_price,
+      costPrice: i.cost_price ?? 0,
+      cost_price: i.cost_price ?? 0,
       imageUrl: i.products?.image_url || '/images/bloom-of-spring.png',
-      categoryId: i.products?.category_id
+      categoryId: i.products?.category_id,
+      addons: (i.order_item_addons || []).map(a => ({
+        id: a.id,
+        addonId: a.addon_id,
+        name: a.addon_name,
+        price: a.unit_price
+      })),
+      addonsText: (i.order_item_addons || []).map(a => a.addon_name).join(', ')
     })));
   }
 
@@ -285,9 +413,24 @@ export class PrismaOrderRepository {
       if (!order || (userId && order.user_id !== userId)) {
         throw new NotFoundError(`Khong tim thay don hang #${orderId}`);
       }
-      const canCancel = order.status === 'pending' || (!userId && order.status === 'confirmed' && order.payment_method === 'cod');
-      if (!canCancel || order.payment_status === 'paid') {
-        throw new ValidationError('Don hang da duoc xu ly hoac da thanh toan, vui long lien he tiem de duoc ho tro');
+      // Khach hang chi duoc tu huy don khi con o trang thai pending va chua thanh toan.
+      // Admin / Nhan vien (!userId) co quyen huy don khi don chua hoan tat (completed hoac cancelled).
+      if (userId) {
+        if (order.status !== 'pending' || order.payment_status === 'paid') {
+          throw new ValidationError('Đơn hàng đã được xử lý hoặc đã thanh toán, vui lòng liên hệ tiệm để được hỗ trợ');
+        }
+      } else {
+        if (order.status === 'completed' || order.status === 'cancelled') {
+          throw new ValidationError(`Không thể hủy đơn hàng đã ở trạng thái "${order.status}"`);
+        }
+      }
+
+      const claimed = await tx.orders.updateMany({
+        where: { id: order.id, status: order.status },
+        data: { status: 'cancelled' }
+      });
+      if (claimed.count !== 1) {
+        throw new ValidationError('Đơn hàng vừa được xử lý ở một yêu cầu khác. Hãy tải lại trạng thái đơn.');
       }
 
       for (const item of order.order_items) {
@@ -304,21 +447,23 @@ export class PrismaOrderRepository {
         });
       }
 
-      const updated = await tx.orders.update({
+      const updated = await tx.orders.findUnique({
         where: { id: order.id },
-        data: { status: 'cancelled' }
+        include: { order_items: true }
       });
 
-      await tx.notifications.create({
-        data: {
-          id: `NOTIF-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-          user_id: userId,
-          order_id: order.id,
-          title: `Da huy don hang #${order.order_code}`,
-          message: 'Don hang da huy va ton kho da duoc hoan lai.',
-          is_read: false
-        }
-      });
+      if (order.user_id) {
+        await tx.notifications.create({
+          data: {
+            id: crypto.randomUUID(),
+            user_id: order.user_id,
+            order_id: order.id,
+            title: `Đã hủy đơn hàng #${order.order_code}`,
+            message: 'Đơn hàng đã hủy và tồn kho đã được hoàn lại.',
+            is_read: false
+          }
+        });
+      }
 
       return {
         order: this._mapToDTO(updated, order.order_items.map(item => ({
@@ -348,42 +493,329 @@ export class PrismaOrderRepository {
     }
 
     const currentStatus = order.status;
-    if (!OrderStateMachine.canTransition(currentStatus, newStatus)) {
-      throw new ValidationError(`Luồng chuyển trạng thái không hợp lệ: Không thể chuyển từ "${currentStatus}" sang "${newStatus}"`);
-    }
+    OrderStateMachine.assertCanTransition({
+      fromStatus: currentStatus,
+      toStatus: newStatus,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus
+    });
 
     const data = { status: newStatus };
     if (newStatus === 'completed') {
       data.completed_at = new Date();
+      if (order.paymentMethod === 'cod') data.payment_status = 'paid';
     }
 
-    const updated = await this.prisma.orders.update({
-      where: { id: order.id },
-      data,
-      include: {
-        order_items: true
-      }
-    });
-
-    // Sinh thong bao cho khach hang neu don hang co lien ket voi user
-    let notification = null;
-    if (updated.user_id) {
-      notification = await this.prisma.notifications.create({
-        data: {
-          id: `NOTIF-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-          user_id: updated.user_id,
-          order_id: updated.id,
-          title: `Cập nhật đơn hàng #${updated.order_code}`,
-          message: OrderStateMachine.getStatusMessage(newStatus),
-          is_read: false
-        }
+    const { updated, notification } = await this.prisma.$transaction(async tx => {
+      const claimed = await tx.orders.updateMany({
+        where: {
+          id: order.id,
+          status: currentStatus,
+          ...(order.paymentMethod === 'sepay' && newStatus !== 'cancelled' && newStatus !== currentStatus
+            ? { payment_status: 'paid' }
+            : {})
+        },
+        data
       });
-    }
+      if (claimed.count !== 1) {
+        throw new ValidationError('Đơn hàng vừa được cập nhật ở một yêu cầu khác. Hãy tải lại trạng thái đơn.');
+      }
+      const currentOrder = await tx.orders.findUnique({ where: { id: order.id }, include: { order_items: true } });
+      let currentNotification = null;
+      if (currentOrder.user_id) {
+        currentNotification = await tx.notifications.create({
+          data: {
+            id: crypto.randomUUID(),
+            user_id: currentOrder.user_id,
+            order_id: currentOrder.id,
+            title: `Cập nhật đơn hàng #${currentOrder.order_code}`,
+            message: OrderStateMachine.getStatusMessage(newStatus),
+            is_read: false
+          }
+        });
+      }
+      return { updated: currentOrder, notification: currentNotification };
+    });
 
     return {
       order: this._mapToDTO(updated, order.items),
       notification
     };
+  }
+
+  /**
+   * Tim danh sach don hang SePay dang cho thanh toan da vuot qua thoi gian cho phep (TTL)
+   * Chi lay don co payment_method = 'sepay', status = 'pending', payment_status = 'pending'
+   * @param {Date} cutoffDate
+   * @returns {Promise<Array<{ id: string, order_code: string, created_at: Date }>>}
+   */
+  async findExpiredPendingSepayOrders(cutoffDate) {
+    return this.prisma.orders.findMany({
+      where: {
+        payment_method: 'sepay',
+        status: 'pending',
+        payment_status: 'pending',
+        created_at: { lte: cutoffDate }
+      },
+      select: {
+        id: true,
+        order_code: true,
+        created_at: true
+      }
+    });
+  }
+
+  /**
+   * Huy nguyen tu don SePay da het han thanh toan.
+   * Dieu kien nghiem ngat: Chi huy khi CA status = 'pending' VA payment_status = 'pending'.
+   * Tuyet doi khong huy don da confirmed, shipping hoac paid.
+   * Hoan tra ton kho va voucher ve CSDL trong cung transaction ACID.
+   * @param {string} orderId
+   * @returns {Promise<Object|null>} Don hang da huy hoac null neu don da duoc xu ly truoc
+   */
+  async cancelExpiredPendingOrder(orderId) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.orders.findFirst({
+        where: {
+          id: orderId,
+          payment_method: 'sepay',
+          status: 'pending',
+          payment_status: 'pending'
+        },
+        include: { order_items: true }
+      });
+
+      if (!order) {
+        // Don hang da thanh toan hoac da huy boi khach hang truoc do
+        return null;
+      }
+
+      const claimed = await tx.orders.updateMany({
+        where: {
+          id: order.id,
+          status: 'pending',
+          payment_status: 'pending'
+        },
+        data: { status: 'cancelled' }
+      });
+
+      if (claimed.count !== 1) {
+        // Tranh chap race condition voi tien trinh khac
+        return null;
+      }
+
+      // Hoan ton kho san pham
+      for (const item of order.order_items) {
+        await tx.products.update({
+          where: { id: item.product_id },
+          data: { stock: { increment: item.quantity } }
+        });
+      }
+
+      // Hoan voucher neu co ap dung
+      if (order.voucher_code) {
+        await tx.vouchers.updateMany({
+          where: { code: order.voucher_code, used_count: { gt: 0 } },
+          data: { used_count: { decrement: 1 } }
+        });
+      }
+
+      // Sinh notification neu don gan voi nguoi dung
+      if (order.user_id) {
+        await tx.notifications.create({
+          data: {
+            id: crypto.randomUUID(),
+            user_id: order.user_id,
+            order_id: order.id,
+            title: `Đơn hàng #${order.order_code} đã hết hạn thanh toán`,
+            message: 'Đơn hàng SePay chưa được thanh toán trong thời gian quy định nên đã tự động hủy và hoàn lại tồn kho.',
+            is_read: false
+          }
+        });
+      }
+
+      return order;
+    });
+  }
+
+  /**
+   * Tim don hang SePay phu hop co order_code xuat hien trong noi dung chuyen khoan (pending hoac cancelled)
+   * @param {string} content
+   * @returns {Promise<Object|null>}
+   */
+  async findSepayOrderByContent(content) {
+    if (!content || typeof content !== 'string') return null;
+    const upperContent = content.toUpperCase();
+    const candidates = await this.prisma.orders.findMany({
+      where: {
+        payment_method: 'sepay',
+        payment_status: 'pending',
+        status: { in: ['pending', 'cancelled'] }
+      },
+      select: { id: true, order_code: true, user_id: true, total_amount: true, status: true, payment_status: true }
+    });
+    return candidates.find(candidate => upperContent.includes(candidate.order_code.toUpperCase())) || null;
+  }
+
+  /**
+   * Alias tuong thich nguoc cho findSepayOrderByContent
+   */
+  async findPendingSepayOrderByContent(content) {
+    return this.findSepayOrderByContent(content);
+  }
+
+  /**
+   * Ghi nhận giao dịch thanh toán thành công vào CSDL (ACID transaction)
+   * Chuyển trạng thái pending -> confirmed, payment_status -> paid
+   * Chặn tuyệt đối không cho đơn đã cancelled bị cập nhật sang confirmed
+   * Ghi nhận bản ghi payment_transactions cho cả đơn đã cancelled để phục vụ đối soát hoàn tiền
+   * Xử lý race condition P2002 bên ngoài transaction đã rollback, đối soát trùng khớp đơn hàng
+   * @param {Object} params
+   * @param {string} params.orderId
+   * @param {string} params.providerTxId
+   * @param {number} params.amount
+   * @param {Object} [params.transaction={}]
+   * @returns {Promise<{ processed: boolean, duplicate: boolean, cancelled?: boolean, recorded?: boolean, order?: Object }>}
+   */
+  async recordPayment({ orderId, providerTxId, amount, transaction = {} }) {
+    if (!providerTxId || providerTxId.length > 100 || !Number.isSafeInteger(amount)) {
+      throw new ValidationError('Dữ liệu giao dịch thanh toán không hợp lệ');
+    }
+    const transactionDate = new Date(transaction.transactionDate || Date.now());
+    if (Number.isNaN(transactionDate.getTime())) {
+      throw new ValidationError('Ngày giao dịch không hợp lệ');
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const existing = await tx.payment_transactions.findUnique({ where: { provider_tx_id: providerTxId } });
+        if (existing) return { processed: false, duplicate: true };
+
+        const order = await tx.orders.findFirst({
+          where: { OR: [{ id: orderId }, { order_code: orderId }] }
+        });
+        if (!order) {
+          throw new NotFoundError(`Không tìm thấy đơn hàng #${orderId}`);
+        }
+
+        if (amount < order.total_amount) {
+          throw new ValidationError('Số tiền thanh toán nhỏ hơn tổng giá trị đơn hàng');
+        }
+
+        // Nếu đơn hàng đã bị hủy trước đó: Lưu vết giao dịch đến muộn vào payment_transactions để kế toán hoàn tiền
+        // TUYỆT ĐỐI không thay đổi trạng thái đơn, không sửa payment_status và không đụng đến tồn kho
+        if (order.status === 'cancelled') {
+          await tx.payment_transactions.create({
+            data: {
+              id: crypto.randomUUID(),
+              order_id: order.id,
+              provider: 'sepay',
+              provider_tx_id: providerTxId,
+              amount,
+              bank_brand: String(transaction.bankBrand || 'SePay').slice(0, 50),
+              account_number: String(transaction.accountNumber || '').slice(0, 50),
+              transaction_date: transactionDate
+            }
+          });
+
+          if (order.user_id) {
+            await tx.notifications.create({
+              data: {
+                id: crypto.randomUUID(),
+                user_id: order.user_id,
+                order_id: order.id,
+                title: `Ghi nhận chuyển khoản đơn đã hủy #${order.order_code}`,
+                message: `Đơn hàng #${order.order_code} đã bị hủy trước đó nhưng nhận được khoản thanh toán ${amount.toLocaleString()}đ. Nhân viên sẽ liên hệ hoàn tiền.`,
+                is_read: false
+              }
+            });
+          }
+
+          return {
+            processed: false,
+            duplicate: false,
+            cancelled: true,
+            recorded: true,
+            order
+          };
+        }
+
+        const claimed = await tx.orders.updateMany({
+          where: {
+            id: order.id,
+            payment_method: 'sepay',
+            payment_status: 'pending',
+            status: 'pending',
+            total_amount: { lte: amount }
+          },
+          data: { payment_status: 'paid', status: 'confirmed' }
+        });
+
+        if (claimed.count !== 1) {
+          const current = await tx.orders.findUnique({
+            where: { id: order.id },
+            select: { id: true, order_code: true, status: true, payment_status: true }
+          });
+          return { processed: false, duplicate: false, cancelled: current?.status === 'cancelled', recorded: false, order: current };
+        }
+
+        await tx.payment_transactions.create({
+          data: {
+            id: crypto.randomUUID(),
+            order_id: order.id,
+            provider: 'sepay',
+            provider_tx_id: providerTxId,
+            amount,
+            bank_brand: String(transaction.bankBrand || 'SePay').slice(0, 50),
+            account_number: String(transaction.accountNumber || '').slice(0, 50),
+            transaction_date: transactionDate
+          }
+        });
+
+        if (order.user_id) {
+          await tx.notifications.create({
+            data: {
+              id: crypto.randomUUID(),
+              user_id: order.user_id,
+              order_id: order.id,
+              title: `Thanh toán thành công #${order.order_code}`,
+              message: `Đã nhận chuyển khoản ${amount.toLocaleString()}đ qua SePay.`,
+              is_read: false
+            }
+          });
+        }
+
+        const updated = await tx.orders.findUnique({
+          where: { id: order.id },
+          include: { order_items: true, payment_transactions: true }
+        });
+
+        return { processed: true, duplicate: false, order: updated };
+      });
+    } catch (err) {
+      // Xử lý race condition: bắt mã lỗi P2002 bên ngoài transaction đã rollback
+      if (err.code === 'P2002' || err.message?.includes('Unique constraint failed')) {
+        const existingTx = await this.prisma.payment_transactions.findUnique({
+          where: { provider_tx_id: providerTxId }
+        });
+        if (existingTx) {
+          const orderRecord = await this.prisma.orders.findUnique({
+            where: { id: existingTx.order_id },
+            select: { id: true, order_code: true, status: true, payment_status: true }
+          });
+          // Đối soát xác nhận khớp đúng mã giao dịch và cùng mã đơn hàng
+          if (orderRecord && (orderRecord.id === orderId || orderRecord.order_code === orderId || existingTx.order_id === orderId)) {
+            return {
+              processed: false,
+              duplicate: true,
+              cancelled: orderRecord.status === 'cancelled',
+              order: orderRecord
+            };
+          }
+        }
+      }
+      throw err;
+    }
   }
 
   /**
@@ -406,12 +838,18 @@ export class PrismaOrderRepository {
       recipientName: order.recipient_name || order.customer_name,
       recipientPhone: order.recipient_phone || order.customer_phone,
       isGift: Boolean(order.is_gift),
+      is_gift: Boolean(order.is_gift),
+      isAnonymous: Boolean(order.is_anonymous),
+      is_anonymous: Boolean(order.is_anonymous),
       shippingAddress: order.shipping_address,
       shipping_address: order.shipping_address,
       address: order.shipping_address,
       shippingFee: order.shipping_fee,
       shipping_fee: order.shipping_fee,
+      deliveryDate: order.delivery_date || null,
+      delivery_date: order.delivery_date || null,
       deliverySlot: order.delivery_slot || 'Giao trong ngày',
+      delivery_slot: order.delivery_slot || 'Giao trong ngày',
       hasGreetingCard: Boolean(order.has_greeting_card),
       cardMessage: order.card_message || '',
       note: order.customer_note || '',
@@ -430,6 +868,34 @@ export class PrismaOrderRepository {
       createdAt: order.created_at,
       created_at: order.created_at,
       completedAt: order.completed_at,
+      paymentTransactions: Array.isArray(order.payment_transactions)
+        ? order.payment_transactions.map(t => ({
+            id: t.id,
+            provider: t.provider,
+            providerTxId: t.provider_tx_id,
+            provider_tx_id: t.provider_tx_id,
+            amount: t.amount,
+            bankBrand: t.bank_brand,
+            accountNumber: t.account_number,
+            transactionDate: t.transaction_date
+          }))
+        : [],
+      refundRequests: Array.isArray(order.refund_requests)
+        ? order.refund_requests.map(r => ({
+            id: r.id,
+            orderId: r.order_id,
+            amount: r.amount,
+            reason: r.reason,
+            bankInfo: r.bank_info || '',
+            status: r.status,
+            requestedByName: r.requested_by_name || 'Thu ngân',
+            requestedAt: r.requested_at,
+            reviewedByName: r.reviewed_by_name || null,
+            reviewedAt: r.reviewed_at,
+            adminNote: r.admin_note || '',
+            refundTxRef: r.refund_tx_ref || ''
+          }))
+        : [],
       items: items
     };
   }

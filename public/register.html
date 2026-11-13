@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đăng ký tài khoản - Tiệm Hoa Kẽm Nhung</title>
+
+    <link rel="icon" type="image/png" href="./images/favicon-flower.png" />
+    <link rel="apple-touch-icon" href="./images/favicon-flower.png" />
+    <link rel="stylesheet" href="./css/reset.css" />
+    <link rel="stylesheet" href="./css/variables.css" />
+    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/auth.css" />
+    <link rel="stylesheet" href="./css/responsive.css" />
+
+    <!-- Import Axios nội bộ từ public/vendor/ -->
+    <script type="importmap">
+  {
+    "imports": {
+      "axios": "./vendor/axios.esm.js"
+    }
+  }
+  </script>
+</head>
+
+<body>
+    <div class="auth-wrapper">
+        <div class="auth-card">
+            <div class="auth-brand-header">
+                <a href="./index.html" title="Quay về trang chủ Tiệm Hoa Kẽm Nhung">
+                    <img src="./images/logo-tiem-hoa.png" alt="Tiệm Hoa Kẽm Nhung" class="auth-brand-logo-img"
+                        width="168" height="46" />
+                </a>
+            </div>
+            <h1 class="auth-title">Tạo Tài Khoản Mới</h1>
+            <p class="auth-subtitle">Đăng ký để tích điểm và nhận ưu đãi từ Tiệm Hoa</p>
+
+            <form id="registerForm" novalidate>
+                <div class="form-group">
+                    <label for="name">Họ và tên *</label>
+                    <input type="text" id="name" class="form-control" placeholder="Ví dụ: Nguyễn Văn An" />
+                    <span class="form-error" id="nameError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Số điện thoại (tùy chọn)</label>
+                    <input type="tel" id="phone" class="form-control" placeholder="Ví dụ: 0912345678" />
+                    <span class="form-error" id="phoneError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Địa chỉ Email *</label>
+                    <input type="email" id="email" class="form-control" placeholder="Ví dụ: an.nguyen@gmail.com" />
+                    <span class="form-error" id="emailError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Mật khẩu *</label>
+                    <div class="password-field">
+                        <input type="password" id="password" class="form-control" placeholder="Tối thiểu 8 ký tự" autocomplete="new-password" />
+                        <button class="password-toggle" type="button" data-password-toggle="password" aria-label="Hiện mật khẩu" aria-pressed="false" title="Hiện mật khẩu">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/></svg>
+                        </button>
+                    </div>
+                    <span class="form-error" id="passwordError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword">Nhập lại mật khẩu *</label>
+                    <div class="password-field">
+                        <input type="password" id="confirmPassword" class="form-control" autocomplete="new-password" placeholder="Xác nhận lại mật khẩu" />
+                        <button class="password-toggle" type="button" data-password-toggle="confirmPassword" aria-label="Hiện mật khẩu" aria-pressed="false" title="Hiện mật khẩu">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/></svg>
+                        </button>
+                    </div>
+                    <span class="form-error" id="confirmPasswordError"></span>
+                </div>
+
+                <button type="submit" class="auth-btn" id="submitBtn">Đăng Ký</button>
+
+                <p class="auth-switch">
+                    Đã có tài khoản? <a href="./login.html">Đăng nhập ngay</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="./js/register.js"></script>
+</body>
+
+</html>

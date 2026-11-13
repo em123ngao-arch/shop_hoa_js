@@ -14,6 +14,7 @@ export class User {
     phone = null,
     role = 'customer',
     avatar_url = null,
+    token_version = 1,
     is_active = 1,
     created_at = new Date()
   }) {
@@ -26,6 +27,7 @@ export class User {
     this.phone = phone ? phone.trim() : null;
     this.role = role;
     this.avatar_url = avatar_url;
+    this.token_version = Number.isInteger(Number(token_version)) ? Number(token_version) : 1;
     this.is_active = Number(is_active) === 1 ? 1 : 0;
     this.created_at = created_at instanceof Date ? created_at : new Date(created_at);
   }

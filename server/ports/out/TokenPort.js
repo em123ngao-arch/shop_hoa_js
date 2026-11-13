@@ -9,7 +9,7 @@ export class TokenPort {
    * @param {Object} payload { id, email, role }
    * @returns {string} Chuỗi JWT token
    */
-  generate(payload) {
+  generate(payload, options = {}) {
     throw new Error('Phương thức generate() chưa được triển khai');
   }
 

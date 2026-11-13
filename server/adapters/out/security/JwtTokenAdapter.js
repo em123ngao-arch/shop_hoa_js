@@ -22,9 +22,9 @@ export class JwtTokenAdapter extends TokenPort {
    * @param {Object} payload { id, email, role }
    * @returns {string} Chuỗi token
    */
-  generate(payload) {
+  generate(payload, { expiresIn = this.expiresIn } = {}) {
     return jwt.sign(payload, this.secret, {
-      expiresIn: this.expiresIn,
+      expiresIn,
       algorithm: 'HS256'
     });
   }

@@ -51,9 +51,13 @@ async function main() {
   await page.fill('#checkoutSenderPhone', '0912345678');
   await page.fill('#checkoutAddress', '123 Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP.HCM');
 
-  // Select COD Payment
-  const codRadio = await page.$('input[name="paymentMethod"][value="cod"]');
-  if (codRadio) await codRadio.click();
+  // Select COD Payment via label or force check
+  const codLabel = await page.$('#labelPaymentCod');
+  if (codLabel) {
+    await codLabel.click();
+  } else {
+    await page.check('input[name="paymentMethod"][value="cod"]', { force: true });
+  }
 
   // Step 6: Submit Checkout Form
   console.log('5. Clicking Submit Order (#checkoutSubmitBtn)...');
@@ -66,7 +70,7 @@ async function main() {
   console.log('Is Success Step Visible:', isSuccessVisible);
 
   if (isSuccessVisible) {
-    const successCode = await page.$eval('#successOrderCode', el => el.textContent.trim());
+    const successCode = await page.$eval('#successOrderId', el => el.textContent.trim());
     console.log('✅ ORDER PLACED SUCCESSFULLY! Code:', successCode);
   } else {
     console.error('❌ Order submission did not show success step!');

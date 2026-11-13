@@ -1,52 +1,49 @@
 # 📋 SHOPHOA ROADMAP & DAILY TODO LIST
-> **Sổ tay theo dõi tiến độ dự án Tiệm Hoa Kẽm Nhung:** Bất kỳ AI hoặc lập trình viên nào khi bắt đầu phiên làm việc mới đều phải mở file này để biết công việc đang ở đâu.
+> **Sổ tay theo dõi tiến độ dự án Tiệm Hoa Kẽm Nhung:** Cập nhật theo kiến trúc Hexagonal + Express + Prisma + MySQL 8.0.
 
 ---
 
-## 🎯 1. VIỆC HÔM NAY ĐANG LÀM (IN PROGRESS - TODAY)
+## 🎯 1. VIỆC ƯU TIÊN SỐ 1 ĐANG THỰC HIỆN (4 TASK CỐT LÕI CHO ĐỒ ÁN)
 
-### Task: Hoàn Thiện Luồng Đăng Nhập & Đồng Bộ Trạng Thái Người Dùng
-- [ ] **Bước 1: Hoàn thành code [js/login.js](file:///d:/shopHoa/souce_shopHoa/js/login.js)**
-  - [ ] Sửa sự kiện `submit`: gọi hàm `login()` sau khi `event.preventDefault()`.
-  - [ ] Lấy `.value.trim()` của `#email` và `.value` của `#password`.
-  - [ ] Kiểm tra rỗng: `if (!email || !password)`.
-  - [ ] Gọi API kiểm tra: `await api.get('/users', { params: { email, password } })`.
-  - [ ] Kiểm tra kết quả: nếu `users.length === 0` thì báo lỗi.
-  - [ ] Lưu phiên đăng nhập: `localStorage.setItem('user', JSON.stringify(user))`.
-  - [ ] Thông báo thành công và chuyển hướng về `index.html`.
-- [ ] **Bước 2: Kiểm thử thực tế trên trình duyệt**
-  - [ ] Bật `npm run server` (json-server cổng 3000) và `npm run dev` (Vite cổng 5173).
-  - [ ] Đăng nhập với tài khoản vừa tạo (Ví dụ: `lethuvan198181@gmail.com` / `123456`).
-  - [ ] Kiểm tra tab `Network` (thấy request `/users` màu xanh 200 OK).
-  - [ ] Kiểm tra tab `Application` $\rightarrow$ `Local storage` (thấy key `user`).
-- [ ] **Bước 3: Hiển thị tên người dùng lên Header trang chủ ([js/main.js](file:///d:/shopHoa/souce_shopHoa/js/main.js))**
-  - [ ] Đọc `localStorage.getItem('user')`.
-  - [ ] Nếu đã đăng nhập: Ẩn nút "Đăng nhập / Đăng ký", thay bằng `Xin chào, [Tên]` kèm nút "Đăng xuất".
-  - [ ] Khi bấm "Đăng xuất": Xóa key `user` trong `localStorage` và tải lại trang.
+- [ ] **Task 1: Chống ghi đè tồn kho (Race Condition & Full Overwrite)**
+  - [ ] Khi cập nhật giá hoặc thông tin mẫu hoa, không gửi kèm trường `stock` cũ trong object `...p`.
+  - [ ] Nút điều chỉnh kho `+/-` trên Admin chuyển sang cơ chế delta/nhập-xuất hoặc kiểm tra phiên bản thay vì gửi số tuyệt đối từ client.
+  - [ ] Holiday Booster ("Kích hoạt lễ"): chuyển sang gọi endpoint cập nhật giá hàng loạt an toàn hoặc chỉ PUT `{ originalPrice, price }` thay vì clone toàn bộ object sản phẩm cũ.
 
----
+- [ ] **Task 2: Công tắc "Ngừng kinh doanh" (`is_active`) thay cho Xóa cứng**
+  - [ ] Thêm công tắc bật/tắt trạng thái kinh doanh (`is_active`) trên Form sửa mẫu hoa và trực tiếp trên bảng sản phẩm Admin.
+  - [ ] Chặn nút Xóa cứng đối với các sản phẩm đã có đơn hàng (`order_items`) để tránh lỗi 500 vi phạm khóa ngoại MySQL.
+  - [ ] Cập nhật bảng Admin để xem được cả sản phẩm đang kinh doanh và sản phẩm đã ngừng kinh doanh (có filter lọc).
 
-## 🚀 2. CÁC TÍNH NĂNG ĐÃ HOÀN THÀNH (COMPLETED)
+- [ ] **Task 3: Sửa logic duyệt Hoàn tiền một phần (Partial Refund)**
+  - [ ] Sửa `PrismaRefundRepository.js`: Phân biệt hoàn tiền toàn phần (`amount >= total_amount`) và hoàn một phần (`amount < total_amount`).
+  - [ ] Hoàn một phần (VD: đền bù 50.000đ do hoa dập cành): chỉ đổi `payment_status = 'partially_refunded'`, **KHÔNG** chuyển trạng thái đơn sang `cancelled` và **KHÔNG** hoàn kho sản phẩm.
+  - [ ] Chỉ hủy đơn và hoàn kho khi là hoàn tiền toàn phần do hủy đơn.
 
-- [x] **Hạ tầng dự án:** Git Flow 3 nhánh (`main`, `staging`, `develop`), cấu hình `.gitignore`, chuẩn ES6 Modules + Axios importmap.
-- [x] **Backend Mock API:** `json-server` cổng 3000 kết hợp `db.json` đầy đủ 7 bảng dữ liệu.
-- [x] **`SHOP-05` Banners Đa Chủ Đề:** Slider trượt 2s mượt mà, loại bỏ thanh cam kết theo yêu cầu, 4 màu nền rực rỡ riêng biệt (Tết 2027 đỏ vàng, Mặc định xanh ngọc, Flash Sale cam cháy, Valentine hồng phấn).
-- [x] **`SHOP-06` Sản Phẩm Mới & Bán Chạy:** 2 section độc lập, sắp xếp `soldCount` và `id`, layout không viền chuẩn Flower Chimp.
-- [x] **`SHOP-07` Flash Deals & Side Cart Drawer:** Đếm ngược giờ vàng, thẻ voucher răng cưa, giỏ hàng trượt Side Drawer realtime, popup sinh nhật.
-- [x] **`SHOP-08` Admin Dashboard:** [admin.html](file:///d:/shopHoa/souce_shopHoa/admin.html) quản trị 5 tab (KPI doanh thu, Sản phẩm, Banners, Vouchers, Đơn hàng) + 1-Click Holiday Booster.
-- [x] **`SHOP-09` AI Florist ChatBot:** Trợ lý "Em Ly" chế độ kép Gemini Flash API + Local RAG gợi ý mẫu hoa trực quan.
-- [x] **Xác thực Đăng ký:** [register.html](file:///d:/shopHoa/souce_shopHoa/register.html) & [js/register.js](file:///d:/shopHoa/souce_shopHoa/js/register.js) kiểm tra form, chống trùng email và lưu vào `db.json`.
+- [ ] **Task 4: Bổ sung ô nhập "Giá vốn sản phẩm" (`cost_price`)**
+  - [ ] Thêm trường `Giá Vốn Sản Phẩm (₫)` vào Modal thêm/sửa sản phẩm trên `admin.html` và `admin.js`.
+  - [ ] Bổ sung cột Giá vốn vào file mẫu Excel import.
+  - [ ] Báo cáo lợi nhuận trong `business-rules.js` ưu tiên dùng `cost_price` thật của từng mẫu hoa, loại bỏ số liệu giả định 65%.
 
 ---
 
-## 📅 3. LỘ TRÌNH TIẾP THEO (NEXT BACKLOG)
+## 🚀 2. CÁC TÍNH NĂNG VÀ NỀN TẢNG ĐÃ HOÀN THÀNH TỐT (COMPLETED)
 
-- [ ] **`SHOP-10` Phân quyền Admin / Customer:**
-  - [ ] Kiểm tra tài khoản đăng nhập: Nếu là Admin (hoặc email quản trị) thì mới cho vào trang `admin.html`.
-  - [ ] Người dùng thông thường vào `admin.html` sẽ bị đá về `index.html` hoặc trang đăng nhập.
-- [ ] **`SHOP-11` Đặt Hàng & Lưu Lịch Sử Đơn Hàng:**
-  - [ ] Khách hàng đăng nhập khi thanh toán sẽ gắn `userId` vào đơn hàng trong bảng `orders`.
-  - [ ] Trang xem lịch sử đơn hàng cá nhân của khách hàng.
-- [ ] **Chuẩn bị bảo vệ đồ án:**
-  - [ ] Tổng hợp bộ câu hỏi vấn đáp lý thuyết hay gặp (Event Loop, Promise/async-await, LocalStorage vs Cookie, DOM traversal).
-  - [ ] Rà soát toàn bộ code theo Rubric 100/100 điểm.
+- [x] **Hạ tầng Clean / Hexagonal Architecture:** Express + Prisma ORM + MySQL 8.0, di chuyển toàn bộ giao diện tĩnh vào `public/`.
+- [x] **Xác thực & Phân quyền 3 Role (RBAC):** `customer`, `staff`, `admin` với JWT RFC 7519, Bcrypt 10 rounds, Token Versioning thu hồi phiên, bảo vệ admin cuối cùng.
+- [x] **State Machine Vòng Đời Đơn Hàng:** Chặt chẽ, khóa không duyệt/giao đơn SePay khi chưa nhận thanh toán ngân hàng.
+- [x] **Giao dịch ACID Trừ Kho & Hoàn Kho:** Nguyên tử, chống bán âm khi nhiều khách mua cùng lúc; hoàn kho tự động khi hủy đơn `pending`.
+- [x] **Universal Checkout & VietQR SePay:** Đặt hoa tách Người mua vs Người nhận, khung giờ giao, thiệp chúc mừng viết tay, phụ kiện hoa, auto-polling VietQR 3.5s.
+- [x] **Hệ Thống Phân Cấp Voucher 3 Tầng:** Toàn shop, danh mục, mẫu hoa; chống gian lận F12 với tính toán phía server.
+- [x] **Quy Trình Hoàn Tiền 2 Cấp (Maker-Checker):** Thu ngân staff lập phiếu `pending_approval`, chỉ admin duyệt `approved`/từ chối `rejected`.
+- [x] **Hệ Thống Đánh Giá Có Xác Thực:** Huy hiệu `✓ Đã mua`, tải ảnh review, staff/admin phản hồi, ẩn/hiện review.
+
+---
+
+## 📅 3. LỘ TRÌNH MỞ RỘNG TIẾP THEO (BACKLOG NGÀNH HOA)
+
+- [ ] **`FLOWER-01` Chọn Ngày Giao Hoa (Delivery Date):** Thêm trường ngày giao hẹn trước vào form checkout và schema đơn hàng; hỗ trợ đặt trước ngày lễ (14/2, 8/3, 20/10).
+- [ ] **`FLOWER-02` Tùy Chọn Người Gửi Ẩn Danh:** Checkbox "Giao hoa bí mật" để không in tên người gửi lên thiệp/phiếu giao cho người nhận.
+- [ ] **`FLOWER-03` Tách Phiếu Giao Quà Khỏi Hóa Đơn:** Phiếu shipper cầm trao tay người nhận ẩn hoàn toàn giá tiền sản phẩm.
+- [ ] **`FLOWER-04` Đính Kèm Ảnh Hoa Thực Tế Trước Khi Giao:** Nhân viên cắm hoa tải ảnh hoa thành phẩm thật lên đơn hàng cho khách xem trước.
+- [ ] **`FLOWER-05` Đồng Bộ Ma Trận Quyền API vs UI:** Rà soát lại `server.js` để giới hạn các API catalog/banner/voucher chỉ dành riêng cho Admin nếu UI đã ẩn khỏi Staff.

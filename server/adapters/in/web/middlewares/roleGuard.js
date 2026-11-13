@@ -7,8 +7,7 @@ export function roleGuard(...allowedRoles) {
   return function (req, res, next) {
     if (!req.user) {
       return res.status(401).json({
-        success: false,
-        error: 'Chưa đăng nhập xác thực'
+        error: { code: 'UNAUTHENTICATED', message: 'Chưa đăng nhập xác thực.' }
       });
     }
 
@@ -16,8 +15,10 @@ export function roleGuard(...allowedRoles) {
 
     if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
-        success: false,
-        error: `Bạn không có quyền truy cập chức năng này (Yêu cầu vai trò: ${allowedRoles.join(', ')})`
+        error: {
+          code: 'FORBIDDEN',
+          message: `Bạn không có quyền truy cập chức năng này (yêu cầu: ${allowedRoles.join(', ')}).`
+        }
       });
     }
 

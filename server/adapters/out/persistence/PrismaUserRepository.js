@@ -28,6 +28,7 @@ export class PrismaUserRepository extends UserRepositoryPort {
       phone: raw.phone,
       role: raw.role,
       avatar_url: raw.avatar_url,
+      token_version: raw.token_version ?? 1,
       is_active: raw.is_active ? 1 : 0,
       created_at: raw.created_at
     });
@@ -78,12 +79,21 @@ export class PrismaUserRepository extends UserRepositoryPort {
     if (updateData.phone !== undefined) data.phone = updateData.phone ? updateData.phone.trim() : null;
     if (updateData.avatar_url !== undefined) data.avatar_url = updateData.avatar_url;
     if (updateData.password_hash !== undefined) data.password_hash = updateData.password_hash;
+    if (updateData.password_hash !== undefined) data.token_version = { increment: 1 };
     if (updateData.role !== undefined) data.role = updateData.role;
     if (updateData.is_active !== undefined) data.is_active = Boolean(updateData.is_active);
 
     const raw = await this.prisma.users.update({
       where: { id },
       data
+    });
+    return this.#mapToDomain(raw);
+  }
+
+  async incrementTokenVersion(id) {
+    const raw = await this.prisma.users.update({
+      where: { id },
+      data: { token_version: { increment: 1 } }
     });
     return this.#mapToDomain(raw);
   }
