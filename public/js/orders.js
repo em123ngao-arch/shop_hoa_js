@@ -4,7 +4,8 @@ import { formatPrice, showToast, renderHeaderAuth, updateCartBadge, compressImag
 import { isOrderPaid, isUnpaidSepayOrder } from './business-rules.js';
 import { initUniversalCartDrawer, openCartDrawer } from './cart-drawer.js';
 import { initMobileBottomNav } from './bottom-nav.js';
-import { authApi, reviewApi } from './api.js';
+import api, { authApi, reviewApi } from './api.js';
+import { DELIVERY_AREA_GROUPS } from './delivery-areas.js';
 
 /**
  * orders.js - Logic Quản Lý & Tra Cứu Lịch Sử Đơn Hàng (Dedicated Page)
@@ -147,7 +148,68 @@ async function initOrdersPage() {
 
   // 9. Gán các sự kiện tương tác (luôn chạy cho cả khách vãng lai)
   setupOrdersPageEvents();
+
+  // 10. Tự động đồng bộ trạng thái đơn hàng khi có đơn đang xử lý / đang giao
+  startOrdersAutoSync();
 }
+
+let ordersAutoSyncTimer = null;
+/**
+ * Tự động đồng bộ dữ liệu đơn hàng khi có đơn chưa hoàn tất (mỗi 12 giây hoặc khi đổi tab về)
+ */
+function startOrdersAutoSync() {
+  if (ordersAutoSyncTimer) clearInterval(ordersAutoSyncTimer);
+  ordersAutoSyncTimer = setInterval(async () => {
+    if (document.visibilityState !== 'visible' || !cachedCurrentUser) return;
+    const hasActiveOrders = allUserOrders.some(o => ['pending', 'confirmed', 'shipping'].includes(o.status));
+    if (!hasActiveOrders) return;
+
+    try {
+      const rawOrders = await fetchOrders();
+      const updatedUserOrders = rawOrders.filter(order => {
+        if (order.userId || order.user_id) {
+          return String(order.userId || order.user_id) === String(cachedCurrentUser.id);
+        }
+        return Boolean(cachedCurrentUser.email && (order.email === cachedCurrentUser.email || order.customerEmail === cachedCurrentUser.email));
+      }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+      const oldSig = allUserOrders.map(o => `${o.id}:${o.status}:${o.paymentStatus}`).join('|');
+      const newSig = updatedUserOrders.map(o => `${o.id}:${o.status}:${o.paymentStatus}`).join('|');
+
+      if (oldSig !== newSig) {
+        allUserOrders = updatedUserOrders;
+        updateTabCountBadges();
+        applyFiltersAndRender();
+      }
+    } catch {
+      // Yên lặng khi có lỗi mạng tạm thời
+    }
+  }, 12000);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && cachedCurrentUser) {
+    const hasActiveOrders = allUserOrders.some(o => ['pending', 'confirmed', 'shipping'].includes(o.status));
+    if (hasActiveOrders) {
+      fetchOrders().then(rawOrders => {
+        const updatedUserOrders = rawOrders.filter(order => {
+          if (order.userId || order.user_id) {
+            return String(order.userId || order.user_id) === String(cachedCurrentUser.id);
+          }
+          return Boolean(cachedCurrentUser.email && (order.email === cachedCurrentUser.email || order.customerEmail === cachedCurrentUser.email));
+        }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+        const oldSig = allUserOrders.map(o => `${o.id}:${o.status}:${o.paymentStatus}`).join('|');
+        const newSig = updatedUserOrders.map(o => `${o.id}:${o.status}:${o.paymentStatus}`).join('|');
+        if (oldSig !== newSig) {
+          allUserOrders = updatedUserOrders;
+          updateTabCountBadges();
+          applyFiltersAndRender();
+        }
+      }).catch(() => {});
+    }
+  }
+});
 
 /**
  * Hiển thị thẻ Profile khách hàng bên cột trái
@@ -389,20 +451,57 @@ function renderOrdersList(orders = []) {
 
   // Dùng map() chuyển đổi từng đơn hàng thành thẻ HTML
   container.innerHTML = orders.map(order => {
+    const safeOrderId = escapeHTML(order.id);
+    const safeOrderCode = escapeHTML(order.orderCode || order.id);
     const isPaid = isOrderPaid(order);
     const isSepay = order.paymentMethod === 'sepay';
     const status = order.status || 'pending';
     const isCancelled = status === 'cancelled';
-    const canCancelOrder = Boolean(cachedCurrentUser && String(order.userId || order.user_id) === String(cachedCurrentUser.id) && status === 'pending' && !isPaid);
+    const hasPendingCancel = Boolean(order.cancellationRequests?.some(request => request.status === 'pending') || order.cancellationRequest?.status === 'pending');
+    const isVerifiedGuestOrder = Boolean(order.isGuestLookup && verifiedGuestPhone && order.orderCode);
+    const canManageAsOwner = Boolean(isVerifiedGuestOrder || (cachedCurrentUser && String(order.userId || order.user_id) === String(cachedCurrentUser.id)));
+    const canCancelOrder = Boolean(canManageAsOwner && ['pending', 'confirmed'].includes(status) && !hasPendingCancel);
+    const cancelButtonText = ['paid', 'partially_paid'].includes(String(order.paymentStatus || '').toLowerCase()) ? 'Yêu Cầu Hủy' : 'Hủy Đơn';
+    const isPartialPayment = String(order.paymentStatus || '').toLowerCase() === 'partially_paid';
+    const canChangeAddress = Boolean(canManageAsOwner && ['paid', 'partially_paid'].includes(String(order.paymentStatus || '').toLowerCase()) && !['completed', 'cancelled'].includes(status));
+    const pendingAddressChange = order.changeRequests?.some(request => ['pending', 'awaiting_payment'].includes(request.status));
+    const deliveryAreaOptions = DELIVERY_AREA_GROUPS.map(group => `
+      <optgroup label="${escapeHTML(group.label)}">
+        ${group.areas.map(area => `<option value="${escapeHTML(area)}" ${area === order.deliveryArea ? 'selected' : ''}>${escapeHTML(area)}</option>`).join('')}
+      </optgroup>
+    `).join('');
+    const addressChangeFormHtml = canChangeAddress && !pendingAddressChange ? `
+      <details style="flex-basis:100%;margin-top:10px;padding:10px;border:1px solid #E8E8E8;border-radius:8px;">
+        <summary style="cursor:pointer;font-weight:700;">Yêu cầu đổi địa chỉ giao</summary>
+        <div style="display:grid;gap:8px;margin-top:8px;">
+          <span style="font-size:12px;color:#64748B;">Địa chỉ hiện tại: ${escapeHTML(order.address || 'Thông tin địa chỉ không khả dụng')}</span>
+          <span class="delivery-city-fixed">Thành phố Hồ Chí Minh</span>
+          <select class="order-change-area" aria-label="Phường/xã giao mới"><option value="">Chọn phường/xã</option>${deliveryAreaOptions}</select>
+          <input class="order-change-address" type="text" maxlength="255" placeholder="Số nhà, tên đường mới">
+          <input class="order-change-address-details" type="text" maxlength="255" placeholder="Căn hộ, hẻm hoặc chỉ dẫn thêm (không bắt buộc)">
+          <button type="button" class="btn-action-secondary btn-order-change-address" data-order-id="${order.isGuestLookup ? safeOrderCode : safeOrderId}">Gửi yêu cầu đổi địa chỉ</button>
+          <label>Số điện thoại người đặt mới
+            <input class="order-change-customer-phone" type="tel" maxlength="20" value="${escapeHTML(order.isGuestLookup ? '' : (order.customerPhone || order.phone || ''))}" placeholder="09xxxxxxxx">
+          </label>
+          <button type="button" class="btn-action-secondary btn-order-change-phone" data-order-id="${order.isGuestLookup ? safeOrderCode : safeOrderId}" data-change-type="phone">Gửi yêu cầu đổi số người đặt</button>
+          <label>Số điện thoại người nhận mới
+            <input class="order-change-recipient-phone" type="tel" maxlength="20" value="${escapeHTML(order.isGuestLookup ? '' : (order.recipientPhone || order.customerPhone || ''))}" placeholder="09xxxxxxxx">
+          </label>
+          <button type="button" class="btn-action-secondary btn-order-change-phone" data-order-id="${order.isGuestLookup ? safeOrderCode : safeOrderId}" data-change-type="recipient">Gửi yêu cầu đổi số người nhận</button>
+        </div>
+      </details>
+    ` : (pendingAddressChange ? '<span style="flex-basis:100%;font-size:12px;color:#92400E;">Yêu cầu đổi thông tin đang được xử lý hoặc chờ khoản phí điều chỉnh.</span>' : '');
 
     // 1. Nhãn phương thức thanh toán & trạng thái (Xử lý dứt khoát trạng thái Đã Hủy)
     let paymentBadge = '';
     if (isCancelled) {
       paymentBadge = `<span class="payment-status-pill cancelled">Đã Hủy Đơn</span>`;
     } else if (isSepay) {
-      paymentBadge = isPaid
+      paymentBadge = String(order.paymentStatus || '').toLowerCase() === 'partially_paid'
+        ? `<span class="payment-status-pill cod">Đã trả trước ${formatPrice(order.amountReceived || 0)} • còn thu ${formatPrice(order.amountToCollectAtDelivery || 0)}</span>`
+        : (isPaid
         ? `<span class="payment-status-pill paid"><span class="pulse-indicator"></span>SePay (Đã Thanh Toán)</span>`
-        : `<span class="payment-status-pill unpaid"><span class="pulse-indicator"></span>SePay (Chờ Quét QR)</span>`;
+        : `<span class="payment-status-pill unpaid"><span class="pulse-indicator"></span>SePay (Chờ Quét QR)</span>`);
     } else {
       paymentBadge = isPaid
         ? `<span class="payment-status-pill paid">COD (Đã Thu Tiền)</span>`
@@ -556,8 +655,6 @@ function renderOrdersList(orders = []) {
     const recipientPhone = escapeHTML(order.recipientPhone || order.phone || order.customerPhone || '');
     const deliveryAddress = escapeHTML(order.address || order.shippingAddress || order.shipping_address || '');
     const deliverySlot = escapeHTML(order.deliverySlot || 'Giao trong ngày');
-    const safeOrderId = escapeHTML(order.id);
-    const safeOrderCode = escapeHTML(order.orderCode || order.id);
     const cardMsg = order.isGuestLookup
       ? (order.hasGreetingCard ? '"Có đính kèm thiệp chúc mừng (nội dung được ẩn bảo mật)"' : '"Không đính kèm thiệp"')
       : (order.cardMessage && order.cardMessage.trim()
@@ -575,10 +672,77 @@ function renderOrdersList(orders = []) {
       })
       : 'Vừa đặt';
 
+    // 5.1. Khung thông báo Đang giao hàng chuẩn TMĐT (Shopee / Grab / Flower Chimp)
+    let shippingAlertBannerHtml = '';
+    if (status === 'shipping' && !isCancelled) {
+      const isPaidFull = isPaid || (isSepay && !isPartialPayment && Number(order.amountToCollectAtDelivery || 0) === 0);
+      const amountToCollect = Number(order.amountToCollectAtDelivery || (isPaidFull ? 0 : (order.totalAmount || order.total_amount || 0)));
+
+      const financialNoticeHtml = isPaidFull
+        ? `<div class="shipping-cash-status status-paid">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+             <strong>Đơn đã thanh toán đủ 100% qua SePay:</strong> Quý khách <strong>KHÔNG CẦN</strong> trả thêm bất kỳ khoản phí nào cho shipper khi nhận hoa.
+           </div>`
+        : `<div class="shipping-cash-status status-cod-due">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="3"></circle></svg>
+             <strong>Số tiền mặt cần chuẩn bị gửi shipper khi nhận hoa:</strong> <span class="cash-amount">${formatPrice(amountToCollect)}</span>
+           </div>`;
+
+      shippingAlertBannerHtml = `
+        <div class="shipping-alert-banner">
+          <div class="shipping-alert-header">
+            <div class="shipping-badge-pulse">
+              <span class="pulse-ring"></span>
+              <span class="shipping-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+              </span>
+              <strong>ĐANG TRÊN ĐƯỜNG GIAO ĐẾN BẠN</strong>
+            </div>
+            <span class="shipping-eta">Dự kiến giao: 15 – 45 phút</span>
+          </div>
+
+          <div class="shipping-alert-body">
+            <p class="shipping-main-msg">
+              Nghệ nhân đã chuẩn bị hoa xong, shipper đang vận chuyển bó hoa đến:<br>
+              <strong><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>${deliveryAddress || 'Địa chỉ giao hàng của bạn'}</strong>
+            </p>
+
+            <div class="shipping-phone-remind">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+              </svg>
+              <span>Shipper sẽ liên hệ số <strong>${recipientPhone || 'số điện thoại của bạn'}</strong> khi tới nơi. Quý khách vui lòng <strong>CHÚ Ý ĐIỆN THOẠI</strong> để nhận hoa tươi đẹp nhất nhé!</span>
+            </div>
+
+            ${financialNoticeHtml}
+          </div>
+
+          <div class="shipping-alert-footer">
+            <a href="https://zalo.me/0374905296" target="_blank" rel="noopener noreferrer" class="btn-shipping-zalo" title="Chat Zalo dặn dò shipper hoặc gửi vị trí">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.03 2 11c0 2.87 1.5 5.43 3.84 7.03-.17.94-.65 2.53-.74 2.89-.12.48.18.47.37.35.15-.09 2.11-1.4 3.01-2 .5.09 1.01.13 1.52.13 5.52 0 10-4.03 10-9S17.52 2 12 2z"/>
+              </svg>
+              <span>Chat Zalo Dặn Shipper</span>
+            </a>
+            <a href="tel:0374905296" class="btn-shipping-hotline" title="Gọi tổng đài hỗ trợ giao nhận">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+              </svg>
+              <span>Hotline: 0374 905 296</span>
+            </a>
+          </div>
+        </div>
+      `;
+    }
+
     // 6. Cụm nút hành động phân cấp chuẩn nghiệp vụ TMĐT thực tế
     let actionButtonsHtml = '';
-    const supportLinkHtml = ['shipping', 'completed'].includes(status) && !order.isGuestLookup
-      ? `<a class="order-support-link" href="mailto:tiemhoakemnhung@gmail.com?subject=${encodeURIComponent(`Hỗ trợ đơn hàng #${order.orderCode || order.id}`)}" aria-label="Báo hoa dập móp hoặc cần hỗ trợ cho đơn ${safeOrderCode}">Báo hoa dập/móp · Cần hỗ trợ</a>`
+    const amountCredit = Math.max(0, Number(order.amountCredit || 0));
+    const supportSubject = amountCredit > 0
+      ? `Yêu cầu hoàn phần tiền dư đơn hàng #${order.orderCode || order.id}`
+      : `Hỗ trợ đơn hàng #${order.orderCode || order.id}`;
+    const supportLinkHtml = amountCredit > 0 || ['shipping', 'completed'].includes(status)
+      ? `<a class="order-support-link" href="mailto:tiemhoakemnhung@gmail.com?subject=${encodeURIComponent(supportSubject)}" aria-label="${amountCredit > 0 ? `Yêu cầu hoàn ${formatPrice(amountCredit)} tiền dư` : `Báo hoa dập móp hoặc cần hỗ trợ cho đơn ${safeOrderCode}`}">${amountCredit > 0 ? `Yêu cầu hoàn phần dư ${formatPrice(amountCredit)}` : 'Báo hoa dập/móp · Cần hỗ trợ'}</a>`
       : '';
 
     if (isCancelled) {
@@ -587,15 +751,15 @@ function renderOrdersList(orders = []) {
         <span style="font-size: 12.5px; color: #94A3B8; font-style: italic;">Đơn hàng đã được hủy</span>
         <a href="./index.html#products" class="btn-action-secondary">Khám Phá Mẫu Hoa Khác</a>
       `;
-    } else if (isSepay && !isPaid) {
+    } else if (isSepay && isUnpaidSepayOrder(order)) {
       // Đơn SePay chưa thanh toán: Bắt buộc chỉ hiện Quét QR + Hủy đơn, KHÔNG có hóa đơn/biên nhận!
       actionButtonsHtml = `
-      ${canCancelOrder ? `<button type="button" class="btn-action-secondary btn-order-cancel" data-order-id="${safeOrderId}">
+      ${canCancelOrder ? `<button type="button" class="btn-action-secondary btn-order-cancel" data-order-id="${order.isGuestLookup ? safeOrderCode : safeOrderId}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
-          <span>Hủy Đơn</span>
+          <span>${cancelButtonText}</span>
         </button>` : ''}
         <button type="button" class="btn-action-primary btn-order-pay-now" data-order-id="${safeOrderId}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -607,23 +771,23 @@ function renderOrdersList(orders = []) {
           <span>Quét QR Thanh Toán Ngay</span>
         </button>
       `;
-    } else if (!isPaid) {
+    } else if (!isPaid && !isPartialPayment) {
       // Đơn COD đang xử lý/giao (chưa thu tiền): Khách chưa trả tiền nên chưa có biên nhận thu tiền!
       actionButtonsHtml = `
-        <a href="tel:0908889999" class="btn-action-secondary" title="Liên hệ nghệ nhân đổi thiệp hoặc giờ giao">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+        <a href="https://zalo.me/0374905296" target="_blank" rel="noopener noreferrer" class="btn-action-secondary" title="Liên hệ nghệ nhân đổi thiệp hoặc giờ giao qua Zalo">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.03 2 11c0 2.87 1.5 5.43 3.84 7.03-.17.94-.65 2.53-.74 2.89-.12.48.18.47.37.35.15-.09 2.11-1.4 3.01-2 .5.09 1.01.13 1.52.13 5.52 0 10-4.03 10-9S17.52 2 12 2z"/>
           </svg>
-          <span>Đổi Thiệp / Giờ Giao</span>
+          <span>Đổi Thiệp / Giờ Giao (Zalo)</span>
         </a>
-        ${canCancelOrder ? `<button type="button" class="btn-action-secondary btn-order-cancel" data-order-id="${safeOrderId}">
-          <span>Hủy Đơn</span>
+        ${canCancelOrder ? `<button type="button" class="btn-action-secondary btn-order-cancel" data-order-id="${order.isGuestLookup ? safeOrderCode : safeOrderId}">
+          <span>${cancelButtonText}</span>
         </button>` : ''}
       `;
     } else {
       // Đơn ĐÃ THANH TOÁN SEPAY hoặc ĐƠN ĐÃ HOÀN TẤT: Đã thu tiền thành công -> Chủ đơn được xem Hóa đơn điện tử
       actionButtonsHtml = `
-        ${!order.isGuestLookup ? `<button type="button" class="btn-action-secondary btn-order-view-pdf" data-order-id="${safeOrderId}">
+        ${isPaid && !order.isGuestLookup ? `<button type="button" class="btn-action-secondary btn-order-view-pdf" data-order-id="${safeOrderId}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
@@ -640,6 +804,7 @@ function renderOrdersList(orders = []) {
           </svg>
           <span>Đặt Lại Đơn Này</span>
         </button>
+        ${isPartialPayment ? `<span style="font-size:12px;color:#92400E;">Đã nhận ${formatPrice(order.amountReceived || 0)} • còn thu ${formatPrice(order.amountToCollectAtDelivery || 0)} khi giao</span>` : ''}
       `;
     }
 
@@ -662,6 +827,9 @@ function renderOrdersList(orders = []) {
 
         <!-- Lộ Trình 4 Bước Nghệ Nhân Hoặc Banner Đã Hủy -->
         ${timelineOrBannerHtml}
+
+        <!-- Thông báo Đang giao hàng nổi bật chuẩn TMĐT -->
+        ${shippingAlertBannerHtml}
 
         <!-- Danh sách hoa trong đơn -->
         <div class="order-items-preview-box">
@@ -707,6 +875,7 @@ function renderOrdersList(orders = []) {
           </div>
           <div class="order-action-buttons">
             ${actionButtonsHtml}
+            ${addressChangeFormHtml}
           </div>
           ${supportLinkHtml}
         </div>
@@ -926,6 +1095,84 @@ function setupOrdersPageEvents() {
         return;
       }
     });
+
+    listContainer.addEventListener('click', async (e) => {
+      const phoneButton = e.target.closest('.btn-order-change-phone');
+      if (phoneButton) {
+        const card = phoneButton.closest('.order-craft-card');
+        const order = allUserOrders.find(item => String(item.id) === String(phoneButton.dataset.orderId) || String(item.orderCode) === String(phoneButton.dataset.orderId));
+        const changeType = phoneButton.dataset.changeType;
+        const phoneSelector = changeType === 'recipient' ? '.order-change-recipient-phone' : '.order-change-customer-phone';
+        const phone = card?.querySelector(phoneSelector)?.value.trim() || '';
+        if (!order || !/^0\d{8,10}$/.test(phone.replace(/[\s.-]/g, ''))) {
+          showToast('Nhập số điện thoại Việt Nam hợp lệ trước khi gửi yêu cầu.', 'warning');
+          return;
+        }
+        try {
+          phoneButton.disabled = true;
+          const orderKey = order.isGuestLookup ? order.orderCode : order.id;
+          const response = await api.post(`/api/orders/${encodeURIComponent(orderKey)}/change-requests`, {
+            changeType, value: { phone }, ...(order.isGuestLookup ? { phone: verifiedGuestPhone } : {})
+          });
+          const request = response.data?.request;
+          if (order.isGuestLookup) {
+            allUserOrders = allUserOrders.map(item => String(item.id) === String(order.id)
+              ? { ...item, changeRequests: [...(item.changeRequests || []), request].filter(Boolean) }
+              : item);
+          } else {
+            allUserOrders = await fetchOrders();
+          }
+          showToast(request?.status === 'pending'
+            ? 'Đã gửi yêu cầu đổi số điện thoại; shop sẽ duyệt vì đơn đang giao.'
+            : 'Đã cập nhật yêu cầu đổi số điện thoại.', 'success');
+          applyFiltersAndRender();
+        } catch (error) {
+          showToast(error.response?.data?.error?.message || error.message || 'Không thể đổi số điện thoại.', 'error');
+        } finally {
+          phoneButton.disabled = false;
+        }
+        return;
+      }
+
+      const changeButton = e.target.closest('.btn-order-change-address');
+      if (!changeButton) return;
+      const card = changeButton.closest('.order-craft-card');
+      const order = allUserOrders.find(item => String(item.id) === String(changeButton.dataset.orderId) || String(item.orderCode) === String(changeButton.dataset.orderId));
+      const address = card?.querySelector('.order-change-address')?.value.trim() || '';
+      const addressDetails = card?.querySelector('.order-change-address-details')?.value.trim() || '';
+      const area = card?.querySelector('.order-change-area')?.value || '';
+      if (!order || !address || !area) { showToast('Chọn phường/xã và nhập số nhà, tên đường mới.', 'warning'); return; }
+      try {
+        changeButton.disabled = true;
+        changeButton.textContent = 'Đang gửi yêu cầu...';
+        const changeOrderKey = order.isGuestLookup ? order.orderCode : order.id;
+        const response = await api.post(`/api/orders/${encodeURIComponent(changeOrderKey)}/change-requests`, {
+          changeType: 'address', value: { address, addressDetails, area },
+          ...(order.isGuestLookup ? { phone: verifiedGuestPhone } : {})
+        });
+        const result = response.data || {};
+        if (result.paymentIntent) {
+          showToast(`Địa chỉ mới tăng phí ${formatPrice(result.amountDueNow)}. Thanh toán qua mã riêng để áp dụng.`, 'info');
+          await openSepayQrModal({ ...order, paymentIntent: result.paymentIntent });
+        } else {
+          showToast(result.request?.status === 'pending'
+            ? 'Đã gửi yêu cầu đổi; shop cần duyệt vì đơn đang giao.'
+            : 'Đã áp dụng địa chỉ mới. Phần chênh lệch giảm được giữ thành tiền đã trả trước.', 'success');
+        }
+        if (order.isGuestLookup) {
+          const updatedGuestOrder = { ...order, changeRequests: [...(order.changeRequests || []), result.request].filter(Boolean) };
+          allUserOrders = allUserOrders.map(item => String(item.id) === String(order.id) ? updatedGuestOrder : item);
+        } else {
+          allUserOrders = await fetchOrders();
+        }
+        applyFiltersAndRender();
+      } catch (error) {
+        showToast(error.response?.data?.error?.message || error.message || 'Không thể gửi yêu cầu đổi địa chỉ.', 'error');
+      } finally {
+        changeButton.disabled = false;
+        changeButton.textContent = 'Gửi yêu cầu đổi địa chỉ';
+      }
+    });
   }
 
   // 5. Đóng Modal SePay
@@ -946,10 +1193,25 @@ function setupOrdersPageEvents() {
  */
 async function handleCancelOrder(orderId) {
   try {
-    const updated = await updateOrderStatus(orderId, 'cancelled');
-    const idx = allUserOrders.findIndex(o => String(o.id) === String(orderId));
+    const target = allUserOrders.find(order => String(order.id) === String(orderId) || String(order.orderCode) === String(orderId));
+    if (!target) throw new Error('Không tìm thấy đơn hàng cần hủy.');
+    let updated;
+    if (target.isGuestLookup) {
+      const response = await api.post(`/api/orders/${encodeURIComponent(target.orderCode)}/cancellation-requests`, {
+        reason: 'Khách yêu cầu hủy đơn', phone: verifiedGuestPhone
+      });
+      updated = {
+        ...target,
+        cancellationRequests: [...(target.cancellationRequests || []), response.data?.request].filter(Boolean)
+      };
+    } else {
+      updated = await updateOrderStatus(target.id, 'cancelled');
+    }
+    const idx = allUserOrders.findIndex(order => String(order.id) === String(target.id));
     if (idx !== -1) allUserOrders[idx] = { ...allUserOrders[idx], ...updated };
-    showToast(`Đã hủy thành công đơn hàng #${orderId}`, 'success');
+    showToast(updated.cancellationRequest
+      ? `Đã gửi yêu cầu hủy đơn #${orderId}. Shop sẽ xác nhận khoản hoàn tiền.`
+      : `Đã hủy thành công đơn hàng #${orderId}`, 'success');
     renderUserProfileSidebar();
     updateTabCountBadges();
     applyFiltersAndRender();
@@ -969,13 +1231,13 @@ async function openSepayQrModal(order) {
   const qrImg = document.getElementById('modalSepayQrImg');
   const amountEl = document.getElementById('modalSepayAmount');
   const contentEl = document.getElementById('modalSepayContent');
-  const simulateBtn = document.getElementById('btnModalSimulatePaid');
   const pollingText = document.getElementById('modalSepayPollingText');
 
   if (!modal) return;
 
-  const totalAmount = order.totalAmount || 0;
-  const paymentContent = order.orderCode || order.order_code || order.id;
+  const intent = order.paymentIntent || order.paymentIntents?.find(item => item.status === 'pending');
+  const totalAmount = Number(intent?.amount || order.totalAmount || 0);
+  const paymentContent = intent?.referenceCode || intent?.reference_code || order.orderCode || order.order_code || order.id;
 
   // Hiển thị modal để người dùng có phản hồi ngay
   modal.style.display = 'flex';
@@ -993,12 +1255,12 @@ async function openSepayQrModal(order) {
     currentSepayConfig = config;
   } catch (err) {
     showToast(err.message || 'Không thể tải thông tin thanh toán từ máy chủ', 'error');
-    if (pollingText) pollingText.innerHTML = `<span style="color: #D92D20; font-weight: 600;">⚠️ ${err.message || 'Không thể kết nối cấu hình ngân hàng'}</span>`;
+    if (pollingText) pollingText.innerHTML = `<span style="color: #D92D20; font-weight: 600;">${err.message || 'Không thể kết nối cấu hình ngân hàng'}</span>`;
     return;
   }
 
   // Tạo URL VietQR SePay Napas 247 chính chủ từ cấu hình máy chủ
-  const qrUrl = `https://qr.sepay.vn/img?acc=${encodeURIComponent(config.accountNumber)}&bank=${encodeURIComponent(config.bankCode)}&amount=${totalAmount}&des=${encodeURIComponent(paymentContent)}&template=compact`;
+  const qrUrl = config.simulationOnly ? '' : `https://qr.sepay.vn/img?acc=${encodeURIComponent(config.accountNumber)}&bank=${encodeURIComponent(config.bankCode)}&amount=${totalAmount}&des=${encodeURIComponent(paymentContent)}&template=compact`;
 
   const bankEl = document.getElementById('modalSepayBank');
   const accEl = document.getElementById('modalSepayAccount');
@@ -1007,10 +1269,16 @@ async function openSepayQrModal(order) {
   if (accEl) accEl.textContent = config.accountNumber;
   if (holderEl) holderEl.textContent = config.accountHolder;
 
-  if (qrImg) qrImg.src = qrUrl;
+  if (qrImg) {
+    if (config.simulationOnly) qrImg.removeAttribute('src');
+    else qrImg.src = qrUrl;
+    qrImg.style.display = config.simulationOnly ? 'none' : 'block';
+  }
+  const localPlaceholder = document.getElementById('modalSepayLocalPlaceholder');
+  if (localPlaceholder) localPlaceholder.classList.toggle('hidden', !config.simulationOnly);
   if (amountEl) amountEl.textContent = formatPrice(totalAmount);
   if (contentEl) contentEl.textContent = paymentContent;
-  if (pollingText) pollingText.textContent = 'Hệ thống đang tự động kiểm tra giao dịch mỗi 3 giây...';
+  if (pollingText) pollingText.textContent = `Đang kiểm tra mã thanh toán ${paymentContent}...`;
 
   // Xóa interval polling cũ nếu có
   if (currentPollingInterval) clearInterval(currentPollingInterval);
@@ -1024,19 +1292,23 @@ async function openSepayQrModal(order) {
         method: 'POST',
         credentials: 'same-origin',
         headers,
-        body: JSON.stringify({ phone })
+        body: JSON.stringify({ phone, intentId: intent?.id || null })
       });
       if (res.ok) {
         const data = await res.json();
         if (data.paid) {
-          handlePaymentSuccess(order);
+          handlePaymentSuccess(data.order || order);
         } else if (data.cancelled) {
           if (currentPollingInterval) {
             clearInterval(currentPollingInterval);
             currentPollingInterval = null;
           }
-          if (pollingText) pollingText.innerHTML = '<span style="color: #D92D20; font-weight: 600;">⚠️ Đơn hàng đã bị hủy. Đã dừng kiểm tra.</span>';
+          if (pollingText) pollingText.innerHTML = '<span style="color: #D92D20; font-weight: 600;">Đơn hàng đã bị hủy. Đã dừng kiểm tra.</span>';
           showToast('Đơn hàng này đã bị hủy', 'warning');
+        } else if (data.order?.paymentIntent?.status === 'needs_review') {
+          if (currentPollingInterval) { clearInterval(currentPollingInterval); currentPollingInterval = null; }
+          if (pollingText) pollingText.textContent = 'Giao dịch đã đến nhưng cần shop đối soát số tiền hoặc mã thanh toán.';
+          showToast('Khoản chuyển cần shop đối soát; chưa đánh dấu đã thanh toán.', 'warning');
         }
       }
     } catch (err) {
@@ -1044,25 +1316,57 @@ async function openSepayQrModal(order) {
     }
   }, 3000);
 
-  // Chỉ báo thành công nếu backend demo đã xác nhận; không tự sửa trạng thái phía client.
-  if (simulateBtn) {
-    simulateBtn.onclick = async () => {
-      simulateBtn.disabled = true;
+  // Nút Tôi Đã Chuyển Khoản (Kiểm tra tức thì không cần đợi chu kỳ polling)
+  const btnCheckNow = document.getElementById('btnModalCheckPaidNow');
+  if (btnCheckNow) {
+    const defaultHtml = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      <span>Tôi Đã Chuyển Khoản (Kiểm Tra Ngay)</span>
+    `;
+    btnCheckNow.disabled = false;
+    btnCheckNow.innerHTML = defaultHtml;
+
+    btnCheckNow.onclick = async () => {
+      btnCheckNow.disabled = true;
+      btnCheckNow.innerHTML = `
+        <svg class="spin-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25"></circle>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor"></path>
+        </svg>
+        <span>Đang kiểm tra với ngân hàng...</span>
+      `;
+      if (pollingText) pollingText.innerHTML = '<span style="color: #0284C7; font-weight: 600;">Đang đối soát trực tiếp với SePay & Sacombank...</span>';
+
       try {
         const phone = order.isGuestLookup ? (verifiedGuestPhone || '') : (order.phone || order.customerPhone || '');
-        const headers = { 'Content-Type': 'application/json' };
-        const response = await fetch(`/api/sepay/simulate-payment/${encodeURIComponent(order.id)}`, {
+        const res = await fetch(`/api/sepay/check-payment/${encodeURIComponent(order.id)}`, {
           method: 'POST',
           credentials: 'same-origin',
-          headers,
-          body: JSON.stringify({ phone })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, intentId: intent?.id || null })
         });
-        const data = await response.json();
-        if (!response.ok || !data.paid) throw new Error(data.error?.message || 'Mô phỏng thanh toán đang tắt');
-        handlePaymentSuccess({ ...order, ...(data.order || {}) });
-      } catch (error) {
-        showToast(error.message, 'error');
-        simulateBtn.disabled = false;
+        const data = await res.json();
+        if (data.paid) {
+          if (currentPollingInterval) {
+            clearInterval(currentPollingInterval);
+            currentPollingInterval = null;
+          }
+          handlePaymentSuccess(data.order || order);
+          return;
+        }
+        if (pollingText) pollingText.innerHTML = '<span style="color: #D97706; font-weight: 600;">⏳ Đang chờ giao dịch từ ngân hàng Sacombank...</span>';
+        showToast('Hệ thống đang chờ ngân hàng Sacombank xử lý. Quá trình này thường mất từ 5–30 giây, bạn vui lòng đợi trong giây lát.', 'info');
+      } catch (err) {
+        showToast('Chưa thể kết nối đối soát lúc này, vui lòng thử lại sau giây lát.', 'warning');
+      } finally {
+        setTimeout(() => {
+          if (btnCheckNow) {
+            btnCheckNow.disabled = false;
+            btnCheckNow.innerHTML = defaultHtml;
+          }
+        }, 3000);
       }
     };
   }
@@ -1082,13 +1386,14 @@ function closeSepayQrModal() {
 
 async function handlePaymentSuccess(order) {
   closeSepayQrModal();
-  showToast(`Backend đã xác nhận thanh toán đơn #${order.orderCode || order.id}!`, 'success');
+  showToast(order.paymentPlan === 'sepay_deposit'
+    ? `Đã xác nhận khoản trả trước; còn thu ${formatPrice(order.amountToCollectAtDelivery || 0)} khi giao.`
+    : `Backend đã xác nhận thanh toán mã ${order.paymentIntent?.referenceCode || order.orderCode || order.id}.`, 'success');
 
   // Cập nhật mảng đơn hàng hiện tại
   const idx = allUserOrders.findIndex(o => String(o.id) === String(order.id));
   if (idx !== -1) {
-    allUserOrders[idx].paymentStatus = 'paid';
-    allUserOrders[idx].status = 'confirmed';
+    allUserOrders[idx] = { ...allUserOrders[idx], ...order };
   }
 
   renderUserProfileSidebar();

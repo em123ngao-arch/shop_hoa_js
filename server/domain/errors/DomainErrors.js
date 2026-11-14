@@ -51,6 +51,13 @@ export class ConflictError extends DomainError {
   }
 }
 
+// Hạ tầng bên ngoài chưa cấu hình hoặc tạm thời không trả được kết quả.
+export class UnavailableError extends DomainError {
+  constructor(message = 'Dịch vụ hiện chưa khả dụng') {
+    super(message, 503, 'SERVICE_UNAVAILABLE');
+  }
+}
+
 export class InvalidResetTokenError extends DomainError {
   constructor(message = 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn') {
     super(message, 400, 'INVALID_RESET_TOKEN');

@@ -18,11 +18,11 @@
   <!-- CSS STYLESHEETS (Vanilla CSS thuần) -->
   <link rel="icon" type="image/png" href="./images/favicon-flower.webp">
   <link rel="apple-touch-icon" href="./images/favicon-flower.webp">
-  <link rel="stylesheet" href="./css/reset.css">
-  <link rel="stylesheet" href="./css/variables.css">
-  <link rel="stylesheet" href="./css/style.css">
-  <link rel="stylesheet" href="./css/responsive.css">
-  <link rel="stylesheet" href="./css/chatbot.css">
+  <link rel="stylesheet" href="./css/reset.css?v=20261114_hero_v7">
+  <link rel="stylesheet" href="./css/variables.css?v=20261114_hero_v7">
+  <link rel="stylesheet" href="./css/style.css?v=20261114_hero_v7">
+  <link rel="stylesheet" href="./css/responsive.css?v=20261114_hero_v7">
+  <link rel="stylesheet" href="./css/chatbot.css?v=20261114_hero_v7">
 
   <!-- IMPORTMAP (Nạp Axios nội bộ từ public/vendor/) -->
   <script type="importmap">
@@ -36,53 +36,243 @@
 
 <body>
 
-  <!-- 1. TOP ANNOUNCEMENT BAR -->
+  <!-- 1. TOP ANNOUNCEMENT BAR (TẦNG 1) -->
   <div class="top-bar">
     <div class="container top-bar-content">
-      <span class="top-bar-badge">Ưu đãi</span>
-      <span>Miễn phí giao hoa nhanh trong ngày cho đơn từ 350k • Tặng kèm thiệp viết tay theo yêu cầu</span>
+      <div class="top-bar-contact">
+        <span>Hotline: <a href="tel:0374905296" style="color: inherit; font-weight: 600; text-decoration: none;">0374 905 296</a></span>
+        <span class="top-bar-divider">|</span>
+        <span>Email: <a href="mailto:cskh.shophoa@gmail.com" style="color: inherit; text-decoration: none;">cskh.shophoa@gmail.com</a></span>
+      </div>
+      <div id="headerAuthArea" class="header-auth-area">
+        <a href="./login.html" class="auth-link">Đăng nhập</a>
+        <span class="auth-divider">-</span>
+        <a href="./register.html" class="auth-link">Đăng ký</a>
+      </div>
     </div>
   </div>
 
-  <!-- 2. MAIN HEADER -->
+  <!-- 2. MAIN HEADER (TẦNG 2) -->
   <header class="header">
     <div class="container header-content">
-      <!-- Logo Tiệm Hoa -->
+      <!-- Nút Hamburger Mobile (Mở Slide-out Drawer chuẩn Ảnh 2) -->
+      <button type="button" class="mobile-hamburger-btn" id="mobileHamburgerBtn" aria-label="Mở menu danh mục">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+
+      <!-- Logo Tiệm Hoa Kẽm Nhung -->
       <a href="./index.html" class="logo" aria-label="Trang chủ Tiệm Hoa Kẽm Nhung">
         <img src="./images/logo-tiem-hoa.webp" alt="Tiệm Hoa Kẽm Nhung - Handmade Florist" class="logo-img" width="168"
           height="46">
       </a>
 
-      <!-- Thanh Tìm Kiếm Thông Minh (Search Input) -->
-      <div class="search-box">
-        <input type="text" id="searchInput" class="search-input"
-          placeholder="Tìm kiếm mẫu hoa, dịp sinh nhật, kỷ niệm..." autocomplete="off">
-        <button id="searchBtn" class="search-btn" aria-label="Tìm kiếm">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-        </button>
+      <!-- Thanh Tìm Kiếm Kết Hợp (Composite Search Box: Chọn mức giá + Ô nhập từ khóa + Nút tìm kiếm) -->
+      <div class="composite-search-wrap">
+        <div class="composite-search-box">
+          <div class="search-price-select-wrap">
+            <select id="headerPriceFilter" class="search-price-select" aria-label="Chọn mức giá">
+              <option value="all">Chọn mức giá</option>
+              <option value="under-50">Dưới 50.000đ</option>
+              <option value="50-100">Từ 50.000đ - 100.000đ</option>
+              <option value="100-200">Từ 100.000đ - 200.000đ</option>
+              <option value="200-300">Từ 200.000đ - 300.000đ</option>
+              <option value="300-400">Từ 300.000đ - 400.000đ</option>
+              <option value="400-500">Từ 400.000đ - 500.000đ</option>
+              <option value="above-500">Trên 500.000đ</option>
+            </select>
+            <span class="search-select-caret">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </span>
+          </div>
+          <span class="search-box-separator"></span>
+          <input type="text" id="searchInput" class="search-input"
+            placeholder="Nhập từ khóa cần tìm..." autocomplete="off">
+          <button id="searchBtn" class="search-btn" aria-label="Tìm kiếm">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="search-prompt-note">
+          Liên Hệ Nhanh Cho Chúng Tôi Qua Số <strong>0374 905 296</strong> Để Đặt Hoa Thiết Kế Riêng Theo Yêu Cầu
+        </div>
       </div>
 
-      <!-- Header Actions: Auth Area + Giỏ hàng -->
+      <!-- Header Actions: Kiểm tra đơn hàng + Giỏ hàng -->
       <div class="header-actions">
-        <div id="headerAuthArea" class="header-auth-area">
-          <a href="./login.html" class="auth-link">Đăng nhập</a>
-          <a href="./register.html" class="auth-link">Đăng ký</a>
-        </div>
+        <a href="./orders.html" class="header-action-link" title="Kiểm tra đơn hàng đã đặt">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+          <span class="action-text">Kiểm tra đơn hàng</span>
+        </a>
+
         <button type="button" class="cart-btn" id="cartButton" title="Giỏ hàng của bạn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-2z"></path>
             <line x1="3" y1="6" x2="21" y2="6"></line>
             <path d="M16 10a4 4 0 0 1-8 0"></path>
           </svg>
-          <span>Giỏ Hàng</span>
+          <span class="action-text">Giỏ Hàng</span>
           <span id="cartCount" class="cart-badge">0</span>
         </button>
       </div>
     </div>
   </header>
+
+  <!-- 3. NAVIGATION MEGA MENU NGANG (TẦNG 3 - CHUẨN HOAHANDMADE.VN) -->
+  <nav class="main-nav-bar mega-nav" id="mainNavBar">
+    <div class="container nav-bar-inner">
+      <ul class="nav-menu-list">
+        <li class="nav-item has-dropdown">
+          <a href="#products" class="nav-link" data-nav-group="occasion">
+            <span>CHỦ ĐỀ</span>
+            <svg class="nav-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </a>
+          <ul class="nav-dropdown">
+            <li><a href="#products" class="dropdown-link" data-filter-type="occasion" data-filter-val="sinh-nhat">Bó Hoa Sinh Nhật</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="occasion" data-filter-val="khai-truong">Hoa Khai Trương</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="occasion" data-filter-val="20-11">Tri Ân Thầy Cô 20/11</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="occasion" data-filter-val="ky-niem">Kỷ Niệm &amp; Tỏ Tình</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="occasion" data-filter-val="de-ban">Hoa Để Bàn Mini</a></li>
+          </ul>
+        </li>
+
+        <li class="nav-item has-dropdown">
+          <a href="#products" class="nav-link" data-nav-group="material">
+            <span>CHẤT LIỆU</span>
+            <svg class="nav-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </a>
+          <ul class="nav-dropdown">
+            <li><a href="#products" class="dropdown-link" data-filter-type="material" data-filter-val="kem-nhung">Kẽm Nhung Handmade (100%)</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="material" data-filter-val="giay-nhun">Hoa Giấy Nhún</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="material" data-filter-val="len">Hoa Móc Len</a></li>
+          </ul>
+        </li>
+
+        <li class="nav-item has-dropdown">
+          <a href="#products" class="nav-link" data-nav-group="product-type">
+            <span>SẢN PHẨM</span>
+            <svg class="nav-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </a>
+          <ul class="nav-dropdown">
+            <li><a href="#products" class="dropdown-link" data-filter-type="category" data-filter-val="1">Bó Hoa Kẽm Nhung</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="category" data-filter-val="3">Giỏ &amp; Hộp Hoa</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="category" data-filter-val="4">Bình Hoa Để Bàn Mini</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="category" data-filter-val="5">Lẵng Hoa Khai Trương</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="category" data-filter-val="2">Hoa Lẻ &amp; Thiết Kế Riêng</a></li>
+          </ul>
+        </li>
+
+        <!-- DROPDOWN MÀU SẮC (HOVER HIỂN THỊ Y NHƯ ẢNH 1 - ZERO EMOJI) -->
+        <li class="nav-item has-dropdown">
+          <a href="#products" class="nav-link" data-nav-group="color">
+            <span>MÀU SẮC</span>
+            <svg class="nav-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </a>
+          <ul class="nav-dropdown nav-color-dropdown">
+            <li>
+              <a href="#products" class="dropdown-link color-link" data-filter-type="color" data-filter-val="vang">
+                <span class="color-dot color-dot-vang"></span>
+                <span>Vàng</span>
+              </a>
+            </li>
+            <li>
+              <a href="#products" class="dropdown-link color-link" data-filter-type="color" data-filter-val="do">
+                <span class="color-dot color-dot-do"></span>
+                <span>Màu Đỏ</span>
+              </a>
+            </li>
+            <li>
+              <a href="#products" class="dropdown-link color-link" data-filter-type="color" data-filter-val="trang">
+                <span class="color-dot color-dot-trang"></span>
+                <span>Trắng</span>
+              </a>
+            </li>
+            <li>
+              <a href="#products" class="dropdown-link color-link" data-filter-type="color" data-filter-val="hong">
+                <span class="color-dot color-dot-hong"></span>
+                <span>Hồng</span>
+              </a>
+            </li>
+            <li>
+              <a href="#products" class="dropdown-link color-link" data-filter-type="color" data-filter-val="tim">
+                <span class="color-dot color-dot-tim"></span>
+                <span>Tím</span>
+              </a>
+            </li>
+            <li>
+              <a href="#products" class="dropdown-link color-link" data-filter-type="color" data-filter-val="cam">
+                <span class="color-dot color-dot-cam"></span>
+                <span>Cam</span>
+              </a>
+            </li>
+            <li>
+              <a href="#products" class="dropdown-link color-link" data-filter-type="color" data-filter-val="xanh">
+                <span class="color-dot color-dot-xanh"></span>
+                <span>Xanh Lá</span>
+              </a>
+            </li>
+            <li>
+              <a href="#products" class="dropdown-link color-link" data-filter-type="color" data-filter-val="da-sac">
+                <span class="color-dot color-dot-multi"></span>
+                <span>Kết Hợp</span>
+              </a>
+            </li>
+          </ul>
+        </li>
+
+        <li class="nav-item has-dropdown">
+          <a href="#products" class="nav-link" data-nav-group="target">
+            <span>ĐỐI TƯỢNG</span>
+            <svg class="nav-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </a>
+          <ul class="nav-dropdown">
+            <li><a href="#products" class="dropdown-link" data-filter-type="occasion" data-filter-val="ky-niem">Tặng Người Yêu</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="occasion" data-filter-val="sinh-nhat">Tặng Mẹ &amp; Phụ Nữ</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="occasion" data-filter-val="20-11">Tặng Thầy Cô</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="occasion" data-filter-val="khai-truong">Tặng Bạn Bè &amp; Đối Tác</a></li>
+          </ul>
+        </li>
+
+        <li class="nav-item has-dropdown">
+          <a href="#products" class="nav-link" data-nav-group="flower-type">
+            <span>LOẠI HOA</span>
+            <svg class="nav-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </a>
+          <ul class="nav-dropdown">
+            <li><a href="#products" class="dropdown-link" data-filter-type="flowerType" data-filter-val="tulip">Hoa Tulip</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="flowerType" data-filter-val="huong-duong">Hoa Hướng Dương</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="flowerType" data-filter-val="hoa-hong">Hoa Hồng</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="flowerType" data-filter-val="mau-don">Hoa Mẫu Đơn</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="flowerType" data-filter-val="hoa-ly-cuc">Hoa Ly &amp; Cúc Họa Mi</a></li>
+            <li><a href="#products" class="dropdown-link" data-filter-type="flowerType" data-filter-val="baby-lavender">Baby &amp; Lavender</a></li>
+          </ul>
+        </li>
+
+        <li class="nav-item">
+          <a href="#newsSection" class="nav-link">
+            <span>TIN TỨC</span>
+          </a>
+        </li>
+      </ul>
+
+      <!-- Hotline góc phải menu ngang -->
+      <div class="nav-hotline-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+        </svg>
+        <span>Hotline: <a href="tel:0374905296" style="color: inherit; font-weight: 700; text-decoration: none;">0374 905 296</a></span>
+      </div>
+    </div>
+  </nav>
 
   <!-- 3. HERO BANNER SLIDER DYNAMIC (SHOP-05) -->
   <section class="hero" id="heroSection">
@@ -137,21 +327,6 @@
     </div>
   </section>
 
-  <!-- 4. DANH MỤC HOA (CATEGORY PILLS BAR - CHUẨN FLOWER CHIMP) -->
-  <section class="category-section">
-    <div class="container">
-      <div class="category-header">
-        <h2 class="category-title">Khám Phá Theo Dịp & Mẫu Hoa</h2>
-      </div>
-
-      <!-- Container chứa các nút lọc danh mục (Đổ bằng JS) -->
-      <div id="categoryList" class="category-list">
-        <button class="category-btn active" data-category="0">
-          Tất cả
-        </button>
-      </div>
-    </div>
-  </section>
 
   <!-- 5. SẢN PHẨM BÁN CHẠY NHẤT (SHOP-06) -->
   <section class="featured-section" id="bestSellersSection">
@@ -238,82 +413,324 @@
     </div>
   </section>
 
-  <!-- 5. DANH SÁCH SẢN PHẨM HOA (TỐI THIỂU 15+ MẪU THEO YÊU CẦU 1) -->
+  <!-- BREADCRUMB BAR (CHUẨN TMĐT HOAHANDMADE.VN) -->
+  <div class="breadcrumb-bar" id="catalogBreadcrumb">
+    <div class="container breadcrumb-inner">
+      <a href="./index.html" class="bc-link">Trang Chủ</a>
+      <span class="bc-sep">/</span>
+      <span class="bc-current" id="bcCurrentLabel">Hoa Kẽm Nhung Handmade</span>
+    </div>
+  </div>
+
+  <!-- 5. BỐ CỤC MUA SẮM 2 CỘT CHUẨN TMĐT (SIDEBAR LỌC + LƯỚI SẢN PHẨM) -->
   <section id="products" class="products-section">
-    <div class="container">
-      <!-- Toolbar: Tiêu đề và đếm số lượng -->
-      <div class="section-toolbar"
-        style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 24px;">
-        <div>
-          <h2 style="font-family: var(--font-serif); font-size: 24px; font-weight: 700;">
-            Tất Cả Mẫu Hoa Nổi Bật
-          </h2>
-          <p class="products-count">
-            Hiển thị <strong id="productCount" style="color: var(--color-primary);">16</strong> mẫu hoa kẽm nhung thủ
-            công
-          </p>
+    <div class="container catalog-layout">
+      <!-- CỘT TRÁI: SIDEBAR BỘ LỌC ĐA TIÊU CHÍ (260PX) -->
+      <aside class="catalog-sidebar" id="catalogSidebar">
+        <!-- Nút đóng Sidebar trên Mobile -->
+        <div class="sidebar-mobile-header">
+          <span class="sidebar-mobile-title">Bộ Lọc Sản Phẩm</span>
+          <button type="button" class="btn-close-sidebar" id="btnCloseSidebar" aria-label="Đóng bộ lọc">✕</button>
         </div>
 
-        <!-- Bộ Lọc Sắp Xếp Thực Tế Chuẩn Sàn TMĐT -->
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <label for="catalogSortSelect" style="font-size: 13px; color: var(--text-muted); font-weight: 600;">Sắp xếp
-            theo:</label>
-          <select id="catalogSortSelect"
-            style="padding: 7px 14px; font-size: 13px; font-weight: 600; border-radius: 8px; border: 1px solid var(--border-light); background: #FFF; color: var(--text-dark); cursor: pointer; outline: none;">
-            <option value="newest" selected>Mới nhất lên đầu (Mặc định)</option>
-            <option value="bestseller">Bán chạy nhất</option>
-            <option value="price-asc">Giá: Thấp đến Cao</option>
-            <option value="price-desc">Giá: Cao đến Thấp</option>
-          </select>
+        <!-- 1. HỘP CHỌN GIÁ (7 MỨC CHUẨN HOAHANDMADE.VN) -->
+        <div class="filter-box">
+          <h3 class="filter-box-title">CHỌN GIÁ</h3>
+          <ul class="filter-options-list" id="sidebarPriceOptions">
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarPrice" value="all" checked>
+                <span class="custom-radio"></span>
+                <span>Tất cả mức giá</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarPrice" value="under-50">
+                <span class="custom-radio"></span>
+                <span>Dưới 50.000đ</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarPrice" value="50-100">
+                <span class="custom-radio"></span>
+                <span>Từ 50.000đ - 100.000đ</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarPrice" value="100-200">
+                <span class="custom-radio"></span>
+                <span>Từ 100.000đ - 200.000đ</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarPrice" value="200-300">
+                <span class="custom-radio"></span>
+                <span>Từ 200.000đ - 300.000đ</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarPrice" value="300-400">
+                <span class="custom-radio"></span>
+                <span>Từ 300.000đ - 400.000đ</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarPrice" value="400-500">
+                <span class="custom-radio"></span>
+                <span>Từ 400.000đ - 500.000đ</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarPrice" value="above-500">
+                <span class="custom-radio"></span>
+                <span>Trên 500.000đ</span>
+              </label>
+            </li>
+          </ul>
         </div>
-      </div>
 
-      <!-- Trạng thái Loading Khung Xương Shimmer (UX-08) -->
-      <div id="loading" class="skeleton-grid">
-        <div class="skeleton-card">
-          <div class="skeleton-box skeleton-card-img"></div>
-          <div class="skeleton-card-body">
-            <div class="skeleton-box skeleton-card-title"></div>
-            <div class="skeleton-box skeleton-card-price"></div>
+        <!-- 2. HỘP CHỌN CHẤT LIỆU -->
+        <div class="filter-box">
+          <h3 class="filter-box-title">CHỌN CHẤT LIỆU</h3>
+          <ul class="filter-options-list" id="sidebarMaterialOptions">
+            <li>
+              <label class="filter-check-label">
+                <input type="checkbox" name="sidebarMaterial" value="kem-nhung" checked>
+                <span class="custom-checkbox"></span>
+                <span>Kẽm nhung (100% thủ công)</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="checkbox" name="sidebarMaterial" value="giay-nhun">
+                <span class="custom-checkbox"></span>
+                <span>Giấy nhún</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="checkbox" name="sidebarMaterial" value="len">
+                <span class="custom-checkbox"></span>
+                <span>Len handmade</span>
+              </label>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 3. HỘP CHỌN MÀU SẮC -->
+        <div class="filter-box">
+          <h3 class="filter-box-title">CHỌN MÀU SẮC</h3>
+          <div class="filter-colors-grid" id="sidebarColorOptions">
+            <button type="button" class="sidebar-color-btn active" data-color="all" title="Tất cả màu">
+              <span class="color-circle circle-all"></span>
+              <span class="color-text">Tất cả</span>
+            </button>
+            <button type="button" class="sidebar-color-btn" data-color="cam" title="Màu Cam">
+              <span class="color-circle circle-cam"></span>
+              <span class="color-text">Cam</span>
+            </button>
+            <button type="button" class="sidebar-color-btn" data-color="do" title="Màu Đỏ">
+              <span class="color-circle circle-do"></span>
+              <span class="color-text">Đỏ</span>
+            </button>
+            <button type="button" class="sidebar-color-btn" data-color="hong" title="Màu Hồng">
+              <span class="color-circle circle-hong"></span>
+              <span class="color-text">Hồng</span>
+            </button>
+            <button type="button" class="sidebar-color-btn" data-color="vang" title="Màu Vàng">
+              <span class="color-circle circle-vang"></span>
+              <span class="color-text">Vàng</span>
+            </button>
+            <button type="button" class="sidebar-color-btn" data-color="trang" title="Màu Trắng">
+              <span class="color-circle circle-trang"></span>
+              <span class="color-text">Trắng</span>
+            </button>
+            <button type="button" class="sidebar-color-btn" data-color="tim" title="Màu Tím">
+              <span class="color-circle circle-tim"></span>
+              <span class="color-text">Tím</span>
+            </button>
+            <button type="button" class="sidebar-color-btn" data-color="xanh" title="Màu Xanh">
+              <span class="color-circle circle-xanh"></span>
+              <span class="color-text">Xanh</span>
+            </button>
+            <button type="button" class="sidebar-color-btn" data-color="da-sac" title="Kết Hợp / Đa Sắc">
+              <span class="color-circle circle-multi"></span>
+              <span class="color-text">Kết Hợp</span>
+            </button>
           </div>
         </div>
-        <div class="skeleton-card">
-          <div class="skeleton-box skeleton-card-img"></div>
-          <div class="skeleton-card-body">
-            <div class="skeleton-box skeleton-card-title"></div>
-            <div class="skeleton-box skeleton-card-price"></div>
+
+        <!-- 4. HỘP CHỌN LOẠI HOA -->
+        <div class="filter-box">
+          <h3 class="filter-box-title">CHỌN LOẠI HOA</h3>
+          <ul class="filter-options-list" id="sidebarFlowerTypeOptions">
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarFlowerType" value="all" checked>
+                <span class="custom-radio"></span>
+                <span>Tất cả loài hoa</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarFlowerType" value="tulip">
+                <span class="custom-radio"></span>
+                <span>Hoa Tulip</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarFlowerType" value="huong-duong">
+                <span class="custom-radio"></span>
+                <span>Hoa Hướng Dương</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarFlowerType" value="hoa-hong">
+                <span class="custom-radio"></span>
+                <span>Hoa Hồng</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarFlowerType" value="mau-don">
+                <span class="custom-radio"></span>
+                <span>Hoa Mẫu Đơn</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarFlowerType" value="hoa-ly-cuc">
+                <span class="custom-radio"></span>
+                <span>Hoa Ly &amp; Cúc Họa Mi</span>
+              </label>
+            </li>
+            <li>
+              <label class="filter-check-label">
+                <input type="radio" name="sidebarFlowerType" value="baby-lavender">
+                <span class="custom-radio"></span>
+                <span>Baby &amp; Lavender</span>
+              </label>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Nút Đặt lại tất cả bộ lọc -->
+        <div class="sidebar-reset-wrap" id="sidebarResetWrap">
+          <button type="button" class="btn-sidebar-reset" id="btnSidebarReset">
+            ✕ Đặt lại tất cả bộ lọc
+          </button>
+        </div>
+      </aside>
+
+      <!-- CỘT PHẢI: KHU VỰC SẢN PHẨM (CATALOG MAIN) -->
+      <main class="catalog-main" id="catalogMain">
+        <!-- Nút mở Sidebar trên Mobile -->
+        <div class="mobile-filter-trigger-bar">
+          <button type="button" class="btn-mobile-filter" id="btnOpenMobileFilter">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+            <span>Bộ Lọc Sản Phẩm</span>
+          </button>
+        </div>
+
+        <!-- Header sản phẩm: Tiêu đề danh mục, đếm số lượng, sắp xếp -->
+        <div class="catalog-header-bar">
+          <div class="catalog-heading-box">
+            <h2 class="catalog-main-title" id="catalogHeadingTitle">Hoa Kẽm Nhung Handmade</h2>
+            <p class="catalog-count-note">
+              Có <strong id="productCount" style="color: var(--color-primary, #108474);">18</strong> Sản phẩm
+            </p>
+          </div>
+
+          <div class="catalog-sort-box">
+            <label for="catalogSortSelect" class="sort-label">Sắp xếp theo:</label>
+            <div class="sort-select-wrap">
+              <select id="catalogSortSelect" class="sort-select">
+                <option value="newest" selected>Mới nhất lên đầu</option>
+                <option value="bestseller">Bán chạy nhất</option>
+                <option value="price-asc">Giá: Thấp đến Cao</option>
+                <option value="price-desc">Giá: Cao đến Thấp</option>
+              </select>
+              <svg class="sort-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </div>
           </div>
         </div>
-        <div class="skeleton-card">
-          <div class="skeleton-box skeleton-card-img"></div>
-          <div class="skeleton-card-body">
-            <div class="skeleton-box skeleton-card-title"></div>
-            <div class="skeleton-box skeleton-card-price"></div>
+
+        <!-- Dòng Active Filter Tags (kèm nút xóa từng tag) -->
+        <div class="active-filter-tags-bar hidden" id="activeFilterTagsBar">
+          <span class="active-tags-label">Đang lọc:</span>
+          <div class="active-tags-list" id="activeFilterTagsList"></div>
+          <button type="button" class="btn-clear-active-tags" id="btnClearActiveTags">Xóa tất cả</button>
+        </div>
+
+        <!-- Shimmer Skeleton Loading -->
+        <div id="loading" class="skeleton-grid">
+          <div class="skeleton-card">
+            <div class="skeleton-box skeleton-card-img"></div>
+            <div class="skeleton-card-body">
+              <div class="skeleton-box skeleton-card-title"></div>
+              <div class="skeleton-box skeleton-card-price"></div>
+            </div>
+          </div>
+          <div class="skeleton-card">
+            <div class="skeleton-box skeleton-card-img"></div>
+            <div class="skeleton-card-body">
+              <div class="skeleton-box skeleton-card-title"></div>
+              <div class="skeleton-box skeleton-card-price"></div>
+            </div>
+          </div>
+          <div class="skeleton-card">
+            <div class="skeleton-box skeleton-card-img"></div>
+            <div class="skeleton-card-body">
+              <div class="skeleton-box skeleton-card-title"></div>
+              <div class="skeleton-box skeleton-card-price"></div>
+            </div>
+          </div>
+          <div class="skeleton-card">
+            <div class="skeleton-box skeleton-card-img"></div>
+            <div class="skeleton-card-body">
+              <div class="skeleton-box skeleton-card-title"></div>
+              <div class="skeleton-box skeleton-card-price"></div>
+            </div>
           </div>
         </div>
-        <div class="skeleton-card">
-          <div class="skeleton-box skeleton-card-img"></div>
-          <div class="skeleton-card-body">
-            <div class="skeleton-box skeleton-card-title"></div>
-            <div class="skeleton-box skeleton-card-price"></div>
-          </div>
+
+        <!-- Error Alert -->
+        <div id="error" class="error hidden">
+          Không thể tải dữ liệu hoa. Vui lòng kiểm tra kết nối!
         </div>
-      </div>
 
-      <div id="error" class="error hidden">
-        Không thể tải dữ liệu hoa. Vui lòng kiểm tra kết nối!
-      </div>
+        <!-- Lưới sản phẩm hoa (Grid 4 cột Desktop / 2 cột Mobile) -->
+        <div id="productList" class="product-grid">
+          <!-- Render qua main.js -->
+        </div>
 
-      <!-- Lưới sản phẩm hoa (Grid 4 cột Desktop / 2 cột Mobile) -->
-      <div id="productList" class="product-grid">
-        <!-- Danh sách hoa sẽ được render động bằng JavaScript (main.js) -->
-      </div>
+        <!-- Trạng thái trống (Empty State khi không có hoa phù hợp) -->
+        <div id="emptyProductState" class="empty-product-state hidden">
+          <div class="empty-state-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+          </div>
+          <h3>Không tìm thấy sản phẩm phù hợp</h3>
+          <p>Rất tiếc, hiện chưa có mẫu hoa nào khớp với tiêu chí bạn đang chọn. Vui lòng thử đổi mức giá, màu sắc hoặc bấm nút dưới đây để xem tất cả hoa.</p>
+          <button type="button" class="btn-reset-empty-filter" id="btnResetEmptyFilter">Xem tất cả hoa</button>
+        </div>
 
-      <!-- Thanh Phân Trang Danh Sách Sản Phẩm (Chuẩn công thức cô dạy) -->
-      <div id="catalogPagination" class="pagination-bar"
-        style="margin-top: 36px; display: flex; justify-content: center; align-items: center; gap: 8px;">
-        <!-- Render động qua main.js -->
-      </div>
+        <!-- Thanh Phân Trang Danh Sách Sản Phẩm -->
+        <div id="catalogPagination" class="pagination-bar">
+          <!-- Render qua main.js -->
+        </div>
+      </main>
     </div>
   </section>
 
@@ -411,7 +828,7 @@
         </div>
 
         <div class="footer-col">
-          <h4>Liên Hệ</h4>
+          <h4>Liên Hệ &amp; Hỗ Trợ</h4>
           <ul>
             <li style="display: flex; align-items: flex-start; gap: 8px;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -419,7 +836,7 @@
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                 <circle cx="12" cy="10" r="3"></circle>
               </svg>
-              <span>14 Trịnh Đình Thảo, Phường Hòa Thạnh, Quận Tân Phú, TP.HCM</span>
+              <span>14 Trịnh Đình Thảo, P. Hòa Thạnh, Q. Tân Phú, TP.HCM</span>
             </li>
             <li style="display: flex; align-items: center; gap: 8px;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -428,7 +845,19 @@
                   d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z">
                 </path>
               </svg>
-              <span>Hotline: 0374905296</span>
+              <span>Hotline: <a href="tel:0374905296" style="color: inherit; font-weight: 600; text-decoration: none;">0374 905 296</a></span>
+            </li>
+            <li style="display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-block; width: 16px; text-align: center; font-size: 14px;">💬</span>
+              <span>Zalo CSKH: <a href="https://zalo.me/0374905296" target="_blank" rel="noopener noreferrer" style="color: #0068FF; font-weight: 600;">0374 905 296</a></span>
+            </li>
+            <li style="display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-block; width: 16px; text-align: center; font-size: 14px;">🌐</span>
+              <span>Fanpage: <a href="https://www.facebook.com/profile.php?id=61582337523237" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">Tiệm Hoa Kẽm Nhung</a></span>
+            </li>
+            <li style="display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-block; width: 16px; text-align: center; font-size: 14px;">⚡</span>
+              <span>Messenger: <a href="https://m.me/61582337523237" target="_blank" rel="noopener noreferrer" style="color: #7E22CE; font-weight: 600;">Chat trực tiếp</a></span>
             </li>
             <li style="display: flex; align-items: center; gap: 8px;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -436,7 +865,7 @@
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
               </svg>
-              <span>08:00 - 21:00 hàng ngày</span>
+              <span>08:00 - 21:00 hàng ngày (Đối soát 24/7)</span>
             </li>
           </ul>
         </div>
@@ -640,9 +1069,27 @@
               </div>
 
               <div class="form-group">
-                <label for="checkoutAddress">Địa chỉ nhận hoa <span class="required">*</span></label>
-                <input type="text" id="checkoutAddress" placeholder="Số nhà, tên đường, phường/xã, quận/huyện, TP.HCM"
-                  autocomplete="street-address" required>
+                <label>Thành phố</label>
+                <div class="delivery-city-fixed">Thành phố Hồ Chí Minh</div>
+                <span class="field-hint">Hiện tiệm chỉ nhận giao tại TP.HCM.</span>
+              </div>
+              <div class="form-group">
+                <label for="checkoutDeliveryArea">Phường/xã <span class="required">*</span></label>
+                <select id="checkoutDeliveryArea" required>
+                  <option value="">Chọn phường/xã</option>
+                </select>
+                <span class="field-hint">Chọn phường hiện hành nơi nhận hoa. Phí giao tính theo tuyến từ tiệm.</span>
+              </div>
+              <div class="form-group">
+                <label for="checkoutAddress">Số nhà, tên đường <span class="required">*</span></label>
+                <input type="text" id="checkoutAddress" placeholder="Ví dụ: 14 Trịnh Đình Thảo"
+                  autocomplete="address-line1" maxlength="255" required>
+                <span class="field-hint">Không cần nhập lại phường và thành phố.</span>
+                <label for="checkoutAddressDetails" style="margin-top:10px;">Căn hộ, hẻm hoặc chỉ dẫn thêm</label>
+                <input type="text" id="checkoutAddressDetails" placeholder="Ví dụ: Hẻm 12, lầu 2, gọi trước khi đến"
+                  autocomplete="address-line2" maxlength="255">
+                <button type="button" id="btnQuoteDelivery" class="btn-secondary" style="margin-top:8px;">Tính quãng đường và phí giao</button>
+                <span class="field-hint" id="deliveryQuoteHint" aria-live="polite">Chọn phường, nhập số nhà và tên đường, rồi bấm tính phí.</span>
                 <span class="field-error hidden" id="errorAddress">Vui lòng nhập địa chỉ giao hàng</span>
               </div>
 
@@ -708,30 +1155,37 @@
               <h4 class="form-section-title">Chọn Phương Thức Thanh Toán</h4>
 
               <div class="payment-methods-grid">
-                <!-- Option SePay -->
-                <label class="payment-card-label selected" id="labelPaymentSepay">
-                  <input type="radio" name="paymentMethod" value="sepay" checked>
+                <label class="payment-card-label selected" id="labelPaymentFull">
+                  <input type="radio" name="paymentPlan" value="sepay_full" checked>
                   <div class="payment-card-indicator"></div>
                   <div class="payment-card-content">
-                    <div class="payment-card-header">
-                      <span class="payment-badge-tag">Khuyên Dùng • Tự Động</span>
-                      <strong class="payment-name">Chuyển khoản VietQR (SePay)</strong>
-                    </div>
-                    <p class="payment-desc">Quét mã QR Napas 247 qua App ngân hàng, hệ thống tự động xác nhận sau 3-10
-                      giây.</p>
+                    <strong class="payment-name">Chuyển khoản đủ 100%</strong>
+                    <p class="payment-desc">Quét VietQR SePay; shop xác nhận đơn sau khi nhận đủ tiền.</p>
                   </div>
                 </label>
-
-                <!-- Option COD -->
-                <label class="payment-card-label" id="labelPaymentCod">
-                  <input type="radio" name="paymentMethod" value="cod">
+                <label class="payment-card-label" id="labelPaymentDeposit">
+                  <input type="radio" name="paymentPlan" value="sepay_deposit">
                   <div class="payment-card-indicator"></div>
                   <div class="payment-card-content">
-                    <strong class="payment-name">Thanh toán khi nhận hàng (COD)</strong>
-                    <p class="payment-desc">Thanh toán tiền mặt cho shipper khi nhận và kiểm tra hoa.</p>
+                    <strong class="payment-name">Trả trước 50%, còn lại khi nhận</strong>
+                    <p class="payment-desc">Cọc 50% tổng cuối qua SePay; phần còn lại trả tiền mặt trực tiếp khi giao. Đây không phải COD.</p>
                   </div>
                 </label>
               </div>
+              <label class="custom-checkbox-label" style="margin:12px 0; align-items:flex-start;">
+                <input type="checkbox" id="checkoutTermsAccepted" required>
+                <span class="checkbox-custom"></span>
+                <span class="checkbox-text">Tôi đồng ý chính sách thanh toán, giao hàng và hủy đơn.</span>
+              </label>
+              <details style="margin:0 0 14px;padding:10px 12px;border:1px solid #E8E8E8;border-radius:8px;font-size:12px;line-height:1.65;">
+                <summary style="cursor:pointer;font-weight:700;">Xem chính sách áp dụng cho đơn này</summary>
+                <div style="padding-top:8px;">
+                  <p>Phí giao một chiều từ tiệm: 0–3 km miễn phí; trên 3–10 km là 25.000₫; trên 10–20 km là 40.000₫; trên 20 km tiệm chưa nhận giao. Quãng đường do máy chủ tính theo tuyến xe.</p>
+                  <p>Thanh toán đủ: chuyển 100% qua SePay trước khi tiệm xác nhận. Trả trước 50%: chuyển 50% tổng cuối qua SePay, phần còn lại thu tiền mặt khi giao; đây không phải COD.</p>
+                  <p>Nếu không gặp người nhận, người giao chờ tối đa 30 phút. Lần giao lại tự động tối đa một lần và thu trước phí chuyến mới: 15.000₫ trong 0–3 km, các vùng xa hơn áp dụng phí giao của vùng. Lần giao tiếp theo cần shop duyệt. Khoản tiền còn lại được giữ tối đa 7 ngày từ lần giao thất bại đầu tiên.</p>
+                  <p>Khách có thể yêu cầu hủy. Trước khi shop chuẩn bị, khoản đã nhận được hoàn sau khi shop xác nhận; với hoa đặt riêng, shop có thể khấu trừ chi phí vật liệu không thể dùng lại hoặc chi phí thực tế đã phát sinh và cung cấp bản kê. Nếu shop không thể thực hiện đơn, shop hoàn đủ khoản đã nhận. Sau khi người giao đã xuất phát, áp dụng quy tắc giao thất bại.</p>
+                </div>
+              </details>
 
               <!-- Tóm tắt thanh toán -->
               <div class="checkout-summary-card">
@@ -750,7 +1204,7 @@
                   </div>
                   <div class="summary-line">
                     <span>Phí giao hàng:</span>
-                    <span style="color: #108474; font-weight: 600;">Miễn phí (Freeship)</span>
+                    <span id="checkoutShippingFee" style="font-weight:600;">Chưa báo giá</span>
                   </div>
                   <div class="summary-line total-line">
                     <span>Tổng thanh toán:</span>
@@ -773,7 +1227,7 @@
         <div class="checkout-header" style="text-align: center;">
           <div class="checkout-step-badge">Bước 2 / 2</div>
           <h3 class="checkout-title">Quét Mã VietQR Thanh Toán Tự Động</h3>
-          <p class="checkout-subtitle">Mở ứng dụng Ngân hàng bất kỳ hoặc Ví điện tử để quét mã Napas 247 bên dưới</p>
+          <p class="checkout-subtitle">Quét mã VietQR Napas 247 bằng bất kỳ ứng dụng ngân hàng hoặc chuyển khoản chính xác nội dung bên dưới.</p>
         </div>
 
         <div class="sepay-container-grid">
@@ -837,7 +1291,7 @@
 
               <div class="copy-field-row highlight-amount">
                 <div class="copy-field-meta">
-                  <span class="field-label">Số tiền chính xác:</span>
+                  <span class="field-label" id="sepayAmountLabel">Số tiền cần chuyển:</span>
                   <strong class="field-value amount-val" id="sepayTransferAmount">0 ₫</strong>
                 </div>
                 <button type="button" class="btn-copy-field" data-target="sepayTransferAmountRaw"
@@ -865,14 +1319,32 @@
                   bạn có thể quay lại quét tiếp trong mục Tra cứu đơn hàng bằng Mã đơn + SĐT.</em></p>
             </div>
 
-            <!-- Nút Giả Lập / Demo phục vụ chấm bài đồ án -->
-            <div class="sepay-demo-tool-box">
-              <span class="demo-tag">Dành Cho Giảng Viên Chấm Điểm / Thử Nghiệm</span>
-              <p class="demo-desc">Bấm nút bên dưới để mô phỏng tín hiệu quét QR & thanh toán SePay thành công mà không
-                cần chuyển tiền thật:</p>
-              <button type="button" class="btn-demo-simulate-paid" id="btnSimulateSepayPaid">
-                Mô Phỏng Thanh Toán Thành Công
-              </button>
+            <!-- Nút Xác Nhận Đã Chuyển Tiền (Trigger đối soát tức thì) -->
+            <button type="button" class="btn-confirm-transfer" id="btnConfirmTransfer">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Tôi Đã Chuyển Khoản (Kiểm Tra Ngay)</span>
+            </button>
+
+            <div class="sepay-support-box">
+              <div class="sepay-support-text">
+                Gặp sự cố chuyển tiền? Hotline: <a href="tel:0374905296" class="support-hotline-link"><strong>0374 905 296</strong></a> (Đối soát 24/7)
+              </div>
+              <div class="sepay-support-chat-actions">
+                <a href="https://zalo.me/0374905296" target="_blank" rel="noopener noreferrer" class="btn-sepay-chat-pill btn-sepay-zalo" title="Mở Zalo gửi ảnh bill cho tiệm">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.03 2 11c0 2.87 1.5 5.43 3.84 7.03-.17.94-.65 2.53-.74 2.89-.12.48.18.47.37.35.15-.09 2.11-1.4 3.01-2 .5.09 1.01.13 1.52.13 5.52 0 10-4.03 10-9S17.52 2 12 2z"/>
+                  </svg>
+                  <span>Chat Zalo Gửi Bill</span>
+                </a>
+                <a href="https://m.me/61582337523237" target="_blank" rel="noopener noreferrer" class="btn-sepay-chat-pill btn-sepay-messenger" title="Nhắn tin qua Fanpage Messenger">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.43 3.14 7.15.16.14.26.35.26.57v2.16c0 .54.55.9 1.03.66l2.36-1.18c.17-.08.35-.11.53-.08.85.23 1.75.36 2.68.36 5.64 0 10-4.13 10-9.64C22 6.13 17.64 2 12 2zm1.09 12.72l-2.61-2.79-5.1 2.79 5.61-5.96 2.69 2.79 5.02-2.79-5.61 5.96z"/>
+                  </svg>
+                  <span>Nhắn Messenger</span>
+                </a>
+              </div>
             </div>
 
             <button type="button" class="btn-back-checkout" id="btnBackToCheckoutForm">
@@ -916,6 +1388,14 @@
             <div class="detail-row">
               <span>Hình thức thanh toán:</span>
               <span id="successPaymentMethod">Chuyển khoản SePay (Đã thanh toán)</span>
+            </div>
+            <div class="detail-row">
+              <span>Đã nhận:</span>
+              <span id="successAmountReceived">0 ₫</span>
+            </div>
+            <div class="detail-row">
+              <span>Còn thu khi giao:</span>
+              <span id="successAmountDueAtDelivery">0 ₫</span>
             </div>
             <div class="detail-row total-highlight">
               <span>Tổng thanh toán:</span>
@@ -978,12 +1458,161 @@
     </div>
   </div>
 
+  <!-- NAVIGATION DRAWER DI ĐỘNG (CHUẨN ẢNH 2 HOAHANDMADE.VN) -->
+  <div id="mobileDrawer" class="mobile-drawer" aria-hidden="true">
+    <div class="drawer-header">
+      <img src="./images/logo-tiem-hoa.webp" alt="Tiệm Hoa Kẽm Nhung" class="drawer-logo" width="130" height="36">
+      <button type="button" id="closeDrawerBtn" class="drawer-close-btn" aria-label="Đóng menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="drawer-search-wrap">
+      <input type="text" id="drawerSearchInput" class="drawer-search-input" placeholder="Nhập từ khóa cần tìm..." autocomplete="off">
+      <button type="button" id="drawerSearchBtn" class="drawer-search-btn" aria-label="Tìm kiếm">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="drawer-menu-list">
+      <div class="drawer-menu-item">
+        <a href="./index.html" class="drawer-link drawer-link-home">TRANG CHỦ</a>
+      </div>
+
+      <!-- ACCORDION: CHỦ ĐỀ -->
+      <div class="drawer-accordion-group">
+        <button type="button" class="drawer-accordion-btn">
+          <span>CHỦ ĐỀ</span>
+          <svg class="drawer-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="drawer-accordion-panel">
+          <a href="#products" class="drawer-sublink" data-filter-type="occasion" data-filter-val="sinh-nhat">Bó Hoa Sinh Nhật</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="occasion" data-filter-val="khai-truong">Hoa Khai Trương</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="occasion" data-filter-val="20-11">Tri Ân Thầy Cô 20/11</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="occasion" data-filter-val="ky-niem">Kỷ Niệm &amp; Tỏ Tình</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="occasion" data-filter-val="de-ban">Hoa Để Bàn Mini</a>
+        </div>
+      </div>
+
+      <!-- ACCORDION: CHẤT LIỆU -->
+      <div class="drawer-accordion-group">
+        <button type="button" class="drawer-accordion-btn">
+          <span>CHẤT LIỆU</span>
+          <svg class="drawer-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="drawer-accordion-panel">
+          <a href="#products" class="drawer-sublink" data-filter-type="material" data-filter-val="kem-nhung">Kẽm Nhung Handmade (100%)</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="material" data-filter-val="giay-nhun">Hoa Giấy Nhún</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="material" data-filter-val="len">Hoa Móc Len</a>
+        </div>
+      </div>
+
+      <!-- ACCORDION: SẢN PHẨM -->
+      <div class="drawer-accordion-group">
+        <button type="button" class="drawer-accordion-btn">
+          <span>SẢN PHẨM</span>
+          <svg class="drawer-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="drawer-accordion-panel">
+          <a href="#products" class="drawer-sublink" data-filter-type="category" data-filter-val="1">Bó Hoa Kẽm Nhung</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="category" data-filter-val="3">Giỏ &amp; Hộp Hoa</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="category" data-filter-val="4">Bình Hoa Để Bàn Mini</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="category" data-filter-val="5">Lẵng Hoa Khai Trương</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="category" data-filter-val="2">Hoa Lẻ &amp; Thiết Kế Riêng</a>
+        </div>
+      </div>
+
+      <!-- ACCORDION: MÀU SẮC -->
+      <div class="drawer-accordion-group">
+        <button type="button" class="drawer-accordion-btn">
+          <span>MÀU SẮC</span>
+          <svg class="drawer-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="drawer-accordion-panel">
+          <a href="#products" class="drawer-sublink" data-filter-type="color" data-filter-val="vang"><span class="color-dot color-dot-vang"></span> Vàng</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="color" data-filter-val="do"><span class="color-dot color-dot-do"></span> Màu Đỏ</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="color" data-filter-val="trang"><span class="color-dot color-dot-trang"></span> Trắng</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="color" data-filter-val="hong"><span class="color-dot color-dot-hong"></span> Hồng</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="color" data-filter-val="tim"><span class="color-dot color-dot-tim"></span> Tím</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="color" data-filter-val="cam"><span class="color-dot color-dot-cam"></span> Cam</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="color" data-filter-val="xanh"><span class="color-dot color-dot-xanh"></span> Xanh Lá</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="color" data-filter-val="da-sac"><span class="color-dot color-dot-multi"></span> Kết Hợp</a>
+        </div>
+      </div>
+
+      <!-- ACCORDION: ĐỐI TƯỢNG -->
+      <div class="drawer-accordion-group">
+        <button type="button" class="drawer-accordion-btn">
+          <span>ĐỐI TƯỢNG</span>
+          <svg class="drawer-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="drawer-accordion-panel">
+          <a href="#products" class="drawer-sublink" data-filter-type="occasion" data-filter-val="ky-niem">Tặng Người Yêu</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="occasion" data-filter-val="sinh-nhat">Tặng Mẹ &amp; Phụ Nữ</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="occasion" data-filter-val="20-11">Tặng Thầy Cô</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="occasion" data-filter-val="khai-truong">Tặng Bạn Bè &amp; Đối Tác</a>
+        </div>
+      </div>
+
+      <!-- ACCORDION: LOẠI HOA -->
+      <div class="drawer-accordion-group">
+        <button type="button" class="drawer-accordion-btn">
+          <span>LOẠI HOA</span>
+          <svg class="drawer-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="drawer-accordion-panel">
+          <a href="#products" class="drawer-sublink" data-filter-type="flowerType" data-filter-val="tulip">Hoa Tulip</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="flowerType" data-filter-val="huong-duong">Hoa Hướng Dương</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="flowerType" data-filter-val="hoa-hong">Hoa Hồng</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="flowerType" data-filter-val="mau-don">Hoa Mẫu Đơn</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="flowerType" data-filter-val="hoa-ly-cuc">Hoa Ly &amp; Cúc Họa Mi</a>
+          <a href="#products" class="drawer-sublink" data-filter-type="flowerType" data-filter-val="baby-lavender">Baby &amp; Lavender</a>
+        </div>
+      </div>
+
+      <div class="drawer-menu-item">
+        <a href="#newsSection" class="drawer-link">TIN TỨC</a>
+      </div>
+    </div>
+
+    <div class="drawer-footer">
+      <a href="tel:0374905296" class="drawer-phone-link">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+        <span>0374 905 296</span>
+      </a>
+
+      <div class="drawer-auth-box" id="drawerAuthBox">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <a href="./login.html" class="drawer-auth-link">Đăng nhập</a>
+        <span>-</span>
+        <a href="./register.html" class="drawer-auth-link">Đăng ký</a>
+      </div>
+
+      <div class="drawer-social-follow">
+        <span class="social-follow-label">Theo Dõi Chúng Tôi</span>
+        <div class="drawer-social-icons">
+          <a href="https://www.facebook.com/profile.php?id=61582337523237" target="_blank" rel="noopener noreferrer" class="drawer-social-btn" title="Facebook"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>
+          <a href="https://zalo.me/0374905296" target="_blank" rel="noopener noreferrer" class="drawer-social-btn" title="Zalo"><span style="font-size: 11px; font-weight: 800;">Zalo</span></a>
+          <a href="https://m.me/61582337523237" target="_blank" rel="noopener noreferrer" class="drawer-social-btn" title="Messenger"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.43 3.14 7.15.16.14.26.35.26.57v2.16c0 .54.55.9 1.03.66l2.36-1.18c.17-.08.35-.11.53-.08.85.23 1.75.36 2.68.36 5.64 0 10-4.13 10-9.64C22 6.13 17.64 2 12 2zm1.09 12.72l-2.61-2.79-5.1 2.79 5.61-5.96 2.69 2.79 5.02-2.79-5.61 5.96z"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="drawerBackdrop" class="drawer-backdrop" aria-hidden="true"></div>
+  <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
+
   <!-- AI FLORIST CHATBOT CONTAINER (SHOP-09) -->
   <div id="aiChatWidget"></div>
 
   <!-- SCRIPT ES6 MODULE CHÍNH -->
-  <script type="module" src="./js/main.js"></script>
-  <script type="module" src="./js/chatbot.js"></script>
+  <script type="module" src="./js/main.js?v=20261114_v6_clean"></script>
+  <script type="module" src="./js/chatbot.js?v=20261114_v6_clean"></script>
 
 </body>
 

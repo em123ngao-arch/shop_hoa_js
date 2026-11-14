@@ -6,6 +6,7 @@ import {
   getDirectBuySummary
 } from './storage.js';
 import { formatPrice, showToast, updateCartBadge } from './utils.js';
+import { DELIVERY_AREA_GROUPS } from './delivery-areas.js';
 
 /**
  * checkout.js - Universal Checkout & SePay VietQR Payment Workflow
@@ -24,14 +25,9 @@ async function fetchSepayConfig() {
   currentSepayConfig = config;
   return config;
 }
-const FREE_SHIPPING_THRESHOLD = 350000;
-const STANDARD_SHIPPING_FEE = 30000;
-
-function getShippingFee(subtotal = 0) {
-  return subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : STANDARD_SHIPPING_FEE;
-}
-
 let activeCheckoutOptions = { mode: 'cart', directItems: null };
+let currentDeliveryQuote = null;
+let deliveryQuoteRequestId = 0;
 let currentDraftOrder = null;
 let currentDraftToken = null;
 let currentDraftSignature = null;
@@ -94,6 +90,85 @@ function getActiveCheckoutSummary() {
   return getCartSummary();
 }
 
+function getDeliveryAddressInput() {
+  return {
+    address: document.querySelector('#checkoutAddress')?.value.trim() || '',
+    addressDetails: document.querySelector('#checkoutAddressDetails')?.value.trim() || '',
+    area: document.querySelector('#checkoutDeliveryArea')?.value || ''
+  };
+}
+
+function getDeliveryInputSignature(input = getDeliveryAddressInput()) {
+  return JSON.stringify({ address: input.address, addressDetails: input.addressDetails, area: input.area });
+}
+
+function clearDeliveryQuote(message = 'Chọn phường, nhập số nhà và tên đường, rồi bấm tính phí.', cancelPendingRequest = true) {
+  currentDeliveryQuote = null;
+  if (cancelPendingRequest) {
+    deliveryQuoteRequestId += 1;
+    const quoteButton = document.querySelector('#btnQuoteDelivery');
+    if (quoteButton) {
+      quoteButton.disabled = false;
+      quoteButton.textContent = 'Tính quãng đường và phí giao';
+    }
+  }
+  const fee = document.querySelector('#checkoutShippingFee');
+  if (fee) fee.textContent = 'Chưa báo giá';
+  const hint = document.querySelector('#deliveryQuoteHint');
+  if (hint) hint.textContent = message;
+  const total = document.querySelector('#checkoutTotal');
+  if (total) {
+    const summary = getActiveCheckoutSummary();
+    total.textContent = `${formatPrice(summary.totalPrice)} + phí giao sau khi kiểm tra tuyến`;
+  }
+}
+
+async function requestDeliveryQuote() {
+  const input = getDeliveryAddressInput();
+  const hint = document.querySelector('#deliveryQuoteHint');
+  if (!input.address || !input.area) throw new Error('Chọn phường và nhập số nhà, tên đường trước khi tính phí.');
+  const requestId = ++deliveryQuoteRequestId;
+  const inputSignature = getDeliveryInputSignature(input);
+  currentDeliveryQuote = null;
+  const fee = document.querySelector('#checkoutShippingFee');
+  if (fee) fee.textContent = 'Đang tính…';
+  if (hint) hint.textContent = 'Đang kiểm tra địa chỉ và tính tuyến xe…';
+  const quoteButton = document.querySelector('#btnQuoteDelivery');
+  const originalButtonText = quoteButton?.textContent || '';
+  if (quoteButton) {
+    quoteButton.disabled = true;
+    quoteButton.textContent = 'Đang tính phí…';
+  }
+  try {
+    const response = await fetch('/api/delivery/quote', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error?.message || 'Chưa tính được phí giao; vui lòng kiểm tra lại địa chỉ.');
+    if (!data.serviceable) throw new Error('Địa chỉ vượt quá phạm vi giao tối đa 20 km.');
+    if (requestId !== deliveryQuoteRequestId || inputSignature !== getDeliveryInputSignature()) {
+      throw new Error('Địa chỉ vừa thay đổi. Hãy tính phí lại để cập nhật tuyến mới.');
+    }
+    currentDeliveryQuote = { ...data, inputSignature };
+    if (fee) fee.textContent = data.fee === 0 ? 'Miễn phí (0–3 km)' : formatPrice(data.fee);
+    const quoteSource = data.simulated ? 'Báo giá mô phỏng local — chưa phải phí thực tế.' : 'Nguồn tuyến: Google Maps.';
+    if (hint) hint.textContent = `Tuyến xe một chiều ${data.distanceKm} km • ${quoteSource}`;
+    const summary = getActiveCheckoutSummary();
+    const total = document.querySelector('#checkoutTotal');
+    if (total) total.textContent = formatPrice(Math.max(0, summary.totalPrice) + data.fee);
+    return data;
+  } catch (error) {
+    if (requestId === deliveryQuoteRequestId) clearDeliveryQuote(error.message, false);
+    throw error;
+  } finally {
+    if (quoteButton && requestId === deliveryQuoteRequestId) {
+      quoteButton.disabled = false;
+      quoteButton.textContent = originalButtonText;
+    }
+  }
+}
+
 export function openCheckoutModal(options = {}) {
   window.openCheckoutModal = openCheckoutModal;
   const modal = document.querySelector('#checkoutModal');
@@ -123,6 +198,7 @@ export function openCheckoutModal(options = {}) {
   currentDraftOrder = null;
   currentDraftToken = null;
   currentDraftSignature = null;
+  clearDeliveryQuote();
   if (errorBanner) errorBanner.classList.add('hidden');
 
   const birthdayModal = document.getElementById('birthdayModal');
@@ -166,12 +242,11 @@ export function openCheckoutModal(options = {}) {
   } else {
     if (discountLine) discountLine.classList.add('hidden');
   }
-  const shippingFee = getShippingFee(summary.subtotal);
   if (shippingFeeEl) {
-    shippingFeeEl.textContent = shippingFee === 0 ? 'Miễn phí (Freeship)' : formatPrice(shippingFee);
-    shippingFeeEl.style.color = shippingFee === 0 ? '#108474' : '';
+    shippingFeeEl.textContent = 'Chưa báo giá';
+    shippingFeeEl.style.color = '';
   }
-  if (totalEl) totalEl.textContent = formatPrice(summary.totalPrice + shippingFee);
+  if (totalEl) totalEl.textContent = `${formatPrice(summary.totalPrice)} + phí giao sau khi kiểm tra tuyến`;
 
   // Tự động điền thông tin nếu khách hàng đã đăng nhập
   const currentUserJson = localStorage.getItem('user');
@@ -225,10 +300,43 @@ export function initCheckoutWorkflow() {
   const hasCardCheck = document.querySelector('#checkoutHasCard');
   const cardMessageWrap = document.querySelector('#cardMessageWrap');
 
-  const radioSepay = document.querySelector('#labelPaymentSepay input');
-  const radioCod = document.querySelector('#labelPaymentCod input');
-  const labelSepay = document.querySelector('#labelPaymentSepay');
-  const labelCod = document.querySelector('#labelPaymentCod');
+  const radioFull = document.querySelector('#labelPaymentFull input');
+  const radioDeposit = document.querySelector('#labelPaymentDeposit input');
+  const labelFull = document.querySelector('#labelPaymentFull');
+  const labelDeposit = document.querySelector('#labelPaymentDeposit');
+
+  const addressInput = document.querySelector('#checkoutAddress');
+  const addressDetailsInput = document.querySelector('#checkoutAddressDetails');
+  const areaSelect = document.querySelector('#checkoutDeliveryArea');
+  const quoteButton = document.querySelector('#btnQuoteDelivery');
+  if (areaSelect) {
+    areaSelect.replaceChildren(new Option('Chọn phường/xã', ''));
+    DELIVERY_AREA_GROUPS.forEach(group => {
+      const optionGroup = document.createElement('optgroup');
+      optionGroup.label = group.label;
+      group.areas.forEach(area => optionGroup.append(new Option(area, area)));
+      areaSelect.append(optionGroup);
+    });
+  }
+  [addressInput, addressDetailsInput, areaSelect].filter(Boolean).forEach(input => {
+    if (input.dataset.deliveryBound === 'true') return;
+    input.dataset.deliveryBound = 'true';
+    input.addEventListener(input === areaSelect ? 'change' : 'input', () => {
+      clearDeliveryQuote('Thông tin địa chỉ đã đổi. Bấm “Tính quãng đường và phí giao” để cập nhật.');
+    });
+    if (input !== areaSelect) {
+      input.addEventListener('change', () => {
+        clearDeliveryQuote('Thông tin địa chỉ đã đổi. Bấm “Tính quãng đường và phí giao” để cập nhật.');
+      });
+    }
+  });
+  if (quoteButton && !quoteButton.dataset.deliveryBound) {
+    quoteButton.dataset.deliveryBound = 'true';
+    quoteButton.addEventListener('click', async () => {
+      try { await requestDeliveryQuote(); showToast('Đã tính phí theo tuyến giao.', 'success'); }
+      catch (error) { showToast(error.message, 'error'); }
+    });
+  }
   const submitBtn = document.querySelector('#checkoutSubmitBtn');
 
   const dateInput = document.querySelector('#checkoutDeliveryDate');
@@ -275,7 +383,6 @@ export function initCheckoutWorkflow() {
     });
   }
 
-  const btnSimulatePaid = document.querySelector('#btnSimulateSepayPaid');
   const btnBackCheckout = document.querySelector('#btnBackToCheckoutForm');
   const btnViewReceipt = document.querySelector('#btnViewReceiptPdf');
   const btnSuccessContinue = document.querySelector('#btnSuccessContinue');
@@ -319,19 +426,19 @@ export function initCheckoutWorkflow() {
 
   // Chuyển đổi phương thức thanh toán
   function updatePaymentMethodUi() {
-    if (radioSepay && radioSepay.checked) {
-      if (labelSepay) labelSepay.classList.add('selected');
-      if (labelCod) labelCod.classList.remove('selected');
-      if (submitBtn) submitBtn.innerHTML = 'Tiến Hành Chuyển Khoản VietQR →';
+    if (radioFull && radioFull.checked) {
+      if (labelFull) labelFull.classList.add('selected');
+      if (labelDeposit) labelDeposit.classList.remove('selected');
+      if (submitBtn) submitBtn.textContent = 'Thanh Toán Đủ Qua SePay →';
     } else {
-      if (labelSepay) labelSepay.classList.remove('selected');
-      if (labelCod) labelCod.classList.add('selected');
-      if (submitBtn) submitBtn.innerHTML = 'Xác Nhận Đặt Hàng (COD) →';
+      if (labelFull) labelFull.classList.remove('selected');
+      if (labelDeposit) labelDeposit.classList.add('selected');
+      if (submitBtn) submitBtn.textContent = 'Thanh Toán Trước 50% →';
     }
   }
 
-  if (radioSepay) radioSepay.addEventListener('change', updatePaymentMethodUi);
-  if (radioCod) radioCod.addEventListener('change', updatePaymentMethodUi);
+  if (radioFull) radioFull.addEventListener('change', updatePaymentMethodUi);
+  if (radioDeposit) radioDeposit.addEventListener('change', updatePaymentMethodUi);
 
   // Submit form đặt hàng
   if (form) {
@@ -341,6 +448,7 @@ export function initCheckoutWorkflow() {
       const senderName = document.querySelector('#checkoutSenderName').value.trim();
       const senderPhone = document.querySelector('#checkoutSenderPhone').value.trim();
       const address = document.querySelector('#checkoutAddress').value.trim();
+      const addressDetails = document.querySelector('#checkoutAddressDetails')?.value.trim() || '';
       const email = document.querySelector('#checkoutEmail').value.trim();
       const deliveryDate = document.querySelector('#checkoutDeliveryDate') ? document.querySelector('#checkoutDeliveryDate').value : '';
       const deliverySlot = document.querySelector('#checkoutDeliverySlot').value;
@@ -352,7 +460,9 @@ export function initCheckoutWorkflow() {
       const cardMessageEl = document.querySelector('#checkoutCardMessage') || document.querySelector('#cardMessageInput');
       const cardMessage = hasGreetingCard && cardMessageEl ? cardMessageEl.value.trim() : '';
       const note = document.querySelector('#checkoutNote').value.trim();
-      const paymentMethod = radioSepay && radioSepay.checked ? 'sepay' : 'cod';
+      const paymentPlan = radioDeposit && radioDeposit.checked ? 'sepay_deposit' : 'sepay_full';
+      const deliveryArea = document.querySelector('#checkoutDeliveryArea').value;
+      const fullDeliveryAddress = [address, addressDetails, deliveryArea, 'Thành phố Hồ Chí Minh'].filter(Boolean).join(', ');
 
       // Validation
       let isValid = true;
@@ -386,6 +496,11 @@ export function initCheckoutWorkflow() {
           errorBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
         showToast(msg, 'error');
+      }
+
+      if (fullDeliveryAddress.length > 255) {
+        showCheckoutError('Địa chỉ quá dài; vui lòng rút gọn chỉ dẫn hoặc thông tin căn hộ.');
+        return;
       }
 
       if (isGift && !recipientName) {
@@ -428,7 +543,7 @@ export function initCheckoutWorkflow() {
         return;
       }
 
-      const shippingFee = getShippingFee(summary.subtotal);
+      const termsAccepted = Boolean(document.querySelector('#checkoutTermsAccepted')?.checked);
       const draftPayload = {
         customerName: senderName,
         phone: senderPhone,
@@ -437,13 +552,16 @@ export function initCheckoutWorkflow() {
         isAnonymous: isAnonymous,
         recipientName: isGift ? recipientName : senderName,
         recipientPhone: isGift ? recipientPhone : senderPhone,
-        address: address,
+        address: fullDeliveryAddress,
         deliveryDate: deliveryDate || null,
         deliverySlot: deliverySlot,
         hasGreetingCard: hasGreetingCard,
         cardMessage: cardMessage,
         note: note,
-        paymentMethod: paymentMethod,
+        paymentMethod: 'sepay',
+        paymentPlan,
+        deliveryArea,
+        termsAccepted,
         paymentStatus: 'pending',
         items: validItems,
         subtotal: summary.subtotal,
@@ -459,10 +577,18 @@ export function initCheckoutWorkflow() {
           discountAmount: summary.discountAmount,
           eligibleAmount: summary.voucherCalculation?.eligibleAmount || summary.subtotal
         } : null,
-        shippingFee,
-        totalAmount: summary.totalPrice + shippingFee,
         status: 'pending'
       };
+
+      if (!deliveryArea) { showCheckoutError('Vui lòng chọn phường/xã giao hàng.'); return; }
+      if (!termsAccepted) { showCheckoutError('Vui lòng xác nhận chính sách thanh toán và giao hàng.'); return; }
+
+      try {
+        await requestDeliveryQuote();
+      } catch (quoteError) {
+        showCheckoutError(quoteError.message);
+        return;
+      }
 
       const draftSignature = JSON.stringify({
         customerName: senderName,
@@ -472,12 +598,14 @@ export function initCheckoutWorkflow() {
         recipientName: draftPayload.recipientName,
         recipientPhone: draftPayload.recipientPhone,
         address,
+        addressDetails,
+        deliveryArea,
         deliveryDate,
         deliverySlot,
         hasGreetingCard,
         cardMessage,
         note,
-        paymentMethod,
+        paymentPlan,
         voucherCode: draftPayload.voucherCode,
         items: validItems.map(i => ({
           productId: i.productId,
@@ -500,8 +628,7 @@ export function initCheckoutWorkflow() {
           previousDraft &&
           previousDraftToken &&
           draftSignature === currentDraftSignature &&
-          paymentMethod === 'sepay' &&
-          previousDraft.paymentMethod === 'sepay'
+          paymentPlan === previousDraft.paymentPlan
         ) {
           showSepayQrStep(previousDraft);
           return;
@@ -516,11 +643,7 @@ export function initCheckoutWorkflow() {
         currentDraftToken = saved.draftToken || previousDraftToken || null;
         currentDraftSignature = draftSignature;
 
-        if (paymentMethod === 'cod') {
-          completeOrderSuccess(saved);
-        } else {
-          showSepayQrStep(currentDraftOrder);
-        }
+        showSepayQrStep(currentDraftOrder);
       } catch (error) {
         const errStatus = error.response?.status;
         const msg = error.response?.data?.error?.message || error.message || 'Không thể tạo đơn hàng để thanh toán. Vui lòng kiểm tra lại thông tin.';
@@ -553,34 +676,88 @@ export function initCheckoutWorkflow() {
     });
   }
 
-  // Nút Demo Giả Lập Thanh Toán Thành Công
-  if (btnSimulatePaid) {
-    btnSimulatePaid.addEventListener('click', async () => {
+  // Nút Tôi Đã Chuyển Khoản (Kích hoạt kiểm tra đối soát tức thì)
+  const btnConfirmTransfer = document.querySelector('#btnConfirmTransfer');
+  if (btnConfirmTransfer) {
+    btnConfirmTransfer.addEventListener('click', async () => {
       if (!currentDraftOrder) return;
       const statusPill = document.querySelector('#sepayStatusText');
-      btnSimulatePaid.disabled = true;
-      btnSimulatePaid.textContent = 'Đang mô phỏng...';
+      const defaultHtml = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Tôi Đã Chuyển Khoản (Kiểm Tra Ngay)</span>
+      `;
+      btnConfirmTransfer.disabled = true;
+      btnConfirmTransfer.innerHTML = `
+        <svg class="spin-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25"></circle>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor"></path>
+        </svg>
+        <span>Đang kiểm tra với ngân hàng...</span>
+      `;
+      if (statusPill) statusPill.innerHTML = '<span style="color: #0284C7; font-weight: 600;">⚡ Đang đối soát trực tiếp với SePay & Sacombank...</span>';
+
       try {
         const phone = currentDraftOrder.phone || currentDraftOrder.customerPhone || '';
-        const response = await fetch(`/api/sepay/simulate-payment/${encodeURIComponent(currentDraftOrder.id)}`, {
+        const intent = currentDraftOrder.paymentIntent || currentDraftOrder.paymentIntents?.find(item => item.status === 'pending');
+        const res = await fetch(`/api/sepay/check-payment/${encodeURIComponent(currentDraftOrder.id)}`, {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone })
+          body: JSON.stringify({ phone, intentId: intent?.id || null })
         });
-        const data = await response.json();
-        if (!response.ok || !data.paid) throw new Error(data.error?.message || 'Không thể mô phỏng thanh toán');
-        const saved = data.order || { ...currentDraftOrder, paymentStatus: 'paid', status: 'confirmed' };
-        showToast('Đã xác nhận thanh toán trong môi trường demo.', 'success');
-        completeOrderSuccess(saved);
-      } catch (error) {
-        if (statusPill) statusPill.textContent = error.message;
-        showToast(error.message, 'error');
-        btnSimulatePaid.disabled = false;
-        btnSimulatePaid.textContent = 'Mô Phỏng Thanh Toán Thành Công';
+        const data = await res.json();
+
+        if (data.cancelled) {
+          stopSepayPolling();
+          if (statusPill) statusPill.innerHTML = '<span style="color: #D92D20; font-weight: 700;">⚠️ Đơn hàng đã bị hủy.</span>';
+          showToast('Đơn hàng này đã bị hủy.', 'warning');
+          return;
+        }
+
+        if (data.paid) {
+          stopSepayPolling();
+          if (sepayCountdownTimer) {
+            clearInterval(sepayCountdownTimer);
+            sepayCountdownTimer = null;
+          }
+          if (statusPill) statusPill.innerHTML = '<span style="color: #108474; font-weight: 700;">✓ Đã xác nhận khoản SePay. Đang hoàn tất đơn...</span>';
+          showToast('Đã xác nhận khoản thanh toán trực tuyến.', 'success');
+          try {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+            audio.volume = 0.3;
+            audio.play().catch(() => { });
+          } catch (e) { }
+
+          const completedOrder = data.order || {
+            ...currentDraftOrder,
+            paymentStatus: currentDraftOrder.paymentPlan === 'sepay_deposit' ? 'partially_paid' : 'paid',
+            status: 'confirmed'
+          };
+          setTimeout(() => {
+            completeOrderSuccess(completedOrder);
+          }, 800);
+          return;
+        }
+
+        // Nếu ngân hàng chưa ghi nhận tiền
+        if (statusPill) statusPill.innerHTML = '<span style="color: #D97706; font-weight: 600;">⏳ Đang chờ giao dịch từ ngân hàng Sacombank...</span>';
+        showToast('Hệ thống đang chờ ngân hàng Sacombank ghi nhận. Nếu bạn vừa chuyển tiền, vui lòng đợi từ 5–30 giây.', 'info');
+      } catch (err) {
+        showToast('Chưa thể kết nối với cổng đối soát, hệ thống sẽ tự động thử lại trong giây lát.', 'warning');
+      } finally {
+        setTimeout(() => {
+          if (btnConfirmTransfer) {
+            btnConfirmTransfer.disabled = false;
+            btnConfirmTransfer.innerHTML = defaultHtml;
+          }
+        }, 3000);
       }
     });
   }
+
+
 
   // Nút xem hóa đơn điện tử PDF
   if (btnViewReceipt) {
@@ -648,6 +825,8 @@ async function showSepayQrStep(order) {
   const stepForm = document.querySelector('#checkoutStepForm');
   const stepSepay = document.querySelector('#checkoutStepSepay');
   const qrImg = document.querySelector('#sepayQrImage');
+  const qrSpinner = document.querySelector('#sepayQrSpinner');
+  const qrLocalPlaceholder = document.querySelector('#sepayQrLocalPlaceholder');
   const countdownEl = document.querySelector('#sepayCountdown');
   const transferAmountEl = document.querySelector('#sepayTransferAmount');
   const transferAmountRaw = document.querySelector('#sepayTransferAmountRaw');
@@ -657,13 +836,12 @@ async function showSepayQrStep(order) {
   if (stepForm) stepForm.classList.add('hidden');
   if (stepSepay) stepSepay.classList.remove('hidden');
 
-  const btnSimulatePaid = document.querySelector('#btnSimulateSepayPaid');
-  if (btnSimulatePaid) {
-    btnSimulatePaid.disabled = false;
-    btnSimulatePaid.textContent = 'Mô Phỏng Thanh Toán Thành Công';
-  }
-
   const orderCode = order.orderCode || order.order_code || order.id;
+  const intent = order.paymentIntent || order.paymentIntents?.find(item => item.status === 'pending');
+  if (!intent?.referenceCode || !Number.isSafeInteger(Number(intent.amount))) {
+    if (statusPill) statusPill.textContent = 'Đơn chưa có mã thanh toán hợp lệ. Vui lòng tải lại đơn hoặc liên hệ shop.';
+    return;
+  }
 
   let config;
   try {
@@ -675,7 +853,8 @@ async function showSepayQrStep(order) {
     return;
   }
 
-  const qrUrl = `https://qr.sepay.vn/img?acc=${encodeURIComponent(config.accountNumber)}&bank=${encodeURIComponent(config.bankCode)}&amount=${order.totalAmount}&des=${encodeURIComponent(orderCode)}&template=compact`;
+  const amountDueNow = Number(intent.amount);
+  const qrUrl = `https://qr.sepay.vn/img?acc=${encodeURIComponent(config.accountNumber)}&bank=${encodeURIComponent(config.bankCode)}&amount=${amountDueNow}&des=${encodeURIComponent(intent.referenceCode)}&template=compact`;
 
   const bankNameEl = document.querySelector('#sepayBankName');
   const accountNumberEl = document.querySelector('#sepayAccountNumber');
@@ -683,11 +862,38 @@ async function showSepayQrStep(order) {
   if (bankNameEl) bankNameEl.textContent = config.bankCode;
   if (accountNumberEl) accountNumberEl.textContent = config.accountNumber;
   if (accountHolderEl) accountHolderEl.textContent = config.accountHolder;
-  if (qrImg) qrImg.src = qrUrl;
-  if (transferAmountEl) transferAmountEl.textContent = formatPrice(order.totalAmount);
-  if (transferAmountRaw) transferAmountRaw.value = order.totalAmount;
-  if (transferContentEl) transferContentEl.textContent = orderCode;
-  if (statusPill) statusPill.textContent = 'Đang chờ hệ thống ghi nhận chuyển khoản...';
+  if (qrImg) {
+    qrImg.src = qrUrl;
+    qrImg.alt = 'Mã QR VietQR Napas 247 thanh toán SePay';
+    qrImg.classList.remove('hidden');
+  }
+  if (qrSpinner) qrSpinner.classList.add('hidden');
+  if (qrLocalPlaceholder) qrLocalPlaceholder.classList.add('hidden');
+  if (transferAmountEl) transferAmountEl.textContent = formatPrice(amountDueNow);
+  if (transferAmountRaw) transferAmountRaw.value = amountDueNow;
+  if (transferContentEl) transferContentEl.textContent = intent.referenceCode;
+  if (statusPill) statusPill.textContent = `Đang chờ SePay xác nhận mã ${intent.referenceCode}... (Tự động nhận diện khi chuyển tiền)`;
+  const amountLabel = document.querySelector('#sepayAmountLabel');
+  if (amountLabel) {
+    const purposeLabels = {
+      advance_50: 'Khoản trả trước 50%',
+      full_payment: 'Khoản thanh toán đủ',
+      order_adjustment: 'Khoản phí điều chỉnh đơn',
+      redelivery_fee: 'Phí chuyến giao lại'
+    };
+    amountLabel.textContent = purposeLabels[intent.purpose] || 'Khoản chuyển khoản cần đối soát';
+  }
+
+  const btnConfirm = document.querySelector('#btnConfirmTransfer');
+  if (btnConfirm) {
+    btnConfirm.disabled = false;
+    btnConfirm.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      <span>Tôi Đã Chuyển Khoản (Kiểm Tra Ngay)</span>
+    `;
+  }
 
   // 1. Polling đối soát tự động thông minh (Tôn trọng visibilityState, AbortController & Exponential Backoff)
   stopSepayPolling();
@@ -706,7 +912,7 @@ async function showSepayQrStep(order) {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, intentId: intent.id }),
         signal: pollingAbortController.signal
       });
       if (!res.ok) return;
@@ -721,6 +927,12 @@ async function showSepayQrStep(order) {
         showToast('Đơn hàng này đã bị hủy. Vui lòng liên hệ hỗ trợ nếu bạn đã chuyển khoản.', 'warning');
         return;
       }
+      if (data.order?.paymentIntent?.status === 'needs_review') {
+        stopSepayPolling();
+        if (statusPill) statusPill.textContent = 'SePay đã nhận giao dịch nhưng số tiền/mã cần shop đối soát. Vui lòng liên hệ shop.';
+        showToast('Khoản chuyển cần shop đối soát; đơn chưa tự xác nhận.', 'warning');
+        return;
+      }
       if (data.paid) {
         stopSepayPolling();
         if (sepayCountdownTimer) {
@@ -728,8 +940,8 @@ async function showSepayQrStep(order) {
           sepayCountdownTimer = null;
         }
 
-        if (statusPill) statusPill.innerHTML = '<span style="color: #108474; font-weight: 700;">✓ Đã nhận được chuyển khoản Sacombank! Đang hoàn tất đơn...</span>';
-        showToast('Tài khoản Sacombank đã nhận được thanh toán!', 'success');
+        if (statusPill) statusPill.innerHTML = '<span style="color: #108474; font-weight: 700;">✓ Đã xác nhận khoản SePay. Đang hoàn tất đơn...</span>';
+        showToast('Đã xác nhận khoản thanh toán trực tuyến.', 'success');
 
         // Bọc âm thanh trong try/catch tránh bị chặn bởi Autoplay Policy
         try {
@@ -740,12 +952,12 @@ async function showSepayQrStep(order) {
 
         const completedOrder = data.order || {
           ...order,
-          paymentStatus: 'paid',
+          paymentStatus: order.paymentPlan === 'sepay_deposit' ? 'partially_paid' : 'paid',
           status: 'confirmed',
           sepayTransaction: {
             bank: data.transaction?.bank_brand_name || currentSepayConfig?.bankCode || 'Ngân hàng',
             account: data.transaction?.account_number || currentSepayConfig?.accountNumber || '',
-            amount: data.transaction?.amount_in || order.totalAmount,
+            amount: data.transaction?.amount_in || amountDueNow,
             code: data.transaction?.reference_number || `SEPAY-${data.transaction?.id || Date.now()}`,
             paidAt: data.transaction?.transaction_date || new Date().toISOString()
           }
@@ -760,61 +972,33 @@ async function showSepayQrStep(order) {
     }
   }, 3500);
 
-  // 2. Countdown timer 10 phút kèm Nút Gia Hạn Phiên QR có xác thực Server
+  // 2. Đếm ngược theo hạn thật của intent; không gia hạn giả chỉ trên trình duyệt.
   if (sepayCountdownTimer) clearInterval(sepayCountdownTimer);
-  let timeLeft = 600;
+  const expiresAtMs = intent.expiresAt ? new Date(intent.expiresAt).getTime() : NaN;
+  let timeLeft = Number.isFinite(expiresAtMs)
+    ? Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000))
+    : 0;
+  const renderPaymentCountdown = () => {
+    if (!countdownEl) return;
+    if (timeLeft <= 0) {
+      countdownEl.innerHTML = '<span style="color: var(--color-sale-price); font-weight: 700;">Mã thanh toán đã hết hạn. Không chuyển khoản vào mã này.</span>';
+      stopSepayPolling();
+      showToast('Mã thanh toán đã hết hạn. Vui lòng tạo đơn mới hoặc liên hệ tiệm nếu bạn đã chuyển khoản.', 'warning');
+      return;
+    }
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    countdownEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+  renderPaymentCountdown();
   sepayCountdownTimer = setInterval(() => {
     timeLeft--;
     if (timeLeft <= 0) {
       clearInterval(sepayCountdownTimer);
-      if (countdownEl) {
-        countdownEl.innerHTML = `
-          <span style="color: var(--color-sale-price); font-weight: 700;">00:00 (Hết hạn)</span>
-          <button type="button" class="btn-refresh-qr" id="btnRefreshSepayQr" style="margin-left: 8px; padding: 4px 10px; font-size: 11.5px; border-radius: 6px; border: 1px solid var(--color-primary); background: #FFF; color: var(--color-primary); cursor: pointer; font-weight: 600;">
-            🔄 Gia hạn 10 phút
-          </button>
-        `;
-
-        const refreshBtn = document.getElementById('btnRefreshSepayQr');
-        if (refreshBtn) {
-          refreshBtn.addEventListener('click', async () => {
-            refreshBtn.disabled = true;
-            refreshBtn.textContent = 'Đang kiểm tra...';
-            // Kiểm tra phía server trước: nếu đơn đã được thanh toán thì không gia hạn
-            try {
-              const phone = order.phone || order.customerPhone || '';
-              const chk = await fetch(`/api/sepay/check-payment/${encodeURIComponent(order.id)}`, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone })
-              });
-              if (chk.ok) {
-                const chkData = await chk.json();
-                if (chkData.paid) {
-                  showToast('Đơn hàng đã được thanh toán thành công!', 'success');
-                  completeOrderSuccess(chkData.order || order);
-                  return;
-                }
-              }
-              // Cap nhat gia han truc tiep tren client/local
-              order.expiresAt = new Date(Date.now() + 600000).toISOString();
-              showToast('Đã gia hạn phiên chuyển khoản VietQR thêm 10 phút!', 'success');
-              showSepayQrStep(order);
-            } catch (err) {
-              showToast('Lỗi kết nối khi gia hạn phiên!', 'error');
-              refreshBtn.disabled = false;
-            }
-          });
-        }
-      }
-      showToast('Mã QR đã hết hạn giao dịch. Vui lòng bấm gia hạn!', 'error');
+      timeLeft = 0;
+      renderPaymentCountdown();
     } else {
-      const minutes = Math.floor(timeLeft / 60);
-      const seconds = timeLeft % 60;
-      if (countdownEl) {
-        countdownEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-      }
+      renderPaymentCountdown();
     }
   }, 1000);
 }
@@ -855,16 +1039,21 @@ function completeOrderSuccess(order) {
   const deliverySlotEl = document.querySelector('#successDeliverySlot');
   const paymentMethodEl = document.querySelector('#successPaymentMethod');
   const totalAmountEl = document.querySelector('#successTotalAmount');
+  const receivedEl = document.querySelector('#successAmountReceived');
+  const balanceEl = document.querySelector('#successAmountDueAtDelivery');
 
   if (orderIdEl) orderIdEl.textContent = `#${order.orderCode || order.id}`;
   if (recipientEl) recipientEl.textContent = `${order.recipientName} (${order.recipientPhone})`;
   if (addressEl) addressEl.textContent = order.address;
   if (deliverySlotEl) deliverySlotEl.textContent = order.deliverySlot || 'Giao trong ngày';
   if (paymentMethodEl) {
-    paymentMethodEl.innerHTML = order.paymentMethod === 'sepay'
-      ? '<span style="color: #108474; font-weight: 700;">Chuyển khoản SePay (Đã thanh toán)</span>'
-      : '<span style="color: #D97706; font-weight: 700;">Tiền mặt khi nhận hoa (COD)</span>';
+    const isDeposit = order.paymentPlan === 'sepay_deposit';
+    paymentMethodEl.textContent = isDeposit
+      ? `Đã trả trước ${formatPrice(order.amountReceived || order.amountDueNow || 0)} qua SePay; còn thu ${formatPrice(order.amountToCollectAtDelivery || Math.max(0, order.totalAmount - (order.amountReceived || 0)))} khi giao`
+      : 'Đã thanh toán đủ qua SePay';
   }
+  if (receivedEl) receivedEl.textContent = formatPrice(order.amountReceived || 0);
+  if (balanceEl) balanceEl.textContent = formatPrice(order.amountToCollectAtDelivery || 0);
   if (totalAmountEl) totalAmountEl.textContent = formatPrice(order.totalAmount);
   showToast(`Đặt hoa thành công! Mã đơn #${order.orderCode || order.id}`, 'success');
 }

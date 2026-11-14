@@ -49,7 +49,9 @@ export class PaymentController {
     return res.status(200).json({
       bankCode,
       accountNumber,
-      accountHolder
+      accountHolder,
+      simulationOnly: false,
+      simulationEnabled: false
     });
   };
 
@@ -60,7 +62,8 @@ export class PaymentController {
       const phone = req.body?.phone || req.query?.phone || '';
       const result = await this.paymentService.checkPaymentStatus(orderId, {
         user: req.user || null,
-        phone
+        phone,
+        intentId: req.body?.intentId || null
       });
 
       return res.status(200).json({
@@ -94,51 +97,14 @@ export class PaymentController {
     }
   };
 
-  // POST /api/sepay/simulate-payment/:orderId
+  // POST /api/sepay/simulate-payment/:orderId (Đã vô hiệu hóa hoàn toàn)
   simulatePayment = async (req, res) => {
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Chế độ mô phỏng thanh toán bị vô hiệu hóa trong môi trường production' } });
-    }
-    if (process.env.DEMO_MODE !== 'true') {
-      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Che do mo phong thanh toan dang tat' } });
-    }
-    try {
-      const { orderId } = req.params;
-      const phone = req.body?.phone || req.query?.phone || '';
-      const result = await this.paymentService.simulatePayment(orderId, {
-        user: req.user || null,
-        phone
-      });
-
-      return res.status(200).json({
-        paid: result.paid,
-        orderId: result.order?.id || orderId,
-        order: result.order
-      });
-    } catch (err) {
-      if (err.statusCode && err.statusCode < 500) {
-        return res.status(err.statusCode).json({
-          error: {
-            code: err.name || 'CLIENT_ERROR',
-            message: err.message
-          }
-        });
+    return res.status(403).json({
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Chế độ mô phỏng thanh toán đã bị vô hiệu hóa hoàn toàn. Hệ thống chỉ xử lý giao dịch thực tế từ ngân hàng qua SePay.'
       }
-      if (err.name === 'NotFoundError') {
-        return res.status(404).json({ error: { code: 'NOT_FOUND', message: err.message } });
-      }
-      if (err.name === 'UnauthorizedError' || err.name === 'AuthenticationError') {
-        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: err.message } });
-      }
-      if (err.name === 'ForbiddenError') {
-        return res.status(403).json({ error: { code: 'FORBIDDEN', message: err.message } });
-      }
-      if (err.name === 'ValidationError') {
-        return res.status(409).json({ error: { code: 'INVALID_ORDER_STATE', message: err.message } });
-      }
-      console.error('Loi simulatePayment:', err);
-      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Khong the mo phong thanh toan' } });
-    }
+    });
   };
 
   // POST /api/sepay/webhook
@@ -154,13 +120,38 @@ export class PaymentController {
       }
 
       const result = await this.paymentService.processWebhook(req.body || {});
-      return res.status(200).json(result);
+      // SePay yêu cầu success:true; 201 tương thích cả các webhook đời cũ/OAuth chỉ chấp nhận 201.
+      return res.status(201).json(result);
     } catch (err) {
       if (err.name === 'ValidationError') {
         return res.status(400).json({ success: false, error: err.message });
       }
       console.error('Loi webhook:', err);
       return res.status(500).json({ success: false, error: err.message });
+    }
+  };
+
+  // GET /api/sepay/reconciliation — khoản chuyển chưa khớp mã thanh toán.
+  getUnmatchedPayments = async (req, res) => {
+    try {
+      const rows = await this.paymentService.listUnmatchedPayments(req.user);
+      return res.status(200).json(rows);
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi getUnmatchedPayments:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể tải danh sách giao dịch cần đối soát' } });
+    }
+  };
+
+  // PATCH /api/sepay/reconciliation/:id — đánh dấu đã xử lý sau khi kiểm tra thủ công.
+  reviewUnmatchedPayment = async (req, res) => {
+    try {
+      const result = await this.paymentService.reviewUnmatchedPayment({ id: req.params.id, note: req.body?.note, user: req.user });
+      return res.status(200).json({ success: true, transaction: result });
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi reviewUnmatchedPayment:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể cập nhật giao dịch đối soát' } });
     }
   };
 }

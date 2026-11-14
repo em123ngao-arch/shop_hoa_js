@@ -37,15 +37,42 @@ function injectChatbotDOM() {
   }
 
   widgetContainer.innerHTML = `
-    <!-- NÚT BONG BÓNG CHAT NỔI (FAB) -->
-    <button type="button" class="chat-launcher-btn" id="chatLauncherBtn" title="Trò chuyện với Em Ly - Trợ lý Hoa Nghệ Thuật" aria-label="Mở khung chat">
-      <span class="chat-online-dot"></span>
-      <div class="chat-launcher-icon" id="launcherIcon">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
+    <!-- CỤM NÚT LIÊN HỆ NỔI ĐA KÊNH: CHỈ GIỮ 3 KÊNH (AI EM LY, ZALO, MESSENGER) - BỎ NÚT GỌI ĐIỆN THOẠI TRÒN -->
+    <div class="floating-contact-stack floating-speed-dial" id="floatingContactStack">
+      <!-- 1. CHAT ZALO CSKH 0374 905 296 -->
+      <div class="contact-stack-item">
+        <a href="https://zalo.me/0374905296" target="_blank" rel="noopener noreferrer" class="contact-stack-btn btn-zalo-chat" title="Chat Zalo: 0374 905 296 (Gửi ảnh bill chuyển khoản & hoa mẫu)" aria-label="Mở Zalo CSKH 0374905296">
+          <span class="contact-pulse-ring zalo-ring"></span>
+          <span class="zalo-badge-text">Zalo</span>
+        </a>
+        <span class="contact-stack-tooltip">Chat Zalo: 0374 905 296</span>
       </div>
-    </button>
+
+      <!-- 2. NHẮN TIN MESSENGER FANPAGE TIỆM HOA -->
+      <div class="contact-stack-item">
+        <a href="https://m.me/61582337523237" target="_blank" rel="noopener noreferrer" class="contact-stack-btn btn-messenger-chat" title="Nhắn tin qua Fanpage Messenger" aria-label="Mở Messenger Fanpage">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.43 3.14 7.15.16.14.26.35.26.57v2.16c0 .54.55.9 1.03.66l2.36-1.18c.17-.08.35-.11.53-.08.85.23 1.75.36 2.68.36 5.64 0 10-4.13 10-9.64C22 6.13 17.64 2 12 2zm1.09 12.72l-2.61-2.79-5.1 2.79 5.61-5.96 2.69 2.79 5.02-2.79-5.61 5.96z"/>
+          </svg>
+        </a>
+        <span class="contact-stack-tooltip">Messenger Fanpage</span>
+      </div>
+
+      <!-- 3. TRỢ LÝ AI EM LY (24/7) - NÚT KÍCH HOẠT CHÍNH -->
+      <div class="contact-stack-item item-trigger">
+        <button type="button" class="contact-stack-btn btn-ai-chat chat-launcher-btn" id="chatLauncherBtn" title="Hỏi Trợ Lý Em Ly (AI Tư Vấn 24/7)" aria-label="Mở Trợ lý Em Ly AI">
+          <span class="chat-online-dot"></span>
+          <svg class="ai-flower-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a3 3 0 0 0-3 3c0 1.5 1.5 2.5 3 4 1.5-1.5 3-2.5 3-4a3 3 0 0 0-3-3z"/>
+            <path d="M22 12a3 3 0 0 0-3-3c-1.5 0-2.5 1.5-4 3 1.5 1.5 2.5 3 4 3a3 3 0 0 0 3-3z"/>
+            <path d="M12 22a3 3 0 0 0 3-3c0-1.5-1.5-2.5-3-4-1.5 1.5-3 2.5-3 4a3 3 0 0 0 3 3z"/>
+            <path d="M2 12a3 3 0 0 0 3 3c1.5 0 2.5-1.5 4-3-1.5-1.5-2.5-3-4-3a3 3 0 0 0-3 3z"/>
+            <circle cx="12" cy="12" r="2.5"/>
+          </svg>
+        </button>
+        <span class="contact-stack-tooltip">Trợ Lý Em Ly (AI 24/7)</span>
+      </div>
+    </div>
 
     <!-- CỬA SỔ CHAT WINDOW -->
     <div class="chat-window hidden" id="chatWindow">
@@ -53,7 +80,13 @@ function injectChatbotDOM() {
       <div class="chat-header">
         <div class="chat-header-profile">
           <div class="chat-avatar-wrap">
-            <span>🌸</span>
+            <svg class="chat-avatar-flower" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2">
+              <path d="M12 2a3 3 0 0 0-3 3c0 1.5 1.5 2.5 3 4 1.5-1.5 3-2.5 3-4a3 3 0 0 0-3-3z"/>
+              <path d="M22 12a3 3 0 0 0-3-3c-1.5 0-2.5 1.5-4 3 1.5 1.5 2.5 3 4 3a3 3 0 0 0 3-3z"/>
+              <path d="M12 22a3 3 0 0 0 3-3c0-1.5-1.5-2.5-3-4-1.5 1.5-3 2.5-3 4a3 3 0 0 0 3 3z"/>
+              <path d="M2 12a3 3 0 0 0 3 3c1.5 0 2.5-1.5 4-3-1.5-1.5-2.5-3-4-3a3 3 0 0 0-3 3z"/>
+              <circle cx="12" cy="12" r="2.5"/>
+            </svg>
             <span class="chat-avatar-status"></span>
           </div>
           <div class="chat-header-info">
@@ -181,7 +214,12 @@ CHÍNH SÁCH VẬN CHUYỂN & DỊCH VỤ CỬA HÀNG:
 - QUÀ TẶNG KÈM:
   + Tặng kèm miễn phí thiệp chúc mừng viết tay theo yêu cầu và túi quà thắt nơ ruy băng sang trọng.
 - ĐỊA CHỈ SHOWROOM:
-  + Số 123 Đường Hoa Hồng, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh. Nhận giao hàng tận nơi trên toàn quốc.
+  + 14 Trịnh Đình Thảo, Phường Hòa Thạnh, Quận Tân Phú, TP. Hồ Chí Minh. Nhận giao hàng tận nơi trên toàn quốc.
+- KÊNH LIÊN HỆ & CSKH:
+  + Hotline: 0374 905 296
+  + Chat Zalo gửi bill & hoa mẫu: zalo.me/0374905296
+  + Facebook Messenger: m.me/61582337523237
+  + Fanpage Facebook: https://www.facebook.com/profile.php?id=61582337523237
 `;
 }
 
@@ -244,10 +282,25 @@ function smartLocalRAG(query) {
     };
   }
 
+  // 4.1. CÂU HỎI CỐ ĐỊNH: Địa chỉ cửa hàng
   if (q.includes('địa chỉ') || q.includes('ở đâu') || q.includes('showroom') || q.includes('cửa hàng ở') || q.includes('shop ở')) {
     return {
-      text: `Dạ Showroom chính thức của shop tại: <b>123 Đường Hoa Hồng, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</b> ạ! 🏡💐<br><br>
+      text: `Dạ Showroom và xưởng hoa chính thức của shop tại: <b>14 Trịnh Đình Thảo, Phường Hòa Thạnh, Quận Tân Phú, TP. Hồ Chí Minh</b> ạ! 🏡💐<br><br>
         Bên cạnh đó, shop nhận đặt online và giao hoa hỏa tốc 2 giờ nội thành cũng như giao hàng tận nơi toàn quốc (FreeShip đơn từ 350k). Bạn có thể đặt trực tiếp ngay trên website nhé!`,
+      recommendIds: []
+    };
+  }
+
+  // 4.2. CÂU HỎI CỐ ĐỊNH: Kênh liên hệ, Hotline, Zalo, Fanpage, Messenger
+  if (q.includes('liên hệ') || q.includes('hotline') || q.includes('số điện thoại') || q.includes('sđt') || q.includes('zalo') || q.includes('facebook') || q.includes('fanpage') || q.includes('messenger') || q.includes('người thật') || q.includes('chủ shop')) {
+    return {
+      text: `Dạ bạn có thể liên hệ trực tiếp với tiệm hoa qua các kênh chính thức sau nhé: 🌸📞<br><br>
+        • <b>Hotline hỗ trợ gấp:</b> <a href="tel:0374905296" style="color: var(--color-primary, #108474); font-weight: 700;">0374 905 296</a><br>
+        • <b>Chat Zalo CSKH (gửi bill/mẫu hoa):</b> <a href="https://zalo.me/0374905296" target="_blank" rel="noopener noreferrer" style="color: #0068FF; font-weight: 700;">zalo.me/0374905296</a><br>
+        • <b>Fanpage Messenger:</b> <a href="https://m.me/61582337523237" target="_blank" rel="noopener noreferrer" style="color: #7E22CE; font-weight: 700;">m.me/61582337523237</a><br>
+        • <b>Facebook Fanpage:</b> <a href="https://www.facebook.com/profile.php?id=61582337523237" target="_blank" rel="noopener noreferrer" style="color: #0068FF; text-decoration: underline;">Tiệm Hoa Kẽm Nhung</a><br>
+        • <b>Địa chỉ xưởng:</b> 14 Trịnh Đình Thảo, P. Hòa Thạnh, Q. Tân Phú, TP.HCM<br><br>
+        Nghệ nhân tiệm luôn sẵn sàng hỗ trợ bạn đổi mẫu, dặn thiệp hoặc đối soát chuyển khoản 24/7 ạ!`,
       recommendIds: []
     };
   }
@@ -553,12 +606,15 @@ export async function initAIFloristChatbot() {
   // Khôi phục lịch sử chat đã lưu
   loadChatHistory();
 
+  const stack = document.querySelector('#floatingContactStack');
+
   // Toggle mở/đóng khung chat
   function toggleChat(open = null) {
     const isCurrentlyHidden = chatWindow.classList.contains('hidden');
     const shouldOpen = open !== null ? open : isCurrentlyHidden;
 
     if (shouldOpen) {
+      if (stack) stack.classList.remove('mobile-active');
       chatWindow.classList.remove('hidden');
       if (chatInput) chatInput.focus();
       sessionStorage.setItem(STORAGE_KEYS.CHAT_OPEN, 'true');
@@ -568,7 +624,21 @@ export async function initAIFloristChatbot() {
     }
   }
 
-  if (launcherBtn) launcherBtn.addEventListener('click', () => toggleChat());
+  // Click vào nút Em Ly AI trong cụm liên hệ nổi: mở/đóng khung chat AI
+  if (launcherBtn) {
+    launcherBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleChat();
+    });
+  }
+
+  // Đóng cụm nút mobile khi click ra ngoài
+  document.addEventListener('click', (e) => {
+    if (stack && !stack.contains(e.target)) {
+      stack.classList.remove('mobile-active');
+    }
+  });
+
   if (closeBtn) closeBtn.addEventListener('click', () => toggleChat(false));
 
   // Tự động mở lại nếu trang trước đang mở

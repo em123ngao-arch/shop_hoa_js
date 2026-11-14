@@ -102,15 +102,16 @@ app.use(['/images', '/public/images'], (req, res, next) => {
 
 // Cấu hình HTTP Caching chuẩn cho static assets (Ảnh, Fonts, CSS, JS)
 const staticOptions = {
-  maxAge: '1d',
-  etag: true,
+  maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
+  etag: process.env.NODE_ENV === 'production',
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache');
+    if (filePath.endsWith('.html') || filePath.match(/\.(css|js)$/i)) {
+      // Luôn gửi no-cache cho HTML, CSS, JS trong môi trường dev để client nhận code mới ngay lập tức
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
     } else if (filePath.match(/\.(webp|png|jpg|jpeg|svg|gif|ico|woff2?|ttf|eot)$/i)) {
-      res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); // 7 ngày
-    } else if (filePath.match(/\.(css|js)$/i)) {
-      res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 ngày
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); // 7 ngày cho ảnh và fonts
     }
   }
 };
@@ -165,9 +166,36 @@ app.delete(['/api/admin/users/:id', '/users/:id'], container.authMiddleware, con
 // ============================================================================
 // 4. PHÂN HỆ ĐƠN HÀNG & GIAO DỊCH ACID (ORDERS API - MYSQL 8.0)
 // ============================================================================
+const deliveryQuoteLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  message: 'Bạn đã kiểm tra tuyến giao quá nhiều lần. Vui lòng thử lại sau ít phút.',
+  keyGenerator: (req) => `delivery-quote:${req.ip || req.socket?.remoteAddress || 'unknown'}`
+});
+const deliverySuggestionLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 45,
+  message: 'Bạn tìm địa chỉ quá nhanh. Vui lòng đợi một chút rồi thử lại.',
+  keyGenerator: (req) => `delivery-suggest:${req.ip || req.socket?.remoteAddress || 'unknown'}`
+});
+const customerOrderActionLimiter = createRateLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 10,
+  message: 'Bạn gửi yêu cầu cho đơn hàng quá nhanh. Vui lòng thử lại sau ít phút.',
+  keyGenerator: (req) => `order-action:${req.ip || req.socket?.remoteAddress || 'unknown'}:${String(req.params?.id || '').toUpperCase()}`
+});
 // Tạo đơn hàng (cho phép cả khách vãng lai và user đã đăng nhập, tự động trừ kho nguyên tử)
+app.post('/api/delivery/quote', deliveryQuoteLimiter, container.orderController.quoteDelivery);
+app.get('/api/delivery/suggestions', deliverySuggestionLimiter, container.orderController.suggestDeliveryAddresses);
 app.post(['/api/orders', '/orders'], container.optionalAuthMiddleware, container.orderController.createOrder);
 app.put(['/api/orders/:id/draft', '/orders/:id/draft'], container.optionalAuthMiddleware, container.orderController.updateDraftOrder);
+app.post('/api/orders/:id/cash-collection', container.authMiddleware, container.roleGuard('staff', 'admin'), container.orderController.recordCashCollection);
+app.post('/api/orders/:id/change-requests', customerOrderActionLimiter, container.optionalAuthMiddleware, container.orderController.requestOrderChange);
+app.patch('/api/order-change-requests/:requestId', container.authMiddleware, container.roleGuard('staff', 'admin'), container.orderController.reviewOrderChange);
+app.post('/api/orders/:id/cancellation-requests', customerOrderActionLimiter, container.optionalAuthMiddleware, container.orderController.requestCancellation);
+app.patch('/api/order-cancellation-requests/:requestId', container.authMiddleware, container.roleGuard('staff', 'admin'), container.orderController.reviewCancellation);
+app.post('/api/orders/:id/delivery-attempts', container.authMiddleware, container.roleGuard('staff', 'admin'), container.orderController.recordDeliveryAttempt);
+app.post('/api/orders/:id/redelivery-payment', container.authMiddleware, container.roleGuard('staff', 'admin'), container.orderController.createRedeliveryPayment);
 
 // Lấy danh sách đơn hàng (Có phân quyền IDOR: khách xem của mình, admin/staff xem tất cả)
 app.get(['/api/orders', '/orders'], container.authMiddleware, container.orderController.getOrders);
@@ -268,6 +296,8 @@ app.get('/api/sepay/config', container.paymentController.getConfig);
 app.post('/api/sepay/check-payment/:orderId', container.optionalAuthMiddleware, container.paymentController.checkPayment);
 app.post('/api/sepay/simulate-payment/:orderId', container.optionalAuthMiddleware, container.paymentController.simulatePayment);
 app.post('/api/sepay/webhook', container.paymentController.webhook);
+app.get('/api/sepay/reconciliation', container.authMiddleware, container.roleGuard('staff', 'admin'), container.paymentController.getUnmatchedPayments);
+app.patch('/api/sepay/reconciliation/:id', container.authMiddleware, container.roleGuard('staff', 'admin'), container.paymentController.reviewUnmatchedPayment);
 
 // ============================================================================
 // 9B. PHÂN HỆ HOÀN TIỀN 2 CẤP (THU NGÂN STAFF LẬP PHIẾU -> ADMIN DUYỆT)
@@ -304,6 +334,8 @@ app.post('/api/chat', async (req, res) => {
 
     if (query.includes('chào') || query.includes('hello') || query.includes('hi')) {
       replyText = `Dạ Em Ly chào bạn ạ! Rất vui được đồng hành cùng bạn chọn hoa hôm nay. Tiệm có các mẫu hoa kẽm nhung thủ công bền đẹp và hoa tươi quà tặng, bạn đang tìm hoa cho dịp nào ạ?`;
+    } else if (query.includes('liên hệ') || query.includes('hotline') || query.includes('sđt') || query.includes('số điện thoại') || query.includes('zalo') || query.includes('facebook') || query.includes('fanpage') || query.includes('messenger') || query.includes('người thật') || query.includes('chủ shop')) {
+      replyText = `Dạ bạn có thể liên hệ trực tiếp với tiệm hoa qua các kênh chính thức sau ạ:\n• Hotline hỗ trợ gấp: 0374 905 296\n• Zalo CSKH (gửi bill/mẫu hoa): zalo.me/0374905296\n• Fanpage Messenger: m.me/61582337523237\n• Địa chỉ tiệm: 14 Trịnh Đình Thảo, P. Hòa Thạnh, Q. Tân Phú, TP.HCM.\nNghệ nhân tiệm luôn sẵn sàng hỗ trợ bạn 24/7 nhé!`;
     } else if (query.includes('khuyến mãi') || query.includes('mã giảm') || query.includes('voucher')) {
       replyText = `Dạ hiện tại tiệm đang có các mã ưu đãi đặc biệt:\n${promoKnowledge || '- Nhập HOAMOI20 để giảm 20%'}\nBạn có thể áp dụng ngay trong giỏ hàng nhé!`;
     } else if (query.includes('giá') || query.includes('bao nhiêu') || matchedProducts.length > 0) {
@@ -404,6 +436,8 @@ let expiryTimer = null;
 export const startServer = (port = PORT, host = '0.0.0.0') => {
   if (server) return server;
   const lanIp = getLanIpAddress();
+  const disableExpiryForLocalPreview = process.env.NODE_ENV !== 'production' &&
+    String(process.env.DISABLE_ORDER_EXPIRY_JOB || '').toLowerCase() === 'true';
   server = app.listen(port, host, () => {
     console.log(`================================================================`);
     console.log(`🌸 Shop Hoa Fullstack Backend (Hexagonal + MySQL 8.0)`);
@@ -411,10 +445,16 @@ export const startServer = (port = PORT, host = '0.0.0.0') => {
     console.log(`📱 LAN IP:  http://${lanIp}:${port} (Mở trên điện thoại cùng mạng WiFi)`);
     console.log(`💎 Cơ sở dữ liệu: MySQL 8.0 via Prisma ORM (Không còn json-server/db.json)`);
     console.log(`🔐 Bảo mật: Bcrypt 10 rounds + JWT RFC 7519 + Sharp Image Sanitizer`);
-    console.log(`⏱️ Auto-expiry Job: Hủy đơn SePay quá hạn (${container.env.PENDING_PAYMENT_TTL_MINUTES} phút) mỗi 5 phút`);
+    console.log(disableExpiryForLocalPreview
+      ? '⏱️ Auto-expiry Job: Đã tắt cho phiên xem trước local.'
+      : `⏱️ Auto-expiry Job: Hủy đơn SePay quá hạn (${container.env.PENDING_PAYMENT_TTL_MINUTES} phút) mỗi 5 phút`);
     console.log(`================================================================`);
   });
-  expiryTimer = container.orderExpiryService.start();
+  if (disableExpiryForLocalPreview) {
+    console.log('[OrderExpiryService] Tắt job nền theo DISABLE_ORDER_EXPIRY_JOB=true cho phiên xem trước local.');
+  } else {
+    expiryTimer = container.orderExpiryService.start();
+  }
   return server;
 };
 

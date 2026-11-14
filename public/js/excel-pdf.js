@@ -363,7 +363,7 @@ export async function exportProductsToPdf(products) {
     doc.setFont(fontFamily, 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(100, 100, 100);
-    doc.text(txt(`Địa chỉ: TP. Hồ Chí Minh | Hotline: 0901.234.567 | Ngày lập: ${dateStr} ${timeStr}`), 105, 29, { align: 'center' });
+    doc.text(txt(`Địa chỉ: 14 Trịnh Đình Thảo, Tân Phú, TP.HCM | Hotline: 0374.905.296 | Ngày lập: ${dateStr} ${timeStr}`), 105, 29, { align: 'center' });
 
     doc.setDrawColor(16, 132, 116);
     doc.setLineWidth(0.4);
@@ -640,7 +640,7 @@ function renderInvoicePdfWithDoc(doc, order, invoiceMeta, options = {}) {
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
   doc.text(txt('Hoa Kẽm Nhung Thủ Công & Nghệ Thuật Trang Trí Cao Cấp'), pageCenterX, 17, { align: 'center' });
-  doc.text(txt('Hotline: 0901.234.567 | Website: tiemplovers.vn | Quận 1, TP.HCM'), pageCenterX, 21, { align: 'center' });
+  doc.text(txt('Hotline: 0374.905.296 | 14 Trịnh Đình Thảo, Tân Phú, TP.HCM'), pageCenterX, 21, { align: 'center' });
 
   doc.setDrawColor(203, 213, 225);
   doc.setLineWidth(0.4);
@@ -901,7 +901,7 @@ export function renderGiftDeliverySlipPdfWithDoc(doc, order, meta, options = {})
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
   doc.text(txt('Hoa Kẽm Nhung Thủ Công & Quà Tặng Nghệ Thuật'), pageCenterX, 17, { align: 'center' });
-  doc.text(txt('Hotline: 0901.234.567 | Website: tiemplovers.vn | Giao hoa tận tay người nhận'), pageCenterX, 21, { align: 'center' });
+  doc.text(txt('Hotline: 0374.905.296 | Giao hoa tận tay người nhận'), pageCenterX, 21, { align: 'center' });
 
   doc.setDrawColor(244, 63, 94);
   doc.setLineWidth(0.4);
@@ -1030,7 +1030,7 @@ export function renderGiftDeliverySlipPdfWithDoc(doc, order, meta, options = {})
   doc.setFontSize(6.5);
   doc.setTextColor(148, 163, 184);
   doc.text(txt('Phiếu giao hoa không chứa giá trị thanh toán - Tiệm Hoa Kẽm Nhung Handmade'), pageCenterX, 202, { align: 'center' });
-  doc.text(txt('Cảm ơn bạn đã nhận món quà ý nghĩa từ người gửi! Hotline hỗ trợ: 0901.234.567'), pageCenterX, 205, { align: 'center' });
+  doc.text(txt('Cảm ơn bạn đã nhận món quà ý nghĩa từ người gửi! Hotline hỗ trợ: 0374.905.296'), pageCenterX, 205, { align: 'center' });
 
   const fileName = `Phieu_Giao_Qua_${orderId}.pdf`;
 

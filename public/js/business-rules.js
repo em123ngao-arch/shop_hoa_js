@@ -44,20 +44,282 @@ function parseNumericId(val) {
 }
 
 /**
- * Loc va sap xep danh sach san pham theo danh muc, tu khoa va kieu sap xep (dung filter & clone sort).
+ * Ham loai bo dau tieng Viet de tim kiem thong minh (khong phu thuoc dau tieng Viet).
+ * @param {string} str - Chuoi tieng Viet goc
+ * @returns {string} Chuoi khong dau, chu thuong
+ */
+export function removeVietnameseTones(str = '') {
+  return String(str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'd')
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Kiem tra san pham co khop voi Tone Mau sac chu dao khong (Pure ES6+).
+ * Ho tro day du cac tone mau hoa pho bien: Cam, Do, Hong, Vang, Trang, Tim, Xanh, Da sac.
+ * @param {object} product - San pham can kiem tra
+ * @param {string} colorCode - Ma mau ('all', 'cam', 'do', 'hong', 'vang', 'trang', 'tim', 'xanh', 'da-sac')
+ * @returns {boolean}
+ */
+export function matchProductColor(product = {}, colorCode = 'all') {
+  if (!colorCode || colorCode === 'all') return true;
+
+  // 1. Ưu tiên tuyệt đối trường color chuẩn từ CSDL MySQL / TiDB
+  const directColor = String(product?.color || '').toLowerCase().trim();
+  if (directColor && directColor !== 'all') {
+    return directColor === colorCode;
+  }
+
+  // 2. Fallback tìm từ khóa thông minh cho sản phẩm cũ
+  const text = removeVietnameseTones(`${product?.name || ''} ${product?.description || ''} ${product?.badge || ''}`);
+
+  switch (colorCode) {
+    case 'cam':
+      // Tone Cam: Cam tulip, Sunset hoàng hôn, hoa phối cam vàng
+      return text.includes('cam') || text.includes('sunset') || text.includes('hoang hon') || text.includes('orange');
+    case 'do':
+      // Tone Đỏ: Hoa hồng đỏ nhung, Hoàng gia Queen, Sweet Love đỏ
+      return (text.includes('do') && !text.includes('dong')) || text.includes('red') || text.includes('queen') || text.includes('sweet love');
+    case 'hong':
+      // Tone Hồng: Tulip hồng phấn, Pastel dịu nhẹ, Mẫu đơn hồng
+      return text.includes('hong') || text.includes('pink') || text.includes('pastel') || text.includes('mong mo');
+    case 'vang':
+      // Tone Vàng: Hướng dương rực rỡ, Khai trương tài lộc, Garden sunshine
+      return text.includes('vang') || text.includes('huong duong') || text.includes('sunshine') || text.includes('tai loc');
+    case 'trang':
+      // Tone Trắng: Cúc họa mi tinh khôi, hoa trắng thanh lịch
+      return text.includes('trang') || text.includes('cuc hoa mi') || text.includes('tinh khoi') || text.includes('white');
+    case 'tim':
+      // Tone Tím: Lavender tím Huế, oải hương
+      return text.includes('tim') || text.includes('lavender') || text.includes('oai huong') || text.includes('purple');
+    case 'xanh':
+      // Tone Xanh: Baby xanh biển, cẩm tú cầu xanh lam
+      return text.includes('xanh') || text.includes('baby') || text.includes('cam tu cau') || text.includes('blue');
+    case 'da-sac':
+      // Tone Đa Sắc: Cầu vồng 7 sắc, Bloom of spring nghệ thuật
+      return text.includes('da sac') || text.includes('cau vong') || text.includes('rainbow') || text.includes('bloom');
+    default:
+      return true;
+  }
+}
+
+/**
+ * Kiem tra san pham co khop voi Loai Hoa khong (Tulip, Huong Duong, Hoa Hong, Hoa Ly & Cuc, Baby & Lavender, Mau Don).
+ * @param {object} product - San pham can kiem tra
+ * @param {string} flowerType - Loai hoa can loc ('all', 'tulip', 'huong-duong', 'hoa-hong', 'hoa-ly-cuc', 'baby-lavender', 'mau-don')
+ * @returns {boolean}
+ */
+export function matchFlowerType(product = {}, flowerType = 'all') {
+  if (!flowerType || flowerType === 'all') return true;
+
+  // 1. Ưu tiên tuyệt đối trường flower_type từ CSDL
+  const directFlower = String(product?.flowerType || product?.flower_type || '').toLowerCase().trim();
+  if (directFlower && directFlower !== 'all' && directFlower !== 'khac') {
+    return directFlower === flowerType;
+  }
+
+  // 2. Fallback tìm từ khóa
+  const text = removeVietnameseTones(`${product?.name || ''} ${product?.description || ''}`);
+
+  switch (flowerType) {
+    case 'tulip':
+      return text.includes('tulip');
+    case 'huong-duong':
+      return text.includes('huong duong') || text.includes('sunshine');
+    case 'hoa-hong':
+      return text.includes('hoa hong') || text.includes('hong kem') || text.includes('hong sunset') || text.includes('queen') || text.includes('sweet love');
+    case 'hoa-ly-cuc':
+      return text.includes('hoa ly') || text.includes('cuc hoa mi') || text.includes('cuc') || text.includes('binh hoa');
+    case 'baby-lavender':
+      return text.includes('baby') || text.includes('lavender') || text.includes('oai huong');
+    case 'mau-don':
+      return text.includes('mau don') || text.includes('cam tu cau');
+    default:
+      return true;
+  }
+}
+
+/**
+ * Kiem tra san pham co khop voi Dip Le & Su Kien khong (20/11, Sinh Nhat, Khai Truong, Ky Niem, De Ban).
+ * @param {object} product - San pham can kiem tra
+ * @param {string} occasion - Dip le can loc ('all', '20-11', 'sinh-nhat', 'khai-truong', 'ky-niem', 'de-ban')
+ * @returns {boolean}
+ */
+export function matchOccasion(product = {}, occasion = 'all') {
+  if (!occasion || occasion === 'all') return true;
+
+  // 1. Ưu tiên tuyệt đối trường occasion từ CSDL
+  const directOccasion = String(product?.occasion || '').toLowerCase().trim();
+  if (directOccasion && directOccasion !== 'all' && directOccasion !== 'tat-ca') {
+    return directOccasion === occasion;
+  }
+
+  // 2. Fallback tìm từ khóa
+  const text = removeVietnameseTones(`${product?.name || ''} ${product?.description || ''}`);
+  const catId = String(product?.category_id || product?.categoryId || '');
+
+  switch (occasion) {
+    case '20-11':
+      // Dịp 20/11 Tri ân thầy cô: Hướng dương, Cẩm tú cầu biết ơn, Bình để bàn, Garden Sunshine, Cúc họa mi
+      return text.includes('huong duong') || text.includes('cam tu cau') || text.includes('binh hoa') || text.includes('sunshine') || text.includes('cuc') || text.includes('mau don') || catId === '4';
+    case 'sinh-nhat':
+      // Dịp Sinh nhật: Danh mục 2, các bó hoa sinh nhật, tulip, hoa hồng, cầu vồng
+      return catId === '2' || text.includes('sinh nhat') || text.includes('bo hoa') || text.includes('tulip') || text.includes('cau vong');
+    case 'khai-truong':
+      // Dịp Khai trương: Danh mục 5, Giỏ hoa tài lộc, Garden sunshine, hoa tone vàng đỏ
+      return catId === '5' || text.includes('khai truong') || text.includes('tai loc') || text.includes('sunshine');
+    case 'ky-niem':
+      // Kỷ niệm & Tỏ tình: Sweet love, Queen, Hoàng gia, Lavender son sắt
+      return text.includes('sweet love') || text.includes('queen') || text.includes('hoang gia') || text.includes('lavender') || text.includes('ky niem') || text.includes('to tinh');
+    case 'de-ban':
+      // Để bàn mini: Danh mục 4, Bình hoa, Chậu hoa để bàn
+      return catId === '4' || text.includes('de ban') || text.includes('binh hoa') || text.includes('chau hoa');
+    default:
+      return true;
+  }
+}
+
+/**
+ * Kiem tra san pham co khop voi Chat Lieu khong (Kem nhung, Giay nhun, Len).
+ * @param {object} product - San pham can kiem tra
+ * @param {string} material - Chat lieu can loc ('all', 'kem-nhung', 'giay-nhun', 'len')
+ * @returns {boolean}
+ */
+export function matchMaterial(product = {}, material = 'all') {
+  if (!material || material === 'all') return true;
+
+  // 1. Ưu tiên tuyệt đối trường material từ CSDL
+  const directMat = String(product?.material || '').toLowerCase().trim();
+  if (directMat && directMat !== 'all') {
+    return directMat === material;
+  }
+
+  // 2. Fallback tìm từ khóa
+  const text = removeVietnameseTones(`${product?.name || ''} ${product?.description || ''}`);
+  switch (material) {
+    case 'kem-nhung':
+      // 100% mau hoa thu cong chu luc cua tiem la kem nhung cao cap
+      return text.includes('kem nhung') || (!text.includes('giay nhun') && !text.includes('len'));
+    case 'giay-nhun':
+      return text.includes('giay nhun') || text.includes('hoa giay');
+    case 'len':
+      return text.includes('len') || text.includes('moc len');
+    default:
+      return true;
+  }
+}
+
+/**
+ * Kiem tra san pham co nam trong Khoang Gia khong.
+ * Ho tro ca 7 moc gia chuan cua hoahandmade.vn va cac moc cu de bao toan test cu.
+ * @param {object} product - San pham can kiem tra
+ * @param {string} priceRange - Khoang gia
+ * @returns {boolean}
+ */
+export function matchPriceRange(product = {}, priceRange = 'all') {
+  if (!priceRange || priceRange === 'all') return true;
+  const price = Number(product?.price || 0);
+
+  switch (priceRange) {
+    // 7 moc chuan hoahandmade.vn
+    case 'under-50':
+      return price < 50000;
+    case '50-100':
+      return price >= 50000 && price <= 100000;
+    case '100-200':
+      return price >= 100000 && price <= 200000;
+    case '200-300':
+      return price >= 200000 && price <= 300000;
+    case '300-400':
+      return price >= 300000 && price <= 400000;
+    case '400-500':
+      return price >= 400000 && price <= 500000;
+    case 'above-500':
+      return price > 500000;
+    // Cac moc truoc day de bao toan tuong thich test cu
+    case 'under-350':
+      return price < 350000;
+    case '350-500':
+      return price >= 350000 && price <= 500000;
+    case '500-750':
+      return price > 500000 && price <= 750000;
+    case 'above-750':
+      return price > 750000;
+    default:
+      return true;
+  }
+}
+
+/**
+ * Loc va sap xep danh sach san pham theo da tieu chi (Danh muc, Loai hoa, Dip le, Mau sac, Chat lieu, Khoang gia, Tu khoa).
+ * Tuan thu chat che tieu chi ES6+ Array.filter() & clone truoc khi sort().
  * @param {Array<object>} products - Danh sach san pham goc
- * @param {object} options - Tuy chon loc/sap xep { categoryId, searchTerm, sort }
+ * @param {object} options - Tuy chon loc da tieu chi { categoryId, flowerType, occasion, color, material, priceRange, searchTerm, sort }
  * @returns {Array<object>} Danh sach da loc va sap xep
  */
-export function filterCatalogProducts(products = [], { categoryId = '0', searchTerm = '', sort = 'newest' } = {}) {
-  const keyword = String(searchTerm || '').toLowerCase().trim();
+export function filterCatalogProducts(products = [], {
+  categoryId = '0',
+  flowerType = 'all',
+  occasion = 'all',
+  color = 'all',
+  material = 'all',
+  priceRange = 'all',
+  searchTerm = '',
+  sort = 'newest'
+} = {}) {
+  const rawKeyword = String(searchTerm || '').trim();
+  const normalizedKeyword = removeVietnameseTones(rawKeyword);
 
   const filtered = (products || []).filter(product => {
+    // 1. Loc theo Danh muc co ban
     if (!matchesCategoryId(product, categoryId)) return false;
-    if (!keyword) return true;
-    const nameMatch = String(product?.name || '').toLowerCase().includes(keyword);
-    const descMatch = String(product?.description || '').toLowerCase().includes(keyword);
-    return nameMatch || descMatch;
+
+    // 2. Loc theo Loai hoa (Tulip, Huong Duong, Hoa Hong, v.v.)
+    if (!matchFlowerType(product, flowerType)) return false;
+
+    // 3. Loc theo Dip le / Muc dich tang (20/11, Sinh Nhat, Khai Truong, v.v.)
+    if (!matchOccasion(product, occasion)) return false;
+
+    // 4. Loc theo Tone Mau sac (Cam, Do, Hong, Vang, Trang, Tim, Xanh, Da sac)
+    if (!matchProductColor(product, color)) return false;
+
+    // 5. Loc theo Chat lieu (Kem nhung, Giay nhun, Len)
+    if (!matchMaterial(product, material)) return false;
+
+    // 6. Loc theo Khoang gia ngan sach
+    if (!matchPriceRange(product, priceRange)) return false;
+
+    // 6. Loc theo Tu khoa tim kiem (ho tro ca co dau va khong dau tieng Viet, khop cum tu & nhieu tu)
+    if (!normalizedKeyword) return true;
+    const combinedNorm = `${removeVietnameseTones(product?.name || '')} ${removeVietnameseTones(product?.description || '')} ${removeVietnameseTones(product?.badge || '')}`;
+    const combinedRaw = `${String(product?.name || '')} ${String(product?.description || '')}`.toLowerCase();
+
+    // Khop nguyen cum tu
+    if (combinedNorm.includes(normalizedKeyword) || combinedRaw.includes(rawKeyword.toLowerCase())) {
+      return true;
+    }
+
+    // Khop theo tung tu khoa co nghia (vi du: 'hoa' + 'cam')
+    const stopWords = new Set(['mau', 'nhung', 'cac', 'cua', 'cho', 'va', 'la']);
+    const significantWords = normalizedKeyword.split(/\s+/).filter(w => w.length > 1 && !stopWords.has(w));
+    if (significantWords.length > 0 && significantWords.every(w => combinedNorm.includes(w))) {
+      return true;
+    }
+
+    // Khop theo y dinh mau sac khi tim kiem (vi du 'hoa mau cam', 'hoa tone cam')
+    if (normalizedKeyword.includes('cam') && matchProductColor(product, 'cam')) return true;
+    if ((normalizedKeyword.includes('do') || normalizedKeyword.includes('red')) && matchProductColor(product, 'do')) return true;
+    if ((normalizedKeyword.includes('hong') || normalizedKeyword.includes('pink')) && matchProductColor(product, 'hong')) return true;
+    if (normalizedKeyword.includes('vang') && matchProductColor(product, 'vang')) return true;
+    if (normalizedKeyword.includes('tim') && matchProductColor(product, 'tim')) return true;
+    if (normalizedKeyword.includes('xanh') && matchProductColor(product, 'xanh')) return true;
+    if (normalizedKeyword.includes('trang') && matchProductColor(product, 'trang')) return true;
+
+    return false;
   });
 
   const sorted = [...filtered];
@@ -143,7 +405,7 @@ export function isUnpaidSepayOrder(order) {
   if (!order) return false;
   const method = String(order.paymentMethod || order.payment_method || '').toLowerCase();
   const payStatus = String(order.paymentStatus || order.payment_status || 'pending').toLowerCase();
-  return method === 'sepay' && !['paid', 'partially_refunded', 'refunded'].includes(payStatus);
+  return method === 'sepay' && !['partially_paid', 'paid', 'partially_refunded', 'refunded'].includes(payStatus);
 }
 
 /**

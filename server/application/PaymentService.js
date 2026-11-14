@@ -107,7 +107,7 @@ export class PaymentService {
    * @param {string} [authContext.phone]
    * @returns {Promise<{ paid: boolean, order: Object, transaction?: Object, message?: string }>}
    */
-  async checkPaymentStatus(orderId, { user, phone }) {
+  async checkPaymentStatus(orderId, { user, phone, intentId = null }) {
     const order = await this.orderRepo.findOrderById(orderId);
     if (!order) {
       throw new NotFoundError(`Không tìm thấy đơn hàng #${orderId}`);
@@ -115,6 +115,45 @@ export class PaymentService {
 
     // IDOR Protection Check
     this.authorizeOrderAccess(order, user, phone);
+
+    if (intentId) {
+      const intent = (order.paymentIntents || []).find(item => item.id === intentId);
+      if (!intent) throw new NotFoundError('Không tìm thấy mã thanh toán của đơn này');
+      if (order.status === 'cancelled') {
+        return { paid: false, cancelled: true, order, paymentIntent: intent, message: 'Đơn hàng đã bị hủy; giao dịch đã nhận cần shop đối soát' };
+      }
+      if (intent.status === 'paid') return { paid: true, settled: true, order, paymentIntent: intent };
+      if (['cancelled', 'expired', 'needs_review'].includes(intent.status)) {
+        return { paid: false, cancelled: order.status === 'cancelled', order, paymentIntent: intent, message: 'Khoản thanh toán cần shop đối soát hoặc đã bị hủy' };
+      }
+      if (!this.sepayApiToken) {
+        return { paid: false, order, paymentIntent: intent, message: 'SePay Sandbox Mode (Chưa cấu hình API Token)' };
+      }
+      try {
+        const response = await fetch(`https://my.sepay.vn/userapi/transactions/list?search=${encodeURIComponent(intent.referenceCode)}`, {
+          headers: { Authorization: `Bearer ${this.sepayApiToken}`, 'Content-Type': 'application/json' }
+        });
+        if (response.ok) {
+          const payload = await response.json();
+          const cleanRef = String(intent.referenceCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+          const match = (payload.transactions || []).find(tx => {
+            const cleanMemo = String(tx.transaction_content || tx.content || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const received = Number(tx.amount_in || tx.amount || 0);
+            return cleanMemo.includes(cleanRef) && Number.isSafeInteger(received) && received > 0;
+          });
+          if (match) {
+            const received = Number(match.amount_in || match.amount || 0);
+            const record = await this.orderRepo.recordPaymentIntent({ paymentIntentId: intent.id,
+              providerTxId: String(match.id || match.transaction_id), amount: received,
+              transaction: { bankBrand: match.bank_brand_name || 'SePay', accountNumber: match.account_number || '', transactionDate: match.transaction_date } });
+            if (record.processed) return { paid: true, settled: true, order: await this.orderRepo.findOrderById(order.id), paymentIntent: intent };
+          }
+        }
+      } catch (error) {
+        console.warn('[SePay Gateway] Lỗi đối soát mã thanh toán:', error.message);
+      }
+      return { paid: false, order, paymentIntent: intent };
+    }
 
     // A11: Neu don hang khong phai phuong thuc sepay (vi du COD), khong kiem tra cong truc tuyen, luon tra paid: false
     if (order.paymentMethod !== 'sepay') {
@@ -125,22 +164,19 @@ export class PaymentService {
       };
     }
 
-    // A11: Xac nhan da thanh toan khi paymentStatus la 'paid' hoac 'partially_refunded' (khong gop status === 'confirmed')
-    if (order.paymentStatus === 'paid' || order.paymentStatus === 'partially_refunded') {
+    // A12: Đơn đã hủy phải dừng polling kể cả trước đó đã thu cọc.
+    if (order.status === 'cancelled') {
+      return { paid: false, cancelled: true, order, message: 'Đơn hàng đã bị hủy' };
+    }
+
+    // Với kế hoạch trả trước 50%, settled nghĩa là đã trả xong khoản SePay hiện tại,
+    // còn phần tiền mặt lúc giao vẫn được thể hiện riêng trong amountToCollectAtDelivery.
+    if (order.paymentStatus === 'paid' || order.paymentStatus === 'partially_paid' || order.paymentStatus === 'partially_refunded') {
       return {
         paid: true,
         order,
+        settled: true,
         transaction: order.paymentTransactions?.[0] || null
-      };
-    }
-
-    // A12: Don da huy thi tra ve ngay de client dung polling
-    if (order.status === 'cancelled') {
-      return {
-        paid: false,
-        cancelled: true,
-        order,
-        message: 'Đơn hàng đã bị hủy'
       };
     }
 
@@ -151,8 +187,9 @@ export class PaymentService {
 
     // Neu co API Token SePay: Goi SePay de doi soat truc tiep
     try {
-      const orderCode = order.orderCode || order.id;
-      const res = await fetch(`https://my.sepay.vn/userapi/transactions/list?search=${encodeURIComponent(orderCode)}`, {
+      const activeIntent = order.paymentIntents?.find(intent => intent.status === 'pending');
+      const searchCode = activeIntent?.referenceCode || order.orderCode || order.id;
+      const res = await fetch(`https://my.sepay.vn/userapi/transactions/list?search=${encodeURIComponent(searchCode)}`, {
         headers: {
           'Authorization': `Bearer ${this.sepayApiToken}`,
           'Content-Type': 'application/json'
@@ -163,20 +200,28 @@ export class PaymentService {
         const transactions = Array.isArray(data.transactions) ? data.transactions : [];
         for (const tx of transactions) {
           const inAmount = Number(tx.amount_in || tx.amount || 0);
-          if (inAmount >= order.totalAmount) {
-            const recordRes = await this.recordPayment(
-              order.id,
-              String(tx.id || tx.transaction_id),
-              inAmount,
-              {
-                bankBrand: tx.bank_brand_name || 'SePay',
-                accountNumber: tx.account_number || '',
-                transactionDate: tx.transaction_date
-              }
-            );
+          const cleanMemo = String(tx.transaction_content || tx.content || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+          const cleanActiveRef = activeIntent ? String(activeIntent.referenceCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
+          const cleanOrderCode = String(order.orderCode || order.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+          if (activeIntent && cleanMemo.includes(cleanActiveRef) && inAmount === activeIntent.amount) {
+            const recordRes = await this.orderRepo.recordPaymentIntent({
+              paymentIntentId: activeIntent.id,
+              providerTxId: String(tx.id || tx.transaction_id),
+              amount: inAmount,
+              transaction: { bankBrand: tx.bank_brand_name || 'SePay', accountNumber: tx.account_number || '', transactionDate: tx.transaction_date }
+            });
             if (recordRes.processed) {
               const refreshedOrder = await this.orderRepo.findOrderById(order.id);
-              return { paid: true, order: refreshedOrder || order, transaction: tx };
+              return { paid: true, settled: true, order: refreshedOrder || order, transaction: tx };
+            }
+          } else if (!activeIntent && order.paymentPlan === 'legacy_sepay_full' && inAmount >= order.totalAmount) {
+            const recordRes = await this.recordPayment(order.id, String(tx.id || tx.transaction_id), inAmount, {
+              bankBrand: tx.bank_brand_name || 'SePay', accountNumber: tx.account_number || '', transactionDate: tx.transaction_date
+            });
+            if (recordRes.processed) {
+              const refreshedOrder = await this.orderRepo.findOrderById(order.id);
+              return { paid: true, settled: true, order: refreshedOrder || order, transaction: tx };
             }
           }
         }
@@ -194,7 +239,7 @@ export class PaymentService {
    * @param {Object} authContext
    * @returns {Promise<{ paid: boolean, order: Object }>}
    */
-  async simulatePayment(orderId, { user, phone }) {
+  async simulatePayment(orderId, { user, phone, intentId = null }) {
     if (process.env.NODE_ENV === 'production') {
       throw new ForbiddenError('Chế độ mô phỏng thanh toán bị vô hiệu hóa trong môi trường production');
     }
@@ -207,15 +252,24 @@ export class PaymentService {
     // Kiem tra quyen IDOR
     this.authorizeOrderAccess(order, user, phone);
 
-    if (order.paymentMethod !== 'sepay' || order.status !== 'pending' || order.paymentStatus === 'paid' || order.paymentStatus === 'partially_refunded') {
+    const intent = intentId
+      ? order.paymentIntents?.find(item => item.id === intentId)
+      : order.paymentIntent;
+    const canSimulateRedelivery = intent?.purpose === 'redelivery_fee';
+    if ((order.paymentMethod !== 'sepay' && !canSimulateRedelivery) || !intent || intent.status !== 'pending' || order.status === 'cancelled') {
       throw new ValidationError('Đơn hàng không ở trạng thái chờ thanh toán SePay');
     }
 
     const simTxId = `SIM-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-    const result = await this.recordPayment(order.id, simTxId, order.totalAmount, {
+    const result = await this.orderRepo.recordPaymentIntent({
+      paymentIntentId: intent.id,
+      providerTxId: simTxId,
+      amount: intent.amount,
+      transaction: {
       bankBrand: this.bankConfig?.bankCode || process.env.SEPAY_BANK_CODE || 'SePay Bank',
       accountNumber: this.bankConfig?.accountNumber || process.env.SEPAY_ACCOUNT_NUMBER || '',
       transactionDate: new Date()
+      }
     });
 
     if (!result.processed) {
@@ -223,7 +277,7 @@ export class PaymentService {
     }
 
     const updatedOrder = await this.orderRepo.findOrderById(order.id);
-    return { paid: true, order: updatedOrder };
+    return { paid: true, settled: true, order: updatedOrder };
   }
 
   /**
@@ -241,10 +295,39 @@ export class PaymentService {
       throw new ValidationError('Dữ liệu webhook không hợp lệ');
     }
 
-    // Tim don hang phu hop voi noi dung chuyen khoan (pending hoac cancelled)
+    // Mã thanh toán riêng có ưu tiên; không suy đoán mục đích từ mã đơn.
+    const intent = await this.orderRepo.findSepayPaymentIntentByContent(content);
+    const storeUnmatched = () => this.orderRepo.recordUnmatchedPayment({
+      providerTxId,
+      content,
+      amount,
+      bankBrand: payload.gateway || payload.bank_brand_name || 'SePay',
+      accountNumber: payload.accountNumber || payload.account_number || '',
+      transactionDate: payload.transactionDate || Date.now()
+    });
+    if (intent?.ambiguous) {
+      const recorded = await storeUnmatched();
+      return { success: true, processed: false, duplicate: Boolean(recorded.duplicate), unmatched: true, needsReview: true, reason: 'ambiguous_reference' };
+    }
+    if (intent) {
+      const result = await this.orderRepo.recordPaymentIntent({
+        paymentIntentId: intent.id,
+        providerTxId,
+        amount,
+        transaction: {
+          bankBrand: payload.gateway || payload.bank_brand_name || 'SePay',
+          accountNumber: payload.accountNumber || payload.account_number || '',
+          transactionDate: payload.transactionDate || Date.now()
+        }
+      });
+      return { success: true, processed: result.processed, duplicate: result.duplicate || false, cancelled: result.cancelled || false, needsReview: result.needsReview || false };
+    }
+
+    // Hỗ trợ giao dịch còn tồn của đơn SePay cũ trước migration.
     const candidate = await this.orderRepo.findSepayOrderByContent(content);
     if (!candidate) {
-      return { success: true, processed: false };
+      const recorded = await storeUnmatched();
+      return { success: true, processed: false, duplicate: Boolean(recorded.duplicate), unmatched: true, needsReview: true };
     }
 
     const recordResult = await this.recordPayment(candidate.id, providerTxId, amount, {
@@ -259,5 +342,19 @@ export class PaymentService {
       duplicate: recordResult.duplicate || false,
       cancelled: recordResult.cancelled || false
     };
+  }
+
+  /** Liệt kê khoản webhook chưa gắn được mã thanh toán; chỉ nhân viên/Admin được gọi. */
+  async listUnmatchedPayments(user) {
+    if (!user || !['admin', 'staff'].includes(user.role)) throw new ForbiddenError('Chỉ nhân viên được xem giao dịch cần đối soát');
+    return this.orderRepo.findUnmatchedPayments();
+  }
+
+  /** Đóng một giao dịch lạ sau khi nhân viên đã kiểm tra và ghi chú cách xử lý. */
+  async reviewUnmatchedPayment({ id, note, user }) {
+    if (!user || !['admin', 'staff'].includes(user.role)) throw new ForbiddenError('Chỉ nhân viên được đối soát giao dịch');
+    const cleanNote = String(note || '').trim();
+    if (cleanNote.length < 3 || cleanNote.length > 500) throw new ValidationError('Ghi chú đối soát phải có từ 3 đến 500 ký tự');
+    return this.orderRepo.reviewUnmatchedPayment({ id, note: cleanNote, actorId: user.id });
   }
 }

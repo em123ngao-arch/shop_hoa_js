@@ -223,9 +223,17 @@ export function renderHeaderAuth(validateSession = true) {
 
     const fullName = user.name || user.email || 'Khách hàng';
     const initialChar = fullName.trim().charAt(0).toUpperCase() || 'U';
-    // Lấy tên ngắn gọn (từ cuối cùng hoặc tối đa 14 ký tự)
+    // Lấy tên hiển thị thông minh (tránh cụt lủn "Trưởng v", hiển thị thanh lịch chuẩn thương mại)
     const nameParts = fullName.trim().split(/\s+/);
-    const shortName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : fullName;
+    let shortName = fullName;
+    if (user.role === 'admin') {
+      shortName = 'Quản Trị';
+    } else if (nameParts.length >= 2) {
+      shortName = `${nameParts[0]} ${nameParts[nameParts.length - 1]}`;
+      if (shortName.length > 14) shortName = nameParts[nameParts.length - 1];
+    } else if (fullName.length > 12) {
+      shortName = fullName.substring(0, 10) + '...';
+    }
     const safeFullName = escapeHTML(fullName);
     const safeShortName = escapeHTML(shortName);
     const safeEmail = escapeHTML(user.email || '');
@@ -732,7 +740,7 @@ export function initNotificationCenter(notifWrap) {
     }
 
     listEl.innerHTML = notifs.map(n => `
-      <div class="notif-item ${n.read ? '' : 'unread'}" data-id="${n.id}">
+      <div class="notif-item ${n.read ? '' : 'unread'}" data-id="${n.id}" data-order-id="${n.orderId || n.order_id || ''}">
         <div class="notif-icon-wrap">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -746,13 +754,29 @@ export function initNotificationCenter(notifWrap) {
       </div>
     `).join('');
 
-    // Click vào item đánh dấu đã đọc
+    // Click vào item đánh dấu đã đọc và điều hướng đến đơn hàng
     listEl.querySelectorAll('.notif-item').forEach(item => {
       item.addEventListener('click', async () => {
         const id = item.dataset.id;
+        const orderId = item.dataset.orderId;
         await markNotificationRead(id);
         item.classList.remove('unread');
         loadAndRenderNotifications();
+
+        if (orderId) {
+          dropdown.classList.add('hidden');
+          if (window.location.pathname.includes('orders.html')) {
+            const card = document.querySelector(`.order-craft-card[data-order-id="${orderId}"]`);
+            if (card) {
+              card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              card.style.transition = 'box-shadow 0.3s ease';
+              card.style.boxShadow = '0 0 0 3px rgba(16, 132, 116, 0.4)';
+              setTimeout(() => { card.style.boxShadow = ''; }, 2500);
+            }
+          } else {
+            window.location.href = `./orders.html?id=${encodeURIComponent(orderId)}`;
+          }
+        }
       });
     });
   }

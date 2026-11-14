@@ -6,6 +6,7 @@
 
 import { ValidationError, NotFoundError, ForbiddenError, AuthenticationError } from '../domain/errors/DomainErrors.js';
 import { normalizeVnPhone } from '../domain/utils/phone.js';
+import { DeliveryService } from './DeliveryService.js';
 
 function maskPhone(raw) {
   const digits = String(raw || '').replace(/\D/g, '');
@@ -45,6 +46,7 @@ function toGuestLookupDTO(order) {
     isGift: Boolean(order.isGift),
     address: maskAddress(order.shippingAddress || order.address),
     shippingAddress: maskAddress(order.shippingAddress || order.address),
+    deliveryArea: order.deliveryArea || '',
     deliverySlot: order.deliverySlot || 'Giao trong ngày',
     hasGreetingCard: Boolean(order.hasGreetingCard),
     cardMessage: '',
@@ -55,7 +57,14 @@ function toGuestLookupDTO(order) {
     totalAmount: order.totalAmount,
     status: order.status,
     paymentMethod: order.paymentMethod,
+    paymentPlan: order.paymentPlan || 'legacy_cod',
     paymentStatus: order.paymentStatus,
+    paymentIntent: order.paymentIntent || null,
+    amountReceived: Number(order.amountReceived || 0),
+    amountToCollectAtDelivery: Number(order.amountToCollectAtDelivery || 0),
+    amountCredit: Number(order.amountCredit || 0),
+    changeRequests: order.changeRequests || [],
+    cancellationRequests: order.cancellationRequests || [],
     voucherCode: order.voucherCode || null,
     createdAt: order.createdAt,
     completedAt: order.completedAt || null,
@@ -79,8 +88,99 @@ export class OrderService {
   /**
    * @param {import('../ports/out/OrderRepositoryPort.js').OrderRepositoryPort} orderRepository
    */
-  constructor(orderRepository) {
+  constructor(orderRepository, deliveryService = new DeliveryService()) {
     this.orderRepo = orderRepository;
+    this.deliveryService = deliveryService;
+  }
+
+  /** Tạo báo giá giao hàng; endpoint xem phí và tạo đơn cùng gọi một nguồn quy tắc. */
+  async quoteDelivery(addressData = {}) {
+    const area = String(addressData.area || addressData.deliveryArea || '').trim();
+    if (!area) throw new ValidationError('Vui lòng chọn quận hoặc khu vực giao hàng');
+    const quote = await this.deliveryService.quote({
+      address: addressData.address || addressData.shippingAddress,
+      addressDetails: addressData.addressDetails || addressData.address_details || '',
+      area,
+      latitude: addressData.latitude ?? addressData.deliveryLatitude ?? addressData.delivery_latitude ?? addressData.lat,
+      longitude: addressData.longitude ?? addressData.deliveryLongitude ?? addressData.delivery_longitude ?? addressData.lng
+    });
+    if (!quote.serviceable) {
+      throw new ValidationError(quote.message || 'Địa chỉ này ngoài phạm vi giao hiện tại');
+    }
+    return quote;
+  }
+
+  async suggestDeliveryAddresses(query = '', area = '') {
+    return this.deliveryService.suggest(query, area);
+  }
+
+  async recordCashCollection({ orderId, amount, note = '', user }) {
+    if (!user || !['admin', 'staff'].includes(user.role)) throw new ForbiddenError('Chỉ nhân viên được ghi nhận tiền thu khi giao');
+    return this.orderRepo.recordCashCollection({ orderId, amount, note, actorId: user.id });
+  }
+
+  async requestOrderChange({ orderId, changeType, value, user, phone = '' }) {
+    const customerPhone = user ? '' : normalizeVnPhone(phone || '');
+    if (!user && !/^0\d{8,10}$/.test(customerPhone)) throw new AuthenticationError('Tra cứu đơn bằng mã đơn và số điện thoại đã đặt để đổi thông tin');
+    if (!['address', 'phone', 'recipient'].includes(changeType)) throw new ValidationError('Loại thông tin cần đổi không hợp lệ');
+    let deliveryQuote = null;
+    if (changeType === 'address') {
+      const streetAddress = String(value.address || '').trim();
+      const addressDetails = String(value.addressDetails || '').trim();
+      const area = String(value.area || '').trim();
+      if (!streetAddress) throw new ValidationError('Nhập số nhà và tên đường cho địa chỉ giao mới');
+      const fullAddress = [streetAddress, addressDetails, area, 'Thành phố Hồ Chí Minh'].filter(Boolean).join(', ');
+      if (fullAddress.length > 255) throw new ValidationError('Địa chỉ giao mới quá dài; vui lòng rút gọn thông tin chỉ dẫn');
+      deliveryQuote = await this.quoteDelivery({
+        address: streetAddress, addressDetails, area,
+        latitude: value.latitude ?? value.deliveryLatitude,
+        longitude: value.longitude ?? value.deliveryLongitude
+      });
+      if (!deliveryQuote.pinProvided) {
+        throw new ValidationError('Ghim vị trí nhận hàng trên bản đồ trước khi gửi yêu cầu đổi địa chỉ');
+      }
+      if (deliveryQuote.requiresShopConfirmation) {
+        throw new ValidationError(deliveryQuote.message || 'Shop cần xác nhận vị trí giao mới trước khi áp dụng');
+      }
+      value = {
+        ...value, address: fullAddress, area, addressDetails: '', placeId: '',
+        latitude: deliveryQuote.latitude, longitude: deliveryQuote.longitude
+      };
+    }
+    if (['phone', 'recipient'].includes(changeType)) {
+      const phone = normalizeVnPhone(value.phone || '');
+      if (!/^0\d{8,10}$/.test(phone)) throw new ValidationError('Số điện thoại mới không hợp lệ');
+      value.phone = phone;
+    }
+    return this.orderRepo.requestOrderChange({ orderId, userId: user?.id || null, customerPhone, changeType, value, deliveryQuote });
+  }
+
+  async reviewOrderChange({ requestId, approved, user }) {
+    if (!user || !['admin', 'staff'].includes(user.role)) throw new ForbiddenError('Chỉ nhân viên được duyệt yêu cầu đổi đơn');
+    return this.orderRepo.reviewOrderChange({ requestId, approved: Boolean(approved), reviewerId: user.id });
+  }
+
+  async requestOrderCancellation({ orderId, reason, user, phone = '' }) {
+    const customerPhone = user ? '' : normalizeVnPhone(phone || '');
+    if (!user && !/^0\d{8,10}$/.test(customerPhone)) throw new AuthenticationError('Tra cứu đơn bằng mã đơn và số điện thoại đã đặt để yêu cầu hủy');
+    return this.orderRepo.requestOrderCancellation({ orderId, userId: user?.id || null, customerPhone, reason });
+  }
+
+  async reviewCancellationRequest({ requestId, approved, deductibleAmount, costBreakdown, evidenceNote, user }) {
+    if (!user || !['admin', 'staff'].includes(user.role)) throw new ForbiddenError('Chỉ nhân viên được xử lý yêu cầu hủy');
+    if (!Array.isArray(costBreakdown)) throw new ValidationError('Danh sách chi phí phát sinh không hợp lệ');
+    return this.orderRepo.reviewCancellationRequest({ requestId, approved: Boolean(approved), reviewerId: user.id,
+      deductibleAmount, costBreakdown, evidenceNote });
+  }
+
+  async recordDeliveryAttempt({ orderId, action, reason, contactLog, user }) {
+    if (!user || !['admin', 'staff'].includes(user.role)) throw new ForbiddenError('Chỉ nhân viên giao hàng được ghi nhận lần giao');
+    return this.orderRepo.recordDeliveryAttempt({ orderId, action, actorId: user.id, actorRole: user.role, reason, contactLog });
+  }
+
+  async createRedeliveryPaymentIntent({ orderId, user }) {
+    if (!user || !['admin', 'staff'].includes(user.role)) throw new ForbiddenError('Chỉ nhân viên được tạo khoản phí giao lại');
+    return this.orderRepo.createRedeliveryPaymentIntent({ orderId, actorId: user.id });
   }
 
   /**
@@ -225,8 +325,15 @@ export class OrderService {
       }
     }
 
-    // 5. Phi van chuyen do server tinh theo chinh sach cong khai (Mien phi tu 350.000d, duoi 350.000d phi 30.000d)
-    const shippingFee = subtotal >= 350000 ? 0 : 30000;
+    // 5. Phí tra theo vùng/phường do server cấu hình; không dùng giá hay quãng đường từ trình duyệt.
+    const deliveryQuote = await this.quoteDelivery(orderData);
+    if (!deliveryQuote.pinProvided) {
+      throw new ValidationError('Chọn vị trí nhận hàng trên bản đồ để tiệm có thể giao đúng địa chỉ');
+    }
+    if (deliveryQuote.requiresShopConfirmation) {
+      throw new ValidationError(deliveryQuote.message || 'Shop cần xác nhận vị trí ghim trước khi nhận đơn');
+    }
+    const shippingFee = deliveryQuote.fee;
     const totalAmount = Math.max(0, subtotal - discountAmount) + shippingFee;
 
     return {
@@ -234,6 +341,7 @@ export class OrderService {
       subtotal,
       discountAmount,
       shippingFee,
+      deliveryQuote,
       totalAmount,
       appliedVoucherCode,
       voucherSnapshot
@@ -288,6 +396,7 @@ export class OrderService {
         subtotal: pricing.subtotal,
         discountAmount: pricing.discountAmount,
         shippingFee: pricing.shippingFee,
+        deliveryQuote: pricing.deliveryQuote,
         totalAmount: pricing.totalAmount,
         appliedVoucherCode: pricing.appliedVoucherCode,
         voucherSnapshot: pricing.voucherSnapshot
@@ -318,6 +427,7 @@ export class OrderService {
         subtotal: pricing.subtotal,
         discountAmount: pricing.discountAmount,
         shippingFee: pricing.shippingFee,
+        deliveryQuote: pricing.deliveryQuote,
         totalAmount: pricing.totalAmount,
         appliedVoucherCode: pricing.appliedVoucherCode,
         voucherSnapshot: pricing.voucherSnapshot
@@ -387,6 +497,11 @@ export class OrderService {
     if (user.role === 'admin' || user.role === 'staff') {
       return this.orderRepo.updateOrderStatus(orderId, status);
     } else if (status === 'cancelled') {
+      const order = await this.orderRepo.findOrderById(orderId);
+      if (order && ['paid', 'partially_paid'].includes(order.paymentStatus)) {
+        const cancellationRequest = await this.orderRepo.requestOrderCancellation({ orderId, userId: user.id, reason: 'Khách yêu cầu hủy đơn' });
+        return { order, cancellationRequest, notification: null };
+      }
       return this.orderRepo.cancelCustomerOrder(orderId, user.id);
     } else {
       throw new ForbiddenError('Khách hàng chỉ được hủy đơn chưa xử lý');
