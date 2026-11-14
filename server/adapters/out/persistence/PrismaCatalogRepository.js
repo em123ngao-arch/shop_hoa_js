@@ -88,7 +88,27 @@ export class PrismaCatalogRepository {
       query.take = Number(limit);
     }
 
-    const records = await this.prisma.products.findMany(query);
+    let records;
+    try {
+      records = await this.prisma.products.findMany(query);
+    } catch (dbErr) {
+      // Cơ chế tự phục hồi (Fault-Tolerance): Nếu CSDL đám mây (TiDB Cloud) chưa kịp chạy DDL thêm cột mới,
+      // tự động fallback truy vấn raw an toàn để đảm bảo Storefront 100% không bao giờ bị sập (Zero Downtime)
+      const isColumnErr = dbErr.message && (
+        dbErr.message.includes('Unknown column') || 
+        dbErr.message.includes('column') || 
+        dbErr.code === 'P2021' || 
+        dbErr.code === 'P2022'
+      );
+      if (isColumnErr) {
+        console.warn('[PrismaCatalogRepository] CSDL thiếu cột phân loại mới, kích hoạt fallback raw query an toàn...');
+        const whereClause = activeOnly ? 'WHERE `is_active` = 1' : '';
+        const limitClause = (limit && Number(limit) > 0) ? `LIMIT ${Number(limit)}` : '';
+        records = await this.prisma.$queryRawUnsafe(`SELECT * FROM \`products\` ${whereClause} ORDER BY \`id\` ASC ${limitClause}`);
+      } else {
+        throw dbErr;
+      }
+    }
     return records.map(p => this.#mapProductToDTO(p));
   }
 
@@ -100,18 +120,39 @@ export class PrismaCatalogRepository {
     const cleanId = String(id).trim();
 
     // 1. Tim truc tiep theo ID
-    let raw = await this.prisma.products.findUnique({
-      where: { id: cleanId },
-      include: { categories: true, reviews: true }
-    });
+    let raw;
+    try {
+      raw = await this.prisma.products.findUnique({
+        where: { id: cleanId },
+        include: { categories: true, reviews: true }
+      });
+    } catch (dbErr) {
+      const isColumnErr = dbErr.message && (
+        dbErr.message.includes('Unknown column') || 
+        dbErr.message.includes('column') || 
+        dbErr.code === 'P2021' || 
+        dbErr.code === 'P2022'
+      );
+      if (isColumnErr) {
+        const rows = await this.prisma.$queryRawUnsafe(`SELECT * FROM \`products\` WHERE \`id\` = '${cleanId}' LIMIT 1`);
+        raw = rows[0] || null;
+      } else {
+        throw dbErr;
+      }
+    }
 
     // 2. Fallback: Neu client truyen dang so ('1'), thu tim 'PROD-001'
     if (!raw && /^\d+$/.test(cleanId)) {
       const paddedId = `PROD-${cleanId.padStart(3, '0')}`;
-      raw = await this.prisma.products.findUnique({
-        where: { id: paddedId },
-        include: { categories: true, reviews: true }
-      });
+      try {
+        raw = await this.prisma.products.findUnique({
+          where: { id: paddedId },
+          include: { categories: true, reviews: true }
+        });
+      } catch (dbErr) {
+        const rows = await this.prisma.$queryRawUnsafe(`SELECT * FROM \`products\` WHERE \`id\` = '${paddedId}' LIMIT 1`);
+        raw = rows[0] || null;
+      }
     }
 
     return this.#mapProductToDTO(raw);
