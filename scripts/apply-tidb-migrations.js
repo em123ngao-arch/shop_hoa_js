@@ -92,6 +92,11 @@ async function main() {
     console.log('======================================================');
   } catch (err) {
     console.error('\n❌ Lỗi thực thi migration:', err);
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      try {
+        fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### ❌ Lỗi Migration TiDB\n\`\`\`\n${err.stack || err.message || err}\n\`\`\`\n`, 'utf8');
+      } catch {}
+    }
     process.exit(1);
   } finally {
     await prisma.$disconnect();
