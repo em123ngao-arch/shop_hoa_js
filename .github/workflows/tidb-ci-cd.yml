@@ -34,21 +34,21 @@ jobs:
         run: npx prisma generate
 
       - name: 5. Tự động đồng bộ Schema lên TiDB Cloud
-        if: ${{ secrets.TIDB_DATABASE_URL != '' }}
+        if: env.TIDB_DATABASE_URL != ''
         run: |
           echo "🔄 Đang tự động đẩy các thay đổi bảng/cột mới lên TiDB Cloud..."
           npx prisma db push --skip-generate
           echo "✅ Đã đồng bộ cấu trúc bảng lên TiDB Cloud thành công!"
 
       - name: 6. Tự động chuẩn hóa Metadata phân loại mẫu hoa trên TiDB Cloud
-        if: ${{ secrets.TIDB_DATABASE_URL != '' }}
+        if: env.TIDB_DATABASE_URL != ''
         run: |
           echo "🌱 Đang chuẩn hóa thuộc tính mẫu hoa (màu sắc, loài hoa, dịp lễ) trên TiDB..."
           node scripts/migrate-products-filter-metadata.js
           echo "✅ Đã chuẩn hóa dữ liệu phân loại trên TiDB Cloud thành công!"
 
       - name: 7. Chạy kiểm thử xác thực tự động
-        if: ${{ secrets.TIDB_DATABASE_URL != '' }}
+        if: env.TIDB_DATABASE_URL != ''
         run: |
           echo "🧪 Chạy bộ test tích hợp hệ thống xác thực..."
           node test-auth-http.js
