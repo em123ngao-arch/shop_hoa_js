@@ -16,7 +16,7 @@ async function main() {
   console.log('======================================================\n');
 
   try {
-    const dbUrl = process.env.DATABASE_URL || process.env.TIDB_DATABASE_URL;
+    let dbUrl = process.env.DATABASE_URL || process.env.TIDB_DATABASE_URL;
     await sendDebug(`URL exists: ${Boolean(dbUrl)}, length: ${dbUrl ? dbUrl.length : 0}`);
 
     if (!dbUrl) {
@@ -24,8 +24,13 @@ async function main() {
       process.exit(1);
     }
 
+    // TiDB Cloud Serverless bắt buộc kết nối bảo mật SSL (sslaccept=strict)
+    if (!dbUrl.includes('sslaccept=') && !dbUrl.includes('ssl=')) {
+      dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'sslaccept=strict';
+    }
+
     const hostPart = dbUrl.split('@')[1] ? dbUrl.split('@')[1].split('/')[0] : 'hidden';
-    await sendDebug(`Connecting to host: ${hostPart}`);
+    await sendDebug(`Connecting to host with SSL: ${hostPart}`);
 
     const prisma = new PrismaClient({
       datasources: { db: { url: dbUrl } }
