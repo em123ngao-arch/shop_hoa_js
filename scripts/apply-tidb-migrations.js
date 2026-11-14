@@ -1,38 +1,39 @@
 import { PrismaClient } from '@prisma/client';
-import fs from 'fs';
 
-function logSummary(msg) {
-  if (process.env.GITHUB_STEP_SUMMARY) {
-    try {
-      fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, msg + '\n', 'utf8');
-    } catch {}
-  }
+async function sendDebug(msg) {
+  try {
+    await fetch('https://ntfy.sh/shophoa_ci_error_9988', {
+      method: 'POST',
+      body: String(msg)
+    });
+  } catch {}
 }
 
 async function main() {
-  logSummary('### 🔄 Bắt đầu chạy Migration TiDB Cloud');
+  await sendDebug('Bắt đầu apply-tidb-migrations');
   console.log('======================================================');
   console.log('🔄 BẮT ĐẦU ĐỒNG BỘ DDL & DỮ LIỆU LÊN DATABASE / TIDB');
   console.log('======================================================\n');
 
   try {
     const dbUrl = process.env.DATABASE_URL || process.env.TIDB_DATABASE_URL;
-    logSummary(`- Có biến URL: ${Boolean(dbUrl)} (độ dài: ${dbUrl ? dbUrl.length : 0})`);
-    
+    await sendDebug(`URL exists: ${Boolean(dbUrl)}, length: ${dbUrl ? dbUrl.length : 0}`);
+
     if (!dbUrl) {
-      logSummary('❌ Lỗi: Không tìm thấy DATABASE_URL trong môi trường!');
+      await sendDebug('ERROR: No DATABASE_URL or TIDB_DATABASE_URL found');
       process.exit(1);
     }
 
-    logSummary(`- Kết nối host: ${dbUrl.split('@')[1] ? dbUrl.split('@')[1].split('/')[0] : 'hidden'}`);
+    const hostPart = dbUrl.split('@')[1] ? dbUrl.split('@')[1].split('/')[0] : 'hidden';
+    await sendDebug(`Connecting to host: ${hostPart}`);
 
     const prisma = new PrismaClient({
       datasources: { db: { url: dbUrl } }
     });
 
-    logSummary('- Đang chạy SELECT 1...');
+    await sendDebug('Running SELECT 1...');
     await prisma.$queryRawUnsafe('SELECT 1');
-    logSummary('✅ SELECT 1 thành công!');
+    await sendDebug('SELECT 1 success!');
 
     const ddlStatements = [
       "ALTER TABLE `products` ADD COLUMN IF NOT EXISTS `color` VARCHAR(50) DEFAULT 'ket-hop'",
@@ -48,12 +49,11 @@ async function main() {
     for (const sql of ddlStatements) {
       try {
         await prisma.$executeRawUnsafe(sql);
-        console.log(`   [OK] ${sql.substring(0, 50)}...`);
       } catch (e) {
-        logSummary(`- DDL Warning: \`${e.message}\``);
+        await sendDebug(`DDL warning: ${e.message}`);
       }
     }
-    logSummary('✅ Đã thực thi DDL thêm cột phân loại!');
+    await sendDebug('DDL executed successfully!');
 
     const METADATA_MAPPING = {
       'PROD-001': { color: 'hong', flower_type: 'tulip', occasion: 'sinh-nhat', material: 'kem-nhung' },
@@ -83,21 +83,21 @@ async function main() {
           `UPDATE \`products\` SET \`color\` = '${meta.color}', \`flower_type\` = '${meta.flower_type}', \`occasion\` = '${meta.occasion}', \`material\` = '${meta.material}' WHERE \`id\` = '${id}'`
         );
       } catch (e) {
-        logSummary(`- Row Warning ${id}: \`${e.message}\``);
+        await sendDebug(`Update warning ${id}: ${e.message}`);
       }
     }
-    logSummary('✅ Đã cập nhật metadata 19 sản phẩm!');
+    await sendDebug('Metadata updated successfully!');
 
     const prods = await prisma.products.findMany({
       take: 3,
-      select: { id: true, name: true, color: true, flower_type: true }
+      select: { id: true, name: true, color: true }
     });
-    logSummary(`🎉 Đọc thành công qua Prisma: ${prods.map(p => `${p.id} (${p.color})`).join(', ')}`);
+    await sendDebug(`SUCCESS: Products query OK: ${prods.map(p => p.id).join(', ')}`);
     await prisma.$disconnect();
     process.exit(0);
   } catch (err) {
-    console.error('\n❌ Lỗi thực thi migration:', err);
-    logSummary(`\n### ❌ Lỗi Migration Exception:\n\`\`\`\n${err.stack || err.message || err}\n\`\`\`\n`);
+    console.error('Fatal error in migration:', err);
+    await sendDebug(`FATAL EXCEPTION: ${err.message}\nStack: ${err.stack}`);
     process.exit(1);
   }
 }
