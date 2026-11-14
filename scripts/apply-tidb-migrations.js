@@ -1,30 +1,39 @@
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
-import path from 'path';
+
+function logSummary(msg) {
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    try {
+      fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, msg + '\n', 'utf8');
+    } catch {}
+  }
+}
 
 async function main() {
+  logSummary('### 🔄 Bắt đầu chạy Migration TiDB Cloud');
   console.log('======================================================');
   console.log('🔄 BẮT ĐẦU ĐỒNG BỘ DDL & DỮ LIỆU LÊN DATABASE / TIDB');
   console.log('======================================================\n');
 
-  const dbUrl = process.env.DATABASE_URL || process.env.TIDB_DATABASE_URL;
-  if (!dbUrl) {
-    console.error('❌ Không tìm thấy DATABASE_URL hoặc TIDB_DATABASE_URL trong môi trường!');
-    process.exit(1);
-  }
-
-  const prisma = new PrismaClient({
-    datasources: { db: { url: dbUrl } }
-  });
-
   try {
-    // 1. Kiểm tra kết nối
-    console.log('1. Kiểm tra kết nối tới Database...');
-    await prisma.$queryRawUnsafe('SELECT 1');
-    console.log('   ✅ Kết nối thành công!');
+    const dbUrl = process.env.DATABASE_URL || process.env.TIDB_DATABASE_URL;
+    logSummary(`- Có biến URL: ${Boolean(dbUrl)} (độ dài: ${dbUrl ? dbUrl.length : 0})`);
+    
+    if (!dbUrl) {
+      logSummary('❌ Lỗi: Không tìm thấy DATABASE_URL trong môi trường!');
+      process.exit(1);
+    }
 
-    // 2. Chạy DDL thêm cột phân loại
-    console.log('\n2. Thực thi DDL bổ sung cột metadata cho bảng products...');
+    logSummary(`- Kết nối host: ${dbUrl.split('@')[1] ? dbUrl.split('@')[1].split('/')[0] : 'hidden'}`);
+
+    const prisma = new PrismaClient({
+      datasources: { db: { url: dbUrl } }
+    });
+
+    logSummary('- Đang chạy SELECT 1...');
+    await prisma.$queryRawUnsafe('SELECT 1');
+    logSummary('✅ SELECT 1 thành công!');
+
     const ddlStatements = [
       "ALTER TABLE `products` ADD COLUMN IF NOT EXISTS `color` VARCHAR(50) DEFAULT 'ket-hop'",
       "ALTER TABLE `products` ADD COLUMN IF NOT EXISTS `flower_type` VARCHAR(50) DEFAULT 'khac'",
@@ -39,14 +48,13 @@ async function main() {
     for (const sql of ddlStatements) {
       try {
         await prisma.$executeRawUnsafe(sql);
-        console.log(`   [OK] ${sql.substring(0, 60)}...`);
+        console.log(`   [OK] ${sql.substring(0, 50)}...`);
       } catch (e) {
-        console.warn(`   [WARN/SKIP] ${e.message.split('\n')[0]}`);
+        logSummary(`- DDL Warning: \`${e.message}\``);
       }
     }
+    logSummary('✅ Đã thực thi DDL thêm cột phân loại!');
 
-    // 3. Chuẩn hóa dữ liệu cho các sản phẩm
-    console.log('\n3. Đồng bộ metadata cho toàn bộ sản phẩm...');
     const METADATA_MAPPING = {
       'PROD-001': { color: 'hong', flower_type: 'tulip', occasion: 'sinh-nhat', material: 'kem-nhung' },
       'PROD-002': { color: 'cam', flower_type: 'hoa-hong', occasion: 'sinh-nhat', material: 'kem-nhung' },
@@ -75,31 +83,22 @@ async function main() {
           `UPDATE \`products\` SET \`color\` = '${meta.color}', \`flower_type\` = '${meta.flower_type}', \`occasion\` = '${meta.occasion}', \`material\` = '${meta.material}' WHERE \`id\` = '${id}'`
         );
       } catch (e) {
-        console.warn(`   [WARN update ${id}]`, e.message.split('\n')[0]);
+        logSummary(`- Row Warning ${id}: \`${e.message}\``);
       }
     }
+    logSummary('✅ Đã cập nhật metadata 19 sản phẩm!');
 
-    // 4. Xác nhận truy vấn products bằng Prisma
-    console.log('\n4. Kiểm tra truy vấn sản phẩm qua Prisma Client...');
     const prods = await prisma.products.findMany({
-      take: 5,
-      select: { id: true, name: true, price: true, color: true, flower_type: true }
+      take: 3,
+      select: { id: true, name: true, color: true, flower_type: true }
     });
-    console.log('   ✅ Đã đọc thành công sản phẩm:', prods.map(p => `${p.id} (${p.color}, ${p.flower_type})`).join(', '));
-
-    console.log('\n======================================================');
-    console.log('🎉 ĐỒNG BỘ TOÀN BỘ SCHEMA & METADATA LÊN DATABASE THÀNH CÔNG!');
-    console.log('======================================================');
+    logSummary(`🎉 Đọc thành công qua Prisma: ${prods.map(p => `${p.id} (${p.color})`).join(', ')}`);
+    await prisma.$disconnect();
+    process.exit(0);
   } catch (err) {
     console.error('\n❌ Lỗi thực thi migration:', err);
-    if (process.env.GITHUB_STEP_SUMMARY) {
-      try {
-        fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### ❌ Lỗi Migration TiDB\n\`\`\`\n${err.stack || err.message || err}\n\`\`\`\n`, 'utf8');
-      } catch {}
-    }
+    logSummary(`\n### ❌ Lỗi Migration Exception:\n\`\`\`\n${err.stack || err.message || err}\n\`\`\`\n`);
     process.exit(1);
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
