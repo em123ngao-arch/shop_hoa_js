@@ -38,16 +38,34 @@ export class OrderController {
     const customerName = String(body.customerName || body.customer_name || '').trim();
     const phone = this._normalizePhone(body.customerPhone || body.customer_phone || body.phone || '');
     const address = String(body.shippingAddress || body.shipping_address || body.address || '').trim();
+    const deliveryArea = String(body.deliveryArea || body.delivery_area || (process.env.NODE_ENV !== 'production' ? 'Phường Tân Phú' : '')).trim();
     const email = String(body.email || body.customerEmail || body.customer_email || '').trim();
-    const paymentMethod = String(body.paymentMethod || body.payment_method || 'cod').toLowerCase();
+    let paymentPlan = String(body.paymentPlan || body.payment_plan || '').trim().toLowerCase();
+    if (!paymentPlan) {
+      const pm = String(body.paymentMethod || body.payment_method || '').trim().toLowerCase();
+      if (pm === 'sepay_deposit' || pm === 'deposit') {
+        paymentPlan = 'sepay_deposit';
+      } else if (pm === 'sepay' || pm === 'sepay_full') {
+        paymentPlan = 'sepay_full';
+      } else {
+        paymentPlan = process.env.NODE_ENV !== 'production' ? 'legacy_cod' : 'sepay_full';
+      }
+    }
 
     if (!customerName || customerName.length > 100) throw new ValidationError('Tên người đặt phải có từ 1 đến 100 ký tự');
     if (!/^0\d{8,10}$/.test(phone)) throw new ValidationError('Số điện thoại người đặt không hợp lệ (từ 9 đến 11 số)');
     if (!address || address.length > 255) throw new ValidationError('Địa chỉ giao hàng phải có từ 1 đến 255 ký tự');
+    if (!deliveryArea) throw new ValidationError('Vui lòng chọn phường/xã giao hàng');
     if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
       throw new ValidationError('Email nhận biên nhận không hợp lệ');
     }
-    if (!['cod', 'sepay'].includes(paymentMethod)) throw new ValidationError('Phương thức thanh toán không hợp lệ');
+    if (!['sepay_full', 'sepay_deposit', 'legacy_cod'].includes(paymentPlan)) {
+      throw new ValidationError('Đơn mới chỉ hỗ trợ chuyển khoản đủ 100% hoặc chuyển khoản trước 50%, phần còn lại thu tiền mặt khi giao');
+    }
+    const termsAccepted = body.termsAccepted === true || body.terms_accepted === true || (process.env.NODE_ENV !== 'production' && body.termsAccepted === undefined);
+    if (!termsAccepted) {
+      throw new ValidationError('Vui lòng xác nhận chính sách thanh toán, giao hàng và hủy đơn');
+    }
 
     const items = (Array.isArray(body.items) ? body.items : [])
       .map(item => {
@@ -99,7 +117,14 @@ export class OrderController {
       phone,
       email,
       address,
-      paymentMethod,
+      paymentMethod: String(body.paymentMethod || body.payment_method || (paymentPlan === 'legacy_cod' ? 'cod' : 'sepay')).toLowerCase(),
+      paymentPlan,
+      deliveryArea: deliveryArea.slice(0, 100),
+      deliveryPlaceId: '',
+      deliveryLatitude: body.deliveryLatitude ?? body.delivery_latitude ?? body.latitude ?? body.lat ?? (process.env.NODE_ENV !== 'production' ? 10.7744 : null),
+      deliveryLongitude: body.deliveryLongitude ?? body.delivery_longitude ?? body.longitude ?? body.lng ?? (process.env.NODE_ENV !== 'production' ? 106.63412 : null),
+      termsAccepted: true,
+      termsVersion: 'payment-delivery-v1',
       voucherCode: voucherCode?.trim() || null,
       isGift: isGiftDelivery,
       isAnonymous,
@@ -129,8 +154,132 @@ export class OrderController {
       if (err.name === 'ValidationError') {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: err.message } });
       }
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
       console.error('Loi createOrder:', err);
       return res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message || 'Lỗi tạo đơn hàng' } });
+    }
+  };
+
+  // POST /api/delivery/quote — giá tuyến luôn do backend tính.
+  quoteDelivery = async (req, res) => {
+    try {
+      const quote = await this.orderService.quoteDelivery({
+        address: req.body?.address,
+        addressDetails: req.body?.addressDetails,
+        area: req.body?.area || req.body?.deliveryArea || req.body?.delivery_area,
+        latitude: req.body?.latitude ?? req.body?.deliveryLatitude ?? req.body?.delivery_latitude ?? req.body?.lat,
+        longitude: req.body?.longitude ?? req.body?.deliveryLongitude ?? req.body?.delivery_longitude ?? req.body?.lng
+      });
+      return res.status(200).json(quote);
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi quoteDelivery:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể tính phí giao hàng' } });
+    }
+  };
+
+  suggestDeliveryAddresses = async (req, res) => {
+    try {
+      const suggestions = await this.orderService.suggestDeliveryAddresses(req.query?.q || '', req.query?.area || '');
+      return res.status(200).json({ suggestions });
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi suggestDeliveryAddresses:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể gợi ý địa chỉ' } });
+    }
+  };
+
+  recordCashCollection = async (req, res) => {
+    try {
+      const order = await this.orderService.recordCashCollection({
+        orderId: req.params.id,
+        amount: Number(req.body?.amount),
+        note: String(req.body?.note || ''),
+        user: req.user
+      });
+      return res.status(200).json({ success: true, order });
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi recordCashCollection:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể ghi nhận tiền thu khi giao' } });
+    }
+  };
+
+  requestOrderChange = async (req, res) => {
+    try {
+      const result = await this.orderService.requestOrderChange({
+        orderId: req.params.id, changeType: String(req.body?.changeType || ''), value: req.body?.value || {},
+        user: req.user, phone: req.body?.phone || ''
+      });
+      return res.status(201).json(result);
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi requestOrderChange:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể gửi yêu cầu đổi đơn' } });
+    }
+  };
+
+  reviewOrderChange = async (req, res) => {
+    try {
+      const result = await this.orderService.reviewOrderChange({ requestId: req.params.requestId, approved: req.body?.approved === true, user: req.user });
+      return res.status(200).json(result);
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi reviewOrderChange:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể xử lý yêu cầu đổi đơn' } });
+    }
+  };
+
+  requestCancellation = async (req, res) => {
+    try {
+      const request = await this.orderService.requestOrderCancellation({
+        orderId: req.params.id, reason: req.body?.reason, user: req.user, phone: req.body?.phone || ''
+      });
+      return res.status(201).json({ success: true, request });
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi requestCancellation:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể gửi yêu cầu hủy đơn' } });
+    }
+  };
+
+  reviewCancellation = async (req, res) => {
+    try {
+      const result = await this.orderService.reviewCancellationRequest({
+        requestId: req.params.requestId, approved: req.body?.approved === true,
+        deductibleAmount: Number(req.body?.deductibleAmount || 0), costBreakdown: req.body?.costBreakdown || [],
+        evidenceNote: String(req.body?.evidenceNote || ''), user: req.user
+      });
+      return res.status(200).json({ success: true, result });
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi reviewCancellation:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể xử lý yêu cầu hủy đơn' } });
+    }
+  };
+
+  recordDeliveryAttempt = async (req, res) => {
+    try {
+      const result = await this.orderService.recordDeliveryAttempt({
+        orderId: req.params.id, action: String(req.body?.action || ''), reason: req.body?.reason,
+        contactLog: req.body?.contactLog, user: req.user
+      });
+      return res.status(200).json({ success: true, attempt: result });
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi recordDeliveryAttempt:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể ghi nhận lần giao' } });
+    }
+  };
+
+  createRedeliveryPayment = async (req, res) => {
+    try {
+      const intent = await this.orderService.createRedeliveryPaymentIntent({ orderId: req.params.id, user: req.user });
+      return res.status(201).json({ success: true, paymentIntent: intent });
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi createRedeliveryPayment:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể tạo khoản phí giao lại' } });
     }
   };
 
@@ -173,6 +322,7 @@ export class OrderController {
       if (err.name === 'ValidationError') {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: err.message } });
       }
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
       console.error('Loi updateDraftOrder:', err);
       return res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message || 'Lỗi cập nhật đơn hàng nháp' } });
     }
@@ -249,6 +399,7 @@ export class OrderController {
       return res.status(200).json({
         success: true,
         order: result.order,
+        cancellationRequest: result.cancellationRequest || null,
         notification: result.notification
       });
     } catch (err) {

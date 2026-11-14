@@ -105,27 +105,35 @@ function setupBottomNavInteractions() {
   const btnCategories = document.getElementById('bottomNavCategories');
   if (btnCategories) {
     btnCategories.addEventListener('click', () => {
-      if (isHome) {
-        const catSection = document.getElementById('categories') || document.querySelector('.category-nav') || document.getElementById('products');
-        if (catSection) {
-          catSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+      const mobileDrawer = document.getElementById('mobileDrawer');
+      const drawerBackdrop = document.getElementById('drawerBackdrop');
+      if (mobileDrawer && drawerBackdrop) {
+        mobileDrawer.classList.add('open');
+        mobileDrawer.setAttribute('aria-hidden', 'false');
+        drawerBackdrop.classList.add('open');
+        drawerBackdrop.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      } else if (isHome) {
+        const prodSection = document.getElementById('products');
+        if (prodSection) prodSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } else {
-        window.location.href = './index.html#categories';
+        window.location.href = './index.html#products';
       }
     });
   }
 
-  // 3. Nút Tìm Kiếm (cuộn và focus vào ô search)
+  // 3. Nút Tìm Kiếm (cuộn và focus vào ô search với hiệu ứng viền nổi bật)
   const btnSearch = document.getElementById('bottomNavSearch');
   if (btnSearch) {
     btnSearch.addEventListener('click', () => {
-      const searchInput = document.getElementById('headerSearchInput');
+      const searchInput = document.getElementById('searchInput') || document.getElementById('headerSearchInput');
       if (searchInput) {
         searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setTimeout(() => {
           searchInput.focus();
-        }, 200);
+          searchInput.classList.add('search-highlight-pulse');
+          setTimeout(() => searchInput.classList.remove('search-highlight-pulse'), 1500);
+        }, 250);
       } else if (!isHome) {
         window.location.href = './index.html?focusSearch=true';
       }

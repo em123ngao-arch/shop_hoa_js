@@ -484,11 +484,11 @@ async function runTests() {
       process.env.NODE_ENV = origEnv;
     }
 
-    // 4. Gọi với token hợp lệ của chủ đơn -> Thành công 200 OK
+    // 4. Kiểm tra: Chế độ mô phỏng bị vô hiệu hóa hoàn toàn, trả 403 Forbidden
     const simValidRes = await httpRequest('POST', `/api/sepay/simulate-payment/${simOrderId}`, {}, {
       'Cookie': custCookie
     });
-    assert(simValidRes.status === 200 && simValidRes.data.paid === true, 'A13 PASS: Simulate payment với token chủ đơn thành công');
+    assert(simValidRes.status === 403, 'A13 PASS: Simulate payment đã bị vô hiệu hóa hoàn toàn (403 Forbidden)');
 
     // 8. Kiểm tra Task A7: Tự động hủy đơn SePay quá hạn (Atomic & Hoàn cả Kho lẫn Voucher)
     console.log('\n--- Testing Task A7: Auto-expiry of pending SePay orders with Voucher ---');

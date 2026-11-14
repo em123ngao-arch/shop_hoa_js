@@ -44,6 +44,11 @@ let allProducts = [];
 let allPromotions = [];
 let currentWishlist = [];
 let currentCategoryId = '0';
+let currentFlowerType = 'all';
+let currentOccasion = 'all';
+let currentColor = 'all';
+let currentPriceRange = 'all';
+let currentMaterial = 'all';
 let catalogPagination = {
   currentPage: 1,
   limit: 8 // Hiển thị 8 mẫu hoa / trang (lưới 4 cột x 2 dòng cân đối)
@@ -52,15 +57,19 @@ let catalogSort = 'newest';
 
 // Các phần tử DOM chính
 const categoryList = document.querySelector('#categoryList');
+const visualCategoryGrid = document.querySelector('#visualCategoryGrid');
 const productList = document.querySelector('#productList');
 const searchInput = document.querySelector('#searchInput');
 const searchBtn = document.querySelector('#searchBtn');
 const loadingElement = document.querySelector('#loading');
 const errorElement = document.querySelector('#error');
 const productCountElement = document.querySelector('#productCount');
+const activeFilterStatus = document.querySelector('#activeFilterStatus');
+const activeFilterTags = document.querySelector('#activeFilterTags');
+const btnClearAllFilters = document.querySelector('#btnClearAllFilters');
 
 /**
- * 1. HÀM RENDER DANH MỤC HOA
+ * 1. HÀM RENDER DANH MỤC HOA DẠNG PILL
  * Sử dụng forEach và innerHTML theo đúng cách viết của Thầy
  */
 function renderCategories(categories) {
@@ -69,7 +78,7 @@ function renderCategories(categories) {
   // Nút đầu tiên là "Tất cả" với data-category="0"
   categoryList.innerHTML = `
     <button class="category-btn active" data-category="0">
-      Tất cả
+      Tất cả hoa
     </button>
   `;
 
@@ -86,21 +95,715 @@ function renderCategories(categories) {
   const categoryButtons = document.querySelectorAll('.category-btn');
   categoryButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      // Đổi class active
       categoryButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
 
       const catId = String(btn.dataset.category || '0');
       currentCategoryId = catId;
+      // Khi chọn category dạng pill, reset các tiêu chí dịp & loài hoa để tránh xung đột
+      currentFlowerType = 'all';
+      currentOccasion = 'all';
+      syncActiveVisualCards();
+      syncActiveFilterChips();
       applyFilters(true);
     });
   });
 }
 
 /**
- * HÀM TIỆN ÍCH TẠO MÃ HTML CHO MỘT THẺ SẢN PHẨM HOA (CHUẨN FLOWER CHIMP CAO CẤP)
- * Tối giản, không viền thô kệch, ảnh bo góc 12px có chiều sâu, chữ căn giữa thanh lịch
- * Nút "+ Thêm nhanh" trượt từ đáy ảnh lên khi rê chuột (Hover Slide-up)
+ * THIẾT LẬP TƯƠNG TÁC THẺ DANH MỤC TRỰC QUAN (VISUAL CATEGORY CARDS)
+ * Bấm vào bất kỳ thẻ ảnh nào -> lọc tức thì và cuộn mượt xuống danh sách sản phẩm
+ */
+function setupVisualCategoryInteractions() {
+  if (!visualCategoryGrid) return;
+
+  const cards = visualCategoryGrid.querySelectorAll('.visual-category-card');
+  cards.forEach(card => {
+    card.addEventListener('click', () => {
+      cards.forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+
+      const filterType = card.dataset.filterType;
+      const filterValue = card.dataset.filterValue;
+
+      if (filterType === 'occasion') {
+        currentOccasion = filterValue;
+        currentCategoryId = '0';
+        currentFlowerType = 'all';
+      } else if (filterType === 'flowerType') {
+        currentFlowerType = filterValue;
+        currentCategoryId = '0';
+        currentOccasion = 'all';
+      } else if (filterType === 'category') {
+        currentCategoryId = filterValue;
+        currentOccasion = 'all';
+        currentFlowerType = 'all';
+      }
+
+      syncActiveCategoryPills();
+      syncActiveFilterChips();
+      syncSidebarInputs();
+      applyFilters(true);
+
+      // Cuộn mượt đến khu vực sản phẩm
+      document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
+/**
+ * THIẾT LẬP BỘ LỌC ĐA TIÊU CHÍ (LOÀI HOA, MÀU SẮC, GIÁ)
+ */
+function setupFilterToolbarInteractions() {
+  // 1. Chip Loài hoa (Tulip, Hướng dương, Hoa hồng, Hoa ly/cúc, v.v.)
+  const typeChips = document.querySelectorAll('#flowerTypeChips .filter-chip');
+  typeChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      typeChips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentFlowerType = chip.dataset.type || 'all';
+      syncActiveVisualCards();
+      syncSidebarInputs();
+      applyFilters(true);
+    });
+  });
+
+  // 2. Swatch Màu sắc (Cam, Đỏ, Hồng, Vàng, Trắng, Tím, Xanh, Đa sắc)
+  const swatches = document.querySelectorAll('#colorSwatches .color-swatch-btn');
+  swatches.forEach(swatch => {
+    swatch.addEventListener('click', () => {
+      swatches.forEach(s => s.classList.remove('active'));
+      swatch.classList.add('active');
+      currentColor = swatch.dataset.color || 'all';
+      syncSidebarInputs();
+      applyFilters(true);
+    });
+  });
+
+  // 3. Chip Mức giá (< 350k, 350k - 500k, 500k - 750k, > 750k)
+  const priceChips = document.querySelectorAll('#priceChips .price-chip');
+  priceChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      priceChips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentPriceRange = chip.dataset.price || 'all';
+      syncSidebarInputs();
+      applyFilters(true);
+    });
+  });
+
+  // 4. Nút Xóa tất cả bộ lọc
+  if (btnClearAllFilters) {
+    btnClearAllFilters.addEventListener('click', () => {
+      resetAllFilters();
+    });
+  }
+
+  // Lắng nghe sự kiện click xóa từng tag lọc riêng lẻ
+  if (activeFilterTags) {
+    activeFilterTags.addEventListener('click', (e) => {
+      const removeBtn = e.target.closest('.tag-remove');
+      if (!removeBtn) return;
+      const clearKey = removeBtn.dataset.clear;
+      if (clearKey === 'color') currentColor = 'all';
+      if (clearKey === 'flowerType') currentFlowerType = 'all';
+      if (clearKey === 'occasion') currentOccasion = 'all';
+      if (clearKey === 'price') currentPriceRange = 'all';
+      if (clearKey === 'material') currentMaterial = 'all';
+      if (clearKey === 'category') currentCategoryId = '0';
+
+      syncActiveCategoryPills();
+      syncActiveVisualCards();
+      syncActiveFilterChips();
+      syncSidebarInputs();
+      applyFilters(true);
+    });
+  }
+}
+
+/**
+ * Đồng bộ trạng thái active của các nút Danh Mục dạng Pill
+ */
+function syncActiveCategoryPills() {
+  const pills = document.querySelectorAll('.category-btn');
+  pills.forEach(pill => {
+    const cat = String(pill.dataset.category || '0');
+    if (cat === currentCategoryId && currentOccasion === 'all' && currentFlowerType === 'all') {
+      pill.classList.add('active');
+    } else if (cat === '0' && currentCategoryId === '0') {
+      pill.classList.add('active');
+    } else {
+      pill.classList.remove('active');
+    }
+  });
+}
+
+/**
+ * Đồng bộ trạng thái active của Thẻ Danh Mục Trực Quan
+ */
+function syncActiveVisualCards() {
+  const cards = document.querySelectorAll('.visual-category-card');
+  cards.forEach(card => {
+    const type = card.dataset.filterType;
+    const val = card.dataset.filterValue;
+    const isMatch = (type === 'occasion' && currentOccasion === val) ||
+      (type === 'flowerType' && currentFlowerType === val) ||
+      (type === 'category' && currentCategoryId === val);
+    card.classList.toggle('active', isMatch);
+  });
+}
+
+/**
+ * Đồng bộ trạng thái active của các chip lọc trên Toolbar
+ */
+function syncActiveFilterChips() {
+  // Flower type chips
+  const typeChips = document.querySelectorAll('#flowerTypeChips .filter-chip');
+  typeChips.forEach(c => c.classList.toggle('active', (c.dataset.type || 'all') === currentFlowerType));
+
+  // Color swatches
+  const swatches = document.querySelectorAll('#colorSwatches .color-swatch-btn');
+  swatches.forEach(s => s.classList.toggle('active', (s.dataset.color || 'all') === currentColor));
+
+  // Price chips
+  const priceChips = document.querySelectorAll('#priceChips .price-chip');
+  priceChips.forEach(p => p.classList.toggle('active', (p.dataset.price || 'all') === currentPriceRange));
+}
+
+/**
+ * Đọc tham số tìm kiếm & bộ lọc từ URL (Deep Linking & Refresh Sync)
+ */
+function readUrlParams() {
+  // 1. Đọc từ search chuẩn (?price=...&color=...)
+  const searchParams = new URLSearchParams(window.location.search);
+
+  // 2. Bóc tách thông minh từ hash nếu có dạng #products?price=...&color=...
+  let hashQuery = '';
+  if (window.location.hash && window.location.hash.includes('?')) {
+    hashQuery = window.location.hash.split('?')[1] || '';
+  }
+  const hashParams = new URLSearchParams(hashQuery);
+
+  // Hàm lấy giá trị kết hợp: ưu tiên searchParams, fallback hashParams
+  const getParam = (key) => searchParams.get(key) || hashParams.get(key);
+
+  const pPrice = getParam('price');
+  const pMat = getParam('material');
+  const pCol = getParam('color');
+  const pFlower = getParam('flowerType') || getParam('flower_type');
+  const pOccasion = getParam('occasion');
+  const pCat = getParam('category') || getParam('cat');
+  const pSort = getParam('sort');
+  const pSearch = getParam('search') || getParam('q');
+  const pPage = getParam('page');
+
+  if (pPrice) currentPriceRange = pPrice;
+  if (pMat) currentMaterial = pMat;
+  if (pCol) currentColor = pCol;
+  if (pFlower) currentFlowerType = pFlower;
+  if (pOccasion) currentOccasion = pOccasion;
+  if (pCat) currentCategoryId = pCat;
+  if (pSort) catalogSort = pSort;
+  if (pSearch && searchInput) searchInput.value = pSearch;
+  if (pPage && !isNaN(Number(pPage))) catalogPagination.currentPage = Number(pPage);
+}
+
+/**
+ * Đồng bộ các tham số lọc hiện tại vào URL (Push State / Replace State)
+ */
+function updateUrlParams() {
+  const params = new URLSearchParams();
+  if (currentPriceRange !== 'all') params.set('price', currentPriceRange);
+  if (currentMaterial !== 'all') params.set('material', currentMaterial);
+  if (currentColor !== 'all') params.set('color', currentColor);
+  if (currentFlowerType !== 'all') params.set('flowerType', currentFlowerType);
+  if (currentOccasion !== 'all') params.set('occasion', currentOccasion);
+  if (currentCategoryId !== '0') params.set('category', currentCategoryId);
+  if (catalogSort !== 'newest') params.set('sort', catalogSort);
+  if (searchInput && searchInput.value.trim()) params.set('search', searchInput.value.trim());
+  if (catalogPagination.currentPage > 1) params.set('page', String(catalogPagination.currentPage));
+
+  const newQuery = params.toString();
+  // Giữ lại hash sạch (vd: #products) nếu đang có, không để lặp lại dấu ? trong hash
+  const cleanHash = window.location.hash ? window.location.hash.split('?')[0] : '';
+  const hashPart = cleanHash && cleanHash !== '#' ? cleanHash : '';
+  const newUrl = newQuery
+    ? `${window.location.pathname}?${newQuery}${hashPart}`
+    : `${window.location.pathname}${hashPart}`;
+  window.history.replaceState({}, '', newUrl);
+}
+
+/**
+ * Đồng bộ giá trị input trên Sidebar và Header với state JS
+ */
+function syncSidebarInputs() {
+  // Sync Price Radio in Sidebar
+  const priceRadios = document.querySelectorAll('input[name="sidebarPrice"]');
+  priceRadios.forEach(r => {
+    r.checked = (r.value === currentPriceRange);
+  });
+
+  // Sync Price Select in Header Composite Search
+  const headerPriceSelect = document.querySelector('#headerPriceFilter');
+  if (headerPriceSelect) {
+    headerPriceSelect.value = (currentPriceRange === 'all' ? '' : currentPriceRange);
+  }
+
+  // Sync Material Checkboxes in Sidebar
+  const materialCheckboxes = document.querySelectorAll('input[name="sidebarMaterial"]');
+  materialCheckboxes.forEach(cb => {
+    if (currentMaterial === 'all') {
+      cb.checked = (cb.value === 'kem-nhung');
+    } else {
+      cb.checked = (cb.value === currentMaterial);
+    }
+  });
+
+  // Sync Color Buttons in Sidebar
+  const colorBtns = document.querySelectorAll('.sidebar-color-btn');
+  colorBtns.forEach(btn => {
+    btn.classList.toggle('active', (btn.dataset.color || 'all') === currentColor);
+  });
+
+  // Sync Flower Type Radios in Sidebar
+  const flowerRadios = document.querySelectorAll('input[name="sidebarFlowerType"]');
+  flowerRadios.forEach(r => {
+    r.checked = (r.value === currentFlowerType);
+  });
+
+  // Sync Sort Select
+  if (catalogSortSelect) {
+    catalogSortSelect.value = catalogSort;
+  }
+}
+
+/**
+ * Đặt lại trạng thái biến lọc mà không kích hoạt gọi render (dùng trước khi áp dụng bộ lọc mới)
+ */
+function resetAllFiltersWithoutApply() {
+  currentCategoryId = '0';
+  currentFlowerType = 'all';
+  currentOccasion = 'all';
+  currentColor = 'all';
+  currentPriceRange = 'all';
+  currentMaterial = 'all';
+  if (searchInput) searchInput.value = '';
+}
+
+/**
+ * Reset toàn bộ bộ lọc về trạng thái ban đầu (Xem tất cả hoa)
+ */
+function resetAllFilters() {
+  resetAllFiltersWithoutApply();
+
+  syncActiveCategoryPills();
+  syncActiveVisualCards();
+  syncActiveFilterChips();
+  syncSidebarInputs();
+  applyFilters(true);
+}
+
+/**
+ * Cập nhật thanh hiển thị các bộ lọc đang kích hoạt (Active Filter Tags)
+ * ZERO EMOJI - Thiết kế sang trọng, tối giản
+ */
+function updateActiveFilterStatus(filteredCount = 0) {
+  const colorLabels = {
+    cam: 'Màu Cam',
+    do: 'Màu Đỏ',
+    hong: 'Màu Hồng',
+    vang: 'Màu Vàng',
+    trang: 'Màu Trắng',
+    tim: 'Màu Tím',
+    xanh: 'Màu Xanh Lá',
+    'da-sac': 'Kết Hợp Đa Sắc'
+  };
+
+  const flowerLabels = {
+    tulip: 'Hoa Tulip',
+    'huong-duong': 'Hoa Hướng Dương',
+    'hoa-hong': 'Hoa Hồng',
+    'hoa-ly-cuc': 'Hoa Ly & Cúc Họa Mi',
+    'baby-lavender': 'Baby & Lavender',
+    'mau-don': 'Hoa Mẫu Đơn'
+  };
+
+  const occasionLabels = {
+    '20-11': 'Tri Ân 20/11',
+    'sinh-nhat': 'Hoa Sinh Nhật',
+    'khai-truong': 'Hoa Khai Trương',
+    'ky-niem': 'Kỷ Niệm / Tỏ Tình',
+    'de-ban': 'Hoa Để Bàn'
+  };
+
+  const priceLabels = {
+    'under-50': 'Dưới 50.000đ',
+    '50-100': '50.000đ - 100.000đ',
+    '100-200': '100.000đ - 200.000đ',
+    '200-300': '200.000đ - 300.000đ',
+    '300-400': '300.000đ - 400.000đ',
+    '400-500': '400.000đ - 500.000đ',
+    'above-500': 'Trên 500.000đ',
+    'under-350': '< 350.000đ',
+    '350-500': '350.000đ - 500.000đ',
+    '500-750': '500.000đ - 750.000đ',
+    'above-750': '> 750.000đ'
+  };
+
+  const materialLabels = {
+    'kem-nhung': 'Kẽm Nhung Handmade',
+    'giay-nhun': 'Hoa Giấy Nhún',
+    'len': 'Hoa Móc Len'
+  };
+
+  const tags = [];
+  if (currentColor !== 'all') {
+    tags.push(`<span class="active-filter-tag">${colorLabels[currentColor] || currentColor} <span class="tag-remove" data-clear="color" title="Bỏ lọc màu này">✕</span></span>`);
+  }
+  if (currentFlowerType !== 'all') {
+    tags.push(`<span class="active-filter-tag">${flowerLabels[currentFlowerType] || currentFlowerType} <span class="tag-remove" data-clear="flowerType" title="Bỏ lọc loại hoa">✕</span></span>`);
+  }
+  if (currentOccasion !== 'all') {
+    tags.push(`<span class="active-filter-tag">${occasionLabels[currentOccasion] || currentOccasion} <span class="tag-remove" data-clear="occasion" title="Bỏ lọc dịp này">✕</span></span>`);
+  }
+  if (currentPriceRange !== 'all') {
+    tags.push(`<span class="active-filter-tag">${priceLabels[currentPriceRange] || currentPriceRange} <span class="tag-remove" data-clear="price" title="Bỏ lọc mức giá">✕</span></span>`);
+  }
+  if (currentMaterial !== 'all') {
+    tags.push(`<span class="active-filter-tag">${materialLabels[currentMaterial] || currentMaterial} <span class="tag-remove" data-clear="material" title="Bỏ lọc chất liệu">✕</span></span>`);
+  }
+  if (currentCategoryId !== '0') {
+    const cat = allCategories.find(c => String(c.id) === String(currentCategoryId));
+    tags.push(`<span class="active-filter-tag">Danh mục: ${cat ? cat.name : currentCategoryId} <span class="tag-remove" data-clear="category" title="Bỏ lọc danh mục">✕</span></span>`);
+  }
+
+  // 1. Cập nhật thanh Active Filter Tags kiểu mới (#activeFilterTagsBar)
+  const activeTagsBar = document.querySelector('#activeFilterTagsBar');
+  const activeTagsList = document.querySelector('#activeFilterTagsList');
+  if (activeTagsBar && activeTagsList) {
+    if (tags.length > 0) {
+      activeTagsBar.classList.remove('hidden');
+      activeTagsList.innerHTML = tags.join('');
+    } else {
+      activeTagsBar.classList.add('hidden');
+      activeTagsList.innerHTML = '';
+    }
+  }
+
+  // 2. Tương thích thanh cũ (#activeFilterStatus)
+  if (activeFilterStatus && activeFilterTags) {
+    if (tags.length > 0) {
+      activeFilterStatus.style.display = 'flex';
+      activeFilterTags.innerHTML = tags.join('');
+    } else {
+      activeFilterStatus.style.display = 'none';
+      activeFilterTags.innerHTML = '';
+    }
+  }
+
+  // 3. Cập nhật Breadcrumb & Tiêu đề danh mục
+  const bcCurrent = document.querySelector('#bcCurrentLabel');
+  const catalogHeading = document.querySelector('#catalogHeadingTitle');
+  let currentTitle = 'Hoa Kẽm Nhung Handmade';
+  if (currentCategoryId !== '0') {
+    const cat = allCategories.find(c => String(c.id) === String(currentCategoryId));
+    if (cat) currentTitle = cat.name;
+  } else if (currentFlowerType !== 'all') {
+    currentTitle = flowerLabels[currentFlowerType] || 'Hoa Kẽm Nhung';
+  } else if (currentOccasion !== 'all') {
+    currentTitle = occasionLabels[currentOccasion] || 'Hoa Kẽm Nhung';
+  } else if (currentColor !== 'all') {
+    currentTitle = `Hoa Kẽm Nhung - ${colorLabels[currentColor] || currentColor}`;
+  } else if (currentMaterial !== 'all') {
+    currentTitle = materialLabels[currentMaterial] || 'Hoa Thủ Công';
+  }
+
+  if (bcCurrent) bcCurrent.textContent = currentTitle;
+  if (catalogHeading) catalogHeading.textContent = currentTitle;
+}
+
+/**
+ * THIẾT LẬP MENU NGANG DESKTOP (MEGA DROPDOWN - CHUẨN HOAHANDMADE.VN)
+ */
+function setupMegaNavInteractions() {
+  const dropdownLinks = document.querySelectorAll('.mega-nav .dropdown-link');
+  dropdownLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      const filterType = link.dataset.filterType;
+      const filterVal = link.dataset.filterVal;
+      if (!filterType) return;
+
+      e.preventDefault();
+      resetAllFiltersWithoutApply();
+
+      if (filterType === 'color') currentColor = filterVal;
+      else if (filterType === 'flowerType') currentFlowerType = filterVal;
+      else if (filterType === 'occasion') currentOccasion = filterVal;
+      else if (filterType === 'material') currentMaterial = filterVal;
+      else if (filterType === 'category') currentCategoryId = filterVal;
+
+      syncSidebarInputs();
+      syncActiveCategoryPills();
+      syncActiveVisualCards();
+      syncActiveFilterChips();
+      applyFilters(true);
+
+      document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
+/**
+ * THIẾT LẬP TÌM KIẾM LIÊN HỢP HEADER (COMPOSITE SEARCH: CHỌN MỨC GIÁ + TỪ KHÓA)
+ */
+function setupCompositeSearchInteractions() {
+  const headerPriceFilter = document.querySelector('#headerPriceFilter');
+  if (headerPriceFilter) {
+    headerPriceFilter.addEventListener('change', (e) => {
+      currentPriceRange = e.target.value || 'all';
+      syncSidebarInputs();
+      applyFilters(true);
+      document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyFilters(true);
+        document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
+}
+
+/**
+ * THIẾT LẬP BỘ LỌC CỘT TRÁI (SIDEBAR FILTERS: 7 MỨC GIÁ, CHẤT LIỆU, MÀU SẮC, LOÀI HOA)
+ */
+function setupSidebarFilterInteractions() {
+  // 1. Radio chọn mức giá
+  const priceRadios = document.querySelectorAll('input[name="sidebarPrice"]');
+  priceRadios.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      currentPriceRange = e.target.value;
+      const headerPrice = document.querySelector('#headerPriceFilter');
+      if (headerPrice) headerPrice.value = (currentPriceRange === 'all' ? '' : currentPriceRange);
+      applyFilters(true);
+    });
+  });
+
+  // 2. Checkbox chọn chất liệu
+  const matCheckboxes = document.querySelectorAll('input[name="sidebarMaterial"]');
+  matCheckboxes.forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        currentMaterial = e.target.value;
+        matCheckboxes.forEach(other => {
+          if (other !== e.target) other.checked = false;
+        });
+      } else {
+        currentMaterial = 'all';
+      }
+      applyFilters(true);
+    });
+  });
+
+  // 3. Nút chọn màu sắc (Color dots)
+  const colorBtns = document.querySelectorAll('.sidebar-color-btn');
+  colorBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const col = btn.dataset.color || 'all';
+      if (currentColor === col && col !== 'all') {
+        currentColor = 'all';
+      } else {
+        currentColor = col;
+      }
+      colorBtns.forEach(b => b.classList.toggle('active', (b.dataset.color || 'all') === currentColor));
+      applyFilters(true);
+    });
+  });
+
+  // 4. Radio chọn loại hoa
+  const flowerRadios = document.querySelectorAll('input[name="sidebarFlowerType"]');
+  flowerRadios.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      currentFlowerType = e.target.value;
+      applyFilters(true);
+    });
+  });
+
+  // 5. Nút Đặt lại tất cả bộ lọc trên Sidebar
+  const btnReset = document.querySelector('#btnSidebarReset');
+  if (btnReset) {
+    btnReset.addEventListener('click', () => resetAllFilters());
+  }
+
+  // 6. Nút Xóa tất cả trên Active Tags Bar
+  const btnClearTags = document.querySelector('#btnClearActiveTags');
+  if (btnClearTags) {
+    btnClearTags.addEventListener('click', () => resetAllFilters());
+  }
+
+  // 7. Nút Xem tất cả hoa trên Empty State
+  const btnResetEmpty = document.querySelector('#btnResetEmptyFilter');
+  if (btnResetEmpty) {
+    btnResetEmpty.addEventListener('click', () => resetAllFilters());
+  }
+
+  // 8. Event Delegation xóa từng tag lọc trên Active Filter Tags List
+  const activeTagsList = document.querySelector('#activeFilterTagsList');
+  if (activeTagsList) {
+    activeTagsList.addEventListener('click', (e) => {
+      const removeBtn = e.target.closest('.tag-remove');
+      if (!removeBtn) return;
+      const clearKey = removeBtn.dataset.clear;
+      if (clearKey === 'color') currentColor = 'all';
+      if (clearKey === 'flowerType') currentFlowerType = 'all';
+      if (clearKey === 'occasion') currentOccasion = 'all';
+      if (clearKey === 'price') currentPriceRange = 'all';
+      if (clearKey === 'material') currentMaterial = 'all';
+      if (clearKey === 'category') currentCategoryId = '0';
+
+      syncSidebarInputs();
+      syncActiveCategoryPills();
+      syncActiveVisualCards();
+      syncActiveFilterChips();
+      applyFilters(true);
+    });
+  }
+}
+
+/**
+ * THIẾT LẬP MENU ĐIỀU HƯỚNG DRAWER TRÊN MOBILE (#mobileDrawer)
+ */
+function setupMobileDrawerInteractions() {
+  const hamburgerBtn = document.querySelector('#mobileHamburgerBtn');
+  const drawer = document.querySelector('#mobileDrawer');
+  const backdrop = document.querySelector('#drawerBackdrop');
+  const closeBtn = document.querySelector('#closeDrawerBtn');
+
+  function openDrawer() {
+    if (drawer) {
+      drawer.classList.add('open');
+      drawer.setAttribute('aria-hidden', 'false');
+    }
+    if (backdrop) {
+      backdrop.classList.add('open');
+      backdrop.setAttribute('aria-hidden', 'false');
+    }
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDrawer() {
+    if (drawer) {
+      drawer.classList.remove('open');
+      drawer.setAttribute('aria-hidden', 'true');
+    }
+    if (backdrop) {
+      backdrop.classList.remove('open');
+      backdrop.setAttribute('aria-hidden', 'true');
+    }
+    document.body.style.overflow = '';
+  }
+
+  if (hamburgerBtn) hamburgerBtn.addEventListener('click', openDrawer);
+  if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+  if (backdrop) backdrop.addEventListener('click', closeDrawer);
+
+  // Accordion mở rộng/thu gọn menu con trong Drawer
+  const accordionBtns = document.querySelectorAll('.drawer-accordion-btn');
+  accordionBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const group = btn.closest('.drawer-accordion-group');
+      if (group) {
+        group.classList.toggle('open');
+      }
+    });
+  });
+
+  // Click vào liên kết danh mục con trong Drawer
+  const drawerSublinks = document.querySelectorAll('.drawer-sublink');
+  drawerSublinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      const filterType = link.dataset.filterType;
+      const filterVal = link.dataset.filterVal;
+      if (!filterType) return;
+
+      e.preventDefault();
+      closeDrawer();
+      resetAllFiltersWithoutApply();
+
+      if (filterType === 'color') currentColor = filterVal;
+      else if (filterType === 'flowerType') currentFlowerType = filterVal;
+      else if (filterType === 'occasion') currentOccasion = filterVal;
+      else if (filterType === 'material') currentMaterial = filterVal;
+      else if (filterType === 'category') currentCategoryId = filterVal;
+
+      syncSidebarInputs();
+      syncActiveCategoryPills();
+      syncActiveVisualCards();
+      syncActiveFilterChips();
+      applyFilters(true);
+
+      document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  // Tìm kiếm trong Drawer Mobile
+  const drawerSearchInput = document.querySelector('#drawerSearchInput');
+  const drawerSearchBtn = document.querySelector('#drawerSearchBtn');
+  function handleDrawerSearch() {
+    if (!drawerSearchInput) return;
+    const q = drawerSearchInput.value.trim();
+    if (searchInput) searchInput.value = q;
+    closeDrawer();
+    applyFilters(true);
+    document.querySelector('#products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  if (drawerSearchBtn) drawerSearchBtn.addEventListener('click', handleDrawerSearch);
+  if (drawerSearchInput) {
+    drawerSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleDrawerSearch();
+      }
+    });
+  }
+}
+
+/**
+ * THIẾT LẬP DRAWER BỘ LỌC CỘT TRÁI TRÊN MOBILE
+ */
+function setupMobileFilterSidebar() {
+  const btnOpen = document.querySelector('#btnOpenMobileFilter');
+  const sidebar = document.querySelector('#catalogSidebar');
+  const btnClose = document.querySelector('#btnCloseSidebar');
+  const backdrop = document.querySelector('#sidebarBackdrop');
+
+  function openSidebar() {
+    if (sidebar) sidebar.classList.add('open');
+    if (backdrop) backdrop.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeSidebar() {
+    if (sidebar) sidebar.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  if (btnOpen) btnOpen.addEventListener('click', openSidebar);
+  if (btnClose) btnClose.addEventListener('click', closeSidebar);
+  if (backdrop) backdrop.addEventListener('click', closeSidebar);
+}
+
+/**
+ * HÀM TIỆN ÍCH TẠO MÃ HTML CHO MỘT THẺ SẢN PHẨM HOA (CHUẨN HOAHANDMADE.VN CAO CẤP)
+ * Tối giản, ảnh bo góc 10px có chiều sâu, chữ căn giữa thanh lịch
+ * Dòng giá: "Giá online: 20.000đ" kèm nút tròn quick-add giỏ hàng thanh thoát
+ * ZERO EMOJI: Huy hiệu và nhãn sử dụng SVG và text tinh tế
  * @param {object} product - Đối tượng sản phẩm hoa
  * @param {string} defaultBadge - Nhãn mặc định ('Bán chạy', 'Mới', 'Handmade')
  * @returns {string} Chuỗi template literal HTML
@@ -121,7 +824,6 @@ function createProductCardHtml(product, defaultBadge = '') {
   const hasRealSale = Boolean(product.originalPrice && Number(product.originalPrice) > Number(product.price));
   if (hasRealSale) {
     const discountPercent = Math.round((1 - Number(product.price) / Number(product.originalPrice)) * 100);
-    // Chỉ hiển thị huy hiệu giảm giá khi mức giảm từ 5% trở lên (chuẩn TMĐT cao cấp)
     if (discountPercent >= 5) {
       discountBadgeHtml = `<span class="product-badge-discount">-${discountPercent}%</span>`;
     }
@@ -134,23 +836,18 @@ function createProductCardHtml(product, defaultBadge = '') {
 
   const applicablePromo = (allPromotions || []).find(p => {
     if (!p.active) return false;
-    // Kiểm tra ngày bắt đầu
     if (p.startDate && new Date(p.startDate) > now) return false;
-    // Kiểm tra ngày kết thúc (tính đến hết ngày 23:59:59)
     if (p.endDate) {
       const end = new Date(p.endDate);
       end.setHours(23, 59, 59, 999);
       if (end < now) return false;
     }
-    // Kiểm tra số lượt sử dụng
     if (typeof p.usageLimit === 'number' && typeof p.usedCount === 'number' && p.usedCount >= p.usageLimit) {
       return false;
     }
-    // Chặn hiển thị nhãn nếu sản phẩm đang Flash Sale và voucher cấm cộng dồn
     if (p.excludeSaleItems && isProductOnSale) {
       return false;
     }
-    // Kiểm tra scope: ưu tiên mẫu hoa cụ thể, sau đó đến danh mục
     if (p.scope === 'product' && Array.isArray(p.targetProductIds) && p.targetProductIds.map(String).includes(String(product.id))) {
       return true;
     }
@@ -165,7 +862,7 @@ function createProductCardHtml(product, defaultBadge = '') {
     const labelPrefix = applicablePromo.scope === 'product' ? 'Mẫu này: Giảm' : 'Giảm';
     voucherHintHtml = `
       <div class="product-voucher-tag" title="${escapeHTML(voucherMeta.conditionText)}">
-        <span>🎫 ${labelPrefix} ${escapeHTML(voucherMeta.shortTag)} với <strong>${escapeHTML(applicablePromo.code)}</strong></span>
+        <span>Ưu đãi ${labelPrefix} ${escapeHTML(voucherMeta.shortTag)} với <strong>${escapeHTML(applicablePromo.code)}</strong></span>
       </div>
     `;
   }
@@ -193,20 +890,11 @@ function createProductCardHtml(product, defaultBadge = '') {
         <!-- Nút Thả Tim Yêu Thích -->
         ${heartBtnHtml}
 
-        <!-- Dải băng nhãn ở đáy ảnh chuẩn Flower Chimp -->
+        <!-- Dải băng nhãn ở đáy ảnh -->
         ${ribbonHtml}
-
-        <!-- Nút Thêm Nhanh trượt lên khi Hover -->
-        <button class="quick-add-btn add-cart" data-id="${product.id}" title="Thêm nhanh vào giỏ hàng">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          Thêm Nhanh
-        </button>
       </div>
 
-      <!-- THÔNG TIN HOA CĂN GIỮA THANH LỊCH -->
+      <!-- THÔNG TIN HOA CĂN GIỮA THANH LỊCH (CHUẨN HOAHANDMADE.VN) -->
       <div class="product-info">
         <a href="./detail.html?id=${product.id}">
           <h3 class="product-title" title="${product.name}">
@@ -214,12 +902,22 @@ function createProductCardHtml(product, defaultBadge = '') {
           </h3>
         </a>
 
-        <div class="price-wrap">
-          ${(product.originalPrice && Number(product.originalPrice) > Number(product.price)) ? `<span class="was-price">${formatPrice(product.originalPrice)}</span>` : ''}
-          <span class="price">${formatPrice(product.price)}</span>
-        </div>
-
         ${voucherHintHtml}
+
+        <div class="product-card-price-row">
+          <div class="product-price-online">
+            <span>Giá online:</span>
+            <span class="price-val">${formatPrice(product.price)}</span>
+            ${hasRealSale ? `<span class="was-price" style="display:inline; margin-left:4px; font-size:12px;">${formatPrice(product.originalPrice)}</span>` : ''}
+          </div>
+          <button type="button" class="btn-quick-add add-cart" data-id="${product.id}" title="Thêm nhanh vào giỏ hàng" aria-label="Thêm vào giỏ">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-2z"></path>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </svg>
+          </button>
+        </div>
 
         ${Number(product.reviewCount) > 0 && Number.isFinite(Number(product.rating)) ? `
           <div class="product-rating">
@@ -260,10 +958,7 @@ function renderProducts(products) {
     const resetBtn = document.querySelector('#resetFilterBtn');
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
-        if (searchInput) searchInput.value = '';
-        currentCategoryId = '0';
-        const allBtn = document.querySelector('.category-btn[data-category="0"]');
-        if (allBtn) allBtn.click();
+        resetAllFilters();
       });
     }
     const pagContainer = document.querySelector('#catalogPagination');
@@ -383,7 +1078,7 @@ function renderNewestProducts(products = []) {
 }
 
 /**
- * 3. HÀM LỌC TỔNG HỢP (DANH MỤC + TÌM KIẾM REALTIME)
+ * 3. HÀM LỌC TỔNG HỢP (DANH MỤC + TÌM KIẾM REALTIME + BỘ LỌC 2 CỘT)
  * Sử dụng phương thức filter() của ES6+
  */
 function applyFilters(resetPage = false) {
@@ -394,11 +1089,29 @@ function applyFilters(resetPage = false) {
   const searchTerm = searchInput ? searchInput.value : '';
   const filtered = filterCatalogProducts(allProducts, {
     categoryId: currentCategoryId,
+    flowerType: currentFlowerType,
+    occasion: currentOccasion,
+    color: currentColor,
+    priceRange: currentPriceRange,
+    material: currentMaterial,
     searchTerm,
     sort: catalogSort
   });
 
-  renderProducts(filtered);
+  const emptyStateEl = document.querySelector('#emptyProductState');
+  if (filtered.length === 0) {
+    if (emptyStateEl) emptyStateEl.classList.remove('hidden');
+    if (productList) productList.innerHTML = '';
+    const pagContainer = document.querySelector('#catalogPagination');
+    if (pagContainer) pagContainer.innerHTML = '';
+    if (productCountElement) productCountElement.textContent = '0';
+  } else {
+    if (emptyStateEl) emptyStateEl.classList.add('hidden');
+    renderProducts(filtered);
+  }
+
+  updateActiveFilterStatus(filtered.length);
+  updateUrlParams();
 }
 
 /**
@@ -486,9 +1199,7 @@ document.addEventListener('click', (event) => {
     if (typeof renderCartDrawer === 'function') {
       renderCartDrawer();
     }
-    if (typeof openCartDrawer === 'function') {
-      openCartDrawer();
-    }
+    // Không ép mở giỏ hàng để khách tiếp tục lướt xem thoải mái (UX-03)
   }
 });
 
@@ -936,12 +1647,8 @@ async function init() {
 
     if (loadingElement) loadingElement.classList.add('hidden');
 
-    // Nhận diện từ khóa tìm kiếm từ URL param nếu có (UX-06)
-    const urlParams = new URLSearchParams(window.location.search);
-    const searchParam = urlParams.get('search') || urlParams.get('q');
-    if (searchParam && searchInput) {
-      searchInput.value = searchParam;
-    }
+    // Nhận diện các tham số bộ lọc từ URL (Deep linking / chia sẻ liên kết)
+    readUrlParams();
 
     // Khởi tạo các thành phần giao diện
     initHeroSlider(banners);
@@ -951,6 +1658,14 @@ async function init() {
     startFlashSaleTimer();
     renderVouchers(promotions);
     renderCategories(allCategories);
+    setupVisualCategoryInteractions();
+    setupFilterToolbarInteractions();
+    setupMegaNavInteractions();
+    setupCompositeSearchInteractions();
+    setupSidebarFilterInteractions();
+    setupMobileDrawerInteractions();
+    setupMobileFilterSidebar();
+    syncSidebarInputs();
     applyFilters(true);
     initCartDrawer();
     initBirthdayModal();
@@ -958,6 +1673,7 @@ async function init() {
     initMyOrdersWorkflow();
 
     // Tự động xử lý điều hướng khi bấm Mua Ngay hoặc Giỏ Hàng từ trang Chi Tiết
+    const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('openCheckout') === 'true') {
       window.history.replaceState({}, document.title, window.location.pathname);
       setTimeout(() => {

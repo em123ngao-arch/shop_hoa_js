@@ -5,6 +5,7 @@
 
 import crypto from 'crypto';
 import { ValidationError, NotFoundError } from '../../../domain/errors/DomainErrors.js';
+import { calculateRefundableReceived } from '../../../application/PaymentRules.js';
 
 export class PrismaRefundRepository {
   constructor(prismaClient) {
@@ -89,7 +90,8 @@ export class PrismaRefundRepository {
       const order = await tx.orders.findFirst({
         where: { OR: [{ id: orderId }, { order_code: orderId }] },
         include: {
-          payment_transactions: true,
+          payment_transactions: { include: { payment_intents: true } },
+          payment_entries: true,
           refund_requests: true
         }
       });
@@ -98,19 +100,22 @@ export class PrismaRefundRepository {
         throw new NotFoundError(`Không tìm thấy đơn hàng #${orderId}`);
       }
 
-      const paidViaTransactions = (order.payment_transactions || []).reduce(
+      const paidViaTransactions = (order.payment_transactions || []).filter(txRow => txRow.payment_intents?.purpose !== 'redelivery_fee').reduce(
         (sum, txRow) => sum + Number(txRow.amount || 0),
         0
       );
-      const isPaid = order.payment_status === 'paid' || order.payment_status === 'partially_refunded' || paidViaTransactions > 0;
+      const ledgerReceived = calculateRefundableReceived(order.payment_entries || []);
+      const hasLedgerReceipt = (order.payment_entries || []).some(entry => entry.direction === 'in' && entry.entry_type !== 'redelivery_fee');
+      const alreadyApprovedTotal = (order.refund_requests || [])
+        .filter(r => r.status === 'approved')
+        .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      const actuallyReceived = hasLedgerReceipt ? ledgerReceived : paidViaTransactions;
+      const isPaid = actuallyReceived > 0 || order.payment_status === 'paid' || order.payment_status === 'partially_refunded';
       if (!isPaid && order.status !== 'completed') {
         throw new ValidationError('Chỉ có thể tạo yêu cầu hoàn tiền cho đơn hàng đã thanh toán hoặc đã hoàn thành');
       }
 
-      const maxRefundable = Math.max(paidViaTransactions, Number(order.total_amount || 0));
-      const alreadyApprovedTotal = (order.refund_requests || [])
-        .filter(r => r.status === 'approved')
-        .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      const maxRefundable = actuallyReceived + (hasLedgerReceipt ? alreadyApprovedTotal : 0);
       const remainingRefundable = Math.max(0, maxRefundable - alreadyApprovedTotal);
 
       if (order.payment_status === 'refunded' || remainingRefundable <= 0) {
@@ -148,16 +153,19 @@ export class PrismaRefundRepository {
       });
 
       return this._mapDTO(created);
-    });
+    }, { isolationLevel: 'Serializable' });
   }
 
   async approveRequest(id, { adminUser, adminNote, refundTxRef, restock = false }) {
     return this.prisma.$transaction(async (tx) => {
+      if (!String(refundTxRef || '').trim()) {
+        throw new ValidationError('Chỉ xác nhận hoàn tất sau khi đã chuyển khoản và nhập mã tham chiếu giao dịch hoàn');
+      }
       const existing = await tx.refund_requests.findUnique({
         where: { id },
         include: {
           orders: {
-            include: { order_items: true, payment_transactions: true }
+            include: { order_items: true, payment_transactions: { include: { payment_intents: true } } }
           }
         }
       });
@@ -165,6 +173,22 @@ export class PrismaRefundRepository {
 
       if (existing.status !== 'pending_approval') {
         throw new ValidationError(`Phiếu hoàn tiền đã ở trạng thái "${existing.status}", không thể duyệt lại`);
+      }
+
+      const order = existing.orders;
+      const ledgerEntries = order ? await tx.order_payment_entries.findMany({ where: { order_id: order.id } }) : [];
+      const hasLedgerReceipt = ledgerEntries.some(entry => entry.direction === 'in' && entry.entry_type !== 'redelivery_fee');
+      const sepayReceipts = (order?.payment_transactions || []).filter(item => item.payment_intents?.purpose !== 'redelivery_fee')
+        .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+      const currentAvailable = hasLedgerReceipt ? calculateRefundableReceived(ledgerEntries) : sepayReceipts;
+      const approvedBefore = (await tx.refund_requests.findMany({ where: { order_id: existing.order_id, status: 'approved' } }))
+        .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+      const otherPending = (await tx.refund_requests.findMany({
+        where: { order_id: existing.order_id, status: 'pending_approval', id: { not: existing.id } }
+      })).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+      const refundableNow = hasLedgerReceipt ? currentAvailable : Math.max(0, currentAvailable - approvedBefore);
+      if (Number(existing.amount) > refundableNow - otherPending) {
+        throw new ValidationError('Số tiền hoàn đã thay đổi do giao dịch khác; hãy tạo lại phiếu theo số còn có thể hoàn');
       }
 
       const claimed = await tx.refund_requests.updateMany({
@@ -183,16 +207,26 @@ export class PrismaRefundRepository {
         throw new ValidationError('Phiếu hoàn tiền vừa được xử lý ở yêu cầu khác');
       }
 
-      const order = existing.orders;
       if (order) {
-        const orderTotal = Number(order.total_amount || 0);
+        const ledgerReceived = calculateRefundableReceived(ledgerEntries);
 
         // Tính tổng tiền hoàn lũy kế của đơn này (bao gồm cả phiếu vừa duyệt)
         const allApproved = await tx.refund_requests.findMany({
           where: { order_id: order.id, status: 'approved' }
         });
         const totalRefundedSum = allApproved.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-        const isFullRefund = totalRefundedSum >= orderTotal && orderTotal > 0;
+        const hasLedgerReceipt = ledgerEntries.some(entry => entry.direction === 'in' && entry.entry_type !== 'redelivery_fee');
+        const refundedBeforeThisRequest = Math.max(0, totalRefundedSum - Number(existing.amount || 0));
+        const actuallyReceived = hasLedgerReceipt ? ledgerReceived + refundedBeforeThisRequest : sepayReceipts;
+        const isFullRefund = totalRefundedSum >= actuallyReceived && actuallyReceived > 0;
+
+        await tx.order_payment_entries.create({
+          data: {
+            id: crypto.randomUUID(), order_id: order.id, entry_type: 'refund', direction: 'out', channel: 'sepay',
+            amount: Number(existing.amount), external_ref: `REFUND:${String(refundTxRef).trim()}`.slice(0, 120),
+            actor_id: adminUser?.id || null, note: adminNote || `Hoàn tiền theo phiếu ${existing.id}`
+          }
+        });
 
         const orderUpdateData = {
           payment_status: isFullRefund ? 'refunded' : 'partially_refunded'
@@ -208,6 +242,13 @@ export class PrismaRefundRepository {
           where: { id: order.id },
           data: orderUpdateData
         });
+        if (shouldCancel) {
+          await tx.payment_intents.updateMany({ where: { order_id: order.id, status: 'pending' }, data: { status: 'cancelled' } });
+          await tx.order_change_requests.updateMany({
+            where: { order_id: order.id, status: { in: ['pending', 'awaiting_payment'] } },
+            data: { status: 'rejected', reviewed_at: new Date(), reviewed_by_id: adminUser?.id || null }
+          });
+        }
 
         // 2. Nghiệp vụ tiệm hoa: Chỉ tự động hoàn kho nếu hoa CHƯA rời khỏi tiệm (pending, confirmed).
         // Nếu đơn đang giao (shipping), hoa đang trên đường/ngoài tiệm nên KHÔNG tự động cộng kho,
@@ -254,7 +295,7 @@ export class PrismaRefundRepository {
         }
       });
       return this._mapDTO(updated);
-    });
+    }, { isolationLevel: 'Serializable' });
   }
 
   async rejectRequest(id, { adminUser, adminNote }) {

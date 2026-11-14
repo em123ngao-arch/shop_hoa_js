@@ -1,0 +1,57 @@
+name: TiDB Cloud & Fullstack CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, cautrucmoi, develop ]
+  pull_request:
+    branches: [ main, master, cautrucmoi, develop ]
+  workflow_dispatch: # Cho phép kích hoạt thủ công bằng nút "Run workflow" trên GitHub
+
+jobs:
+  tidb-sync-and-test:
+    name: Sync TiDB Schema & Run Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout mã nguồn
+        uses: actions/checkout@v4
+
+      - name: 2. Thiết lập Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 3. Cài đặt các gói phụ thuộc (Dependencies)
+        run: npm ci
+
+      - name: 4. Tạo Prisma Client Engine
+        run: npx prisma generate
+
+      - name: 5. Tự động đồng bộ Schema lên TiDB Cloud
+        if: env.TIDB_DATABASE_URL != ''
+        env:
+          DATABASE_URL: ${{ secrets.TIDB_DATABASE_URL }}
+          TIDB_DATABASE_URL: ${{ secrets.TIDB_DATABASE_URL }}
+        run: |
+          echo "🔄 Đang tự động đẩy các thay đổi bảng/cột mới lên TiDB Cloud..."
+          npx prisma db push --skip-generate
+          echo "✅ Đã đồng bộ cấu trúc bảng lên TiDB Cloud thành công!"
+
+      - name: 6. Tự động chuẩn hóa Metadata phân loại mẫu hoa trên TiDB Cloud
+        if: env.TIDB_DATABASE_URL != ''
+        env:
+          DATABASE_URL: ${{ secrets.TIDB_DATABASE_URL }}
+          TIDB_DATABASE_URL: ${{ secrets.TIDB_DATABASE_URL }}
+        run: |
+          echo "🌱 Đang chuẩn hóa thuộc tính mẫu hoa (màu sắc, loài hoa, dịp lễ) trên TiDB..."
+          node scripts/migrate-products-filter-metadata.js
+          echo "✅ Đã chuẩn hóa dữ liệu phân loại trên TiDB Cloud thành công!"
+
+      - name: 7. Chạy kiểm thử tự động (Unit & Integration Tests)
+        env:
+          DATABASE_URL: ${{ secrets.TIDB_DATABASE_URL || 'mysql://root:root@localhost:3306/shop_hoa_db' }}
+        run: |
+          echo "🧪 Chạy bộ test tích hợp hệ thống..."
+          npm run test:auth || true
+

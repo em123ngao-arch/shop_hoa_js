@@ -21,6 +21,7 @@ import { AuthService } from '../../application/AuthService.js';
 import { OrderExpiryService } from '../../application/OrderExpiryService.js';
 import { PaymentService } from '../../application/PaymentService.js';
 import { OrderService } from '../../application/OrderService.js';
+import { DeliveryService } from '../../application/DeliveryService.js';
 import { RefundService } from '../../application/RefundService.js';
 import { AuthController } from '../../adapters/in/web/AuthController.js';
 import { CatalogController } from '../../adapters/in/web/CatalogController.js';
@@ -76,7 +77,11 @@ class Container {
       accountNumber: this.env.SEPAY_ACCOUNT_NUMBER,
       accountHolder: this.env.SEPAY_ACCOUNT_HOLDER
     });
-    this.orderService = new OrderService(this.orderRepo);
+    this.deliveryService = new DeliveryService({
+      originLat: this.env.DELIVERY_STORE_LAT,
+      originLng: this.env.DELIVERY_STORE_LNG
+    });
+    this.orderService = new OrderService(this.orderRepo, this.deliveryService);
     this.refundService = new RefundService(this.refundRepo);
 
     // 3. Khoi tao Inbound Adapters (Web Controllers & Middlewares)

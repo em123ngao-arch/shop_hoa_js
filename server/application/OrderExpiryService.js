@@ -42,6 +42,17 @@ export class OrderExpiryService {
           console.error(`[OrderExpiryService] Lỗi khi xử lý đơn hết hạn #${item.id}:`, itemErr.message);
         }
       }
+
+      if (typeof this.orderRepo.processDeliveryDeadlines === 'function') {
+        try {
+          const deliveryResult = await this.orderRepo.processDeliveryDeadlines(new Date());
+          if (deliveryResult.expiredOrdersClosed || deliveryResult.remindersSent) {
+            console.log(`[OrderExpiryService] Hẹn giao lại: đã nhắc ${deliveryResult.remindersSent}, đóng ${deliveryResult.expiredOrdersClosed} đơn hết hạn.`);
+          }
+        } catch (deliveryErr) {
+          console.error('[OrderExpiryService] Lỗi xử lý hạn giao lại:', deliveryErr.message);
+        }
+      }
     } catch (err) {
       console.error('[OrderExpiryService] Lỗi quét danh sách đơn hết hạn:', err.message);
     } finally {

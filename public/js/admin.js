@@ -72,6 +72,7 @@ let allPromotions = [];
 let allOrders = [];
 let allUsers = []; // Danh sách tài khoản người dùng và vai trò
 let allRefunds = []; // Danh sách phiếu hoàn tiền 2 cấp (Thu ngân -> Admin)
+let allUnmatchedPayments = []; // Giao dịch SePay không khớp mã thanh toán cần đối soát
 let currentUser = null; // Tài khoản đang đăng nhập hiện tại
 let currentTab = 'dashboard';
 let deleteTarget = { type: null, id: null };
@@ -1023,6 +1024,16 @@ function renderProductsTable() {
       ? '<span class="badge-pill badge-emerald" style="font-size: 10.5px; padding: 1px 6px;">Đang bán</span>'
       : '<span class="badge-pill" style="background: #FEE2E2; color: #991B1B; font-size: 10.5px; padding: 1px 6px;">Ngừng bán</span>';
 
+    const colorLabelsAdmin = {
+      cam: 'Cam', do: 'Đỏ', hong: 'Hồng', vang: 'Vàng', trang: 'Trắng', tim: 'Tím', xanh: 'Xanh', 'da-sac': 'Đa sắc'
+    };
+    const flowerLabelsAdmin = {
+      tulip: 'Tulip', 'huong-duong': 'Hướng dương', 'hoa-hong': 'Hoa hồng', 'mau-don': 'Mẫu đơn',
+      'hoa-ly-cuc': 'Ly & Cúc', 'baby-lavender': 'Baby/Lavender', khac: 'Khác'
+    };
+    const colorTagHtml = p.color ? `<span class="badge-pill" style="font-size: 10px; padding: 1px 6px; background: #FEF3C7; color: #92400E;">Màu ${colorLabelsAdmin[p.color] || p.color}</span>` : '';
+    const flowerTagHtml = (p.flowerType || p.flower_type) ? `<span class="badge-pill" style="font-size: 10px; padding: 1px 6px; background: #E0E7FF; color: #3730A3;">${flowerLabelsAdmin[p.flowerType || p.flower_type] || p.flowerType || p.flower_type}</span>` : '';
+
     return `
       <tr data-id="${escapeHTML(p.id)}" style="${!isProdActive ? 'opacity: 0.72; background: #F8FAFC;' : ''}">
         <td>
@@ -1033,6 +1044,8 @@ function renderProductsTable() {
           <div class="table-subtitle" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
             <span>ID: #${escapeHTML(p.id)}</span>
             ${activeStatusBadge}
+            ${colorTagHtml}
+            ${flowerTagHtml}
             ${p.badge ? `<span class="badge-pill badge-rose" style="font-size: 10px; padding: 1px 6px;">${escapeHTML(p.badge)}</span>` : ''}
           </div>
         </td>
@@ -1235,6 +1248,10 @@ function initProductCrud() {
       modalTitle.textContent = 'Thêm Mẫu Hoa Kẽm Nhung Mới';
       form.reset();
       document.querySelector('#prodFormId').value = '';
+      if (document.querySelector('#prodColorSelect')) document.querySelector('#prodColorSelect').value = 'da-sac';
+      if (document.querySelector('#prodFlowerTypeSelect')) document.querySelector('#prodFlowerTypeSelect').value = 'khac';
+      if (document.querySelector('#prodOccasionSelect')) document.querySelector('#prodOccasionSelect').value = 'tat-ca';
+      if (document.querySelector('#prodMaterialSelect')) document.querySelector('#prodMaterialSelect').value = 'kem-nhung';
       if (discountPctInput) discountPctInput.value = '';
       if (costPriceInput) costPriceInput.value = '';
       if (isActiveSelect) isActiveSelect.value = 'true';
@@ -1264,6 +1281,18 @@ function initProductCrud() {
       if (discountPctInput) discountPctInput.value = pct > 0 ? pct : '';
 
       document.querySelector('#prodCategorySelect').value = product.categoryId;
+      if (document.querySelector('#prodColorSelect')) {
+        document.querySelector('#prodColorSelect').value = product.color || 'da-sac';
+      }
+      if (document.querySelector('#prodFlowerTypeSelect')) {
+        document.querySelector('#prodFlowerTypeSelect').value = product.flowerType || product.flower_type || 'khac';
+      }
+      if (document.querySelector('#prodOccasionSelect')) {
+        document.querySelector('#prodOccasionSelect').value = product.occasion || 'tat-ca';
+      }
+      if (document.querySelector('#prodMaterialSelect')) {
+        document.querySelector('#prodMaterialSelect').value = product.material || 'kem-nhung';
+      }
       document.querySelector('#prodBadgeSelect').value = product.badge || '';
       document.querySelector('#prodStockInput').value = product.stock || 0;
       document.querySelector('#prodDescInput').value = product.description || '';
@@ -1326,6 +1355,11 @@ function initProductCrud() {
       const rawStockInput = document.querySelector('#prodStockInput');
       const inputStockVal = Number(rawStockInput ? rawStockInput.value : 0);
 
+      const colorVal = document.querySelector('#prodColorSelect')?.value || 'da-sac';
+      const flowerTypeVal = document.querySelector('#prodFlowerTypeSelect')?.value || 'khac';
+      const occasionVal = document.querySelector('#prodOccasionSelect')?.value || 'tat-ca';
+      const materialVal = document.querySelector('#prodMaterialSelect')?.value || 'kem-nhung';
+
       const productData = {
         name: document.querySelector('#prodNameInput').value.trim(),
         price: Number(document.querySelector('#prodPriceInput').value),
@@ -1335,6 +1369,11 @@ function initProductCrud() {
         categoryId: catId,
         categoryName: catObj.name || 'Hoa Kẽm Nhung',
         categorySlug: catObj.slug || 'kem-nhung',
+        color: colorVal,
+        flowerType: flowerTypeVal,
+        flower_type: flowerTypeVal,
+        occasion: occasionVal,
+        material: materialVal,
         badge: document.querySelector('#prodBadgeSelect').value,
         description: document.querySelector('#prodDescInput').value.trim(),
         image
@@ -2456,12 +2495,60 @@ function initOrderManagement() {
         ? '<span style="color: #047857; font-weight: 700;">✓ Đã hoàn tiền (Refunded)</span>'
         : (String(order.paymentStatus || '').toLowerCase() === 'partially_refunded'
           ? '<span style="color: #0284C7; font-weight: 700;">✓ Hoàn một phần (Partially Refunded)</span>'
+          : (String(order.paymentStatus || '').toLowerCase() === 'partially_paid'
+            ? '<span style="color: #B45309; font-weight: 700;">Đã trả trước một phần</span>'
           : (isPaid
             ? '<span style="color: #16a34a; font-weight: 700;">✓ Đã thanh toán (Paid)</span>'
             : (isSepay
               ? '<span style="color: #d97706; font-weight: 700;">Chờ khách chuyển khoản VietQR (SePay)</span>'
-              : '<span style="color: #d97706; font-weight: 700;">Chờ thanh toán / Thu hộ (COD)</span>')));
-      const paymentMethodText = isSepay ? 'Chuyển khoản nhanh SePay (VietQR)' : 'Tiền mặt khi nhận hoa (COD)';
+              : '<span style="color: #d97706; font-weight: 700;">Đơn lịch sử thanh toán khi nhận (COD)</span>'))));
+      const paymentMethodText = order.paymentPlan === 'sepay_deposit'
+        ? 'Trả trước 50% qua SePay, còn lại thu tiền mặt khi giao'
+        : (order.paymentPlan === 'sepay_full' ? 'Chuyển khoản đủ qua SePay' : (isSepay ? 'Chuyển khoản SePay (đơn lịch sử)' : 'COD (đơn lịch sử)'));
+      const cashBalance = Number(order.amountToCollectAtDelivery || 0);
+      const showCashCollection = ['shipping', 'completed'].includes(order.status) && cashBalance > 0 && order.paymentPlan === 'sepay_deposit';
+      const deliveryAttemptsHtml = (order.deliveryAttempts || []).map(attempt => `
+        <li>Lần ${attempt.number}: ${escapeHTML(attempt.status)}${attempt.failedAt ? ` • thất bại ${new Date(attempt.failedAt).toLocaleString('vi-VN')}` : ''}${attempt.feeCharged ? ` • đã cấn ${formatPrice(attempt.feeCharged)}` : ''}${attempt.rescheduleDeadline ? ` • hẹn lại trước ${new Date(attempt.rescheduleDeadline).toLocaleString('vi-VN')}` : ''}${attempt.failReason ? ` • ${escapeHTML(attempt.failReason)}` : ''}</li>
+      `).join('');
+      const pendingCancellation = (order.cancellationRequests || []).find(request => request.status === 'pending');
+      const pendingChangeRequest = (order.changeRequests || []).find(request => request.status === 'pending');
+      const requestReviewHtml = `
+        ${pendingCancellation ? `
+          <div style="margin:10px 0;padding:12px;border:1px solid #FCA5A5;background:#FEF2F2;border-radius:8px;">
+            <strong>Khách yêu cầu hủy đơn:</strong> ${escapeHTML(pendingCancellation.reason)}
+            <p style="font-size:12px;margin:6px 0;">Khấu trừ chỉ nhập khi có chi phí hoa riêng không thể thu hồi; cần ghi bằng chứng. Mặc định hoàn toàn bộ tiền đã nhận.</p>
+            <label>Số tiền khấu trừ (VND) <input id="cancellationDeductible" type="number" min="0" max="${Number(order.amountReceived || 0)}" value="0"></label>
+            <textarea id="cancellationCostLines" rows="2" placeholder="Chi phí, số tiền (mỗi dòng: mô tả | VND)" style="width:100%;margin-top:6px;"></textarea>
+            <input id="cancellationEvidence" type="text" placeholder="Ghi chú/bằng chứng chi phí" style="width:100%;margin-top:6px;">
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button type="button" class="btn-primary" id="btnApproveCancellation" data-request-id="${escapeHTML(pendingCancellation.id)}">Duyệt hủy</button>
+              <button type="button" class="btn-secondary" id="btnRejectCancellation" data-request-id="${escapeHTML(pendingCancellation.id)}">Từ chối</button>
+            </div>
+          </div>
+        ` : ''}
+        ${pendingChangeRequest ? `
+          <div style="margin:10px 0;padding:12px;border:1px solid #FDE68A;background:#FFFBEB;border-radius:8px;">
+            <strong>Yêu cầu đổi ${escapeHTML(pendingChangeRequest.type)} đang chờ:</strong> ${escapeHTML(pendingChangeRequest.newValue)}
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button type="button" class="btn-primary" id="btnApproveOrderChange" data-request-id="${escapeHTML(pendingChangeRequest.id)}">Duyệt thay đổi</button>
+              <button type="button" class="btn-secondary" id="btnRejectOrderChange" data-request-id="${escapeHTML(pendingChangeRequest.id)}">Từ chối</button>
+            </div>
+          </div>
+        ` : ''}
+      `;
+      const deliveryOpsHtml = order.status === 'shipping' ? `
+        <div style="margin:12px 0;padding:12px;border:1px solid #E8E8E8;border-radius:8px;">
+          <strong>Giao hàng tự vận hành</strong>
+          <ul style="margin:6px 0 10px 18px;font-size:12px;">${deliveryAttemptsHtml || '<li>Chưa bắt đầu ghi nhận chuyến giao.</li>'}</ul>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button type="button" class="btn-secondary" id="btnStartDeliveryAttempt">Bắt đầu chuyến / chuyến lại</button>
+            <button type="button" class="btn-secondary" id="btnFailDeliveryAttempt">Ghi nhận giao thất bại</button>
+            ${['failed', 'exception_required'].includes(order.deliveryAttempts?.at(-1)?.status) ? '<button type="button" class="btn-primary" id="btnCreateRedeliveryFee">Tạo khoản phí giao lại</button>' : ''}
+          </div>
+          <textarea id="deliveryContactLog" rows="2" placeholder="Ghi thời gian gọi, kết quả liên hệ; khi thất bại hãy ghi lý do" style="width:100%;margin-top:8px;padding:8px;border:1px solid #D1D5DB;border-radius:6px;"></textarea>
+          <div id="redeliveryPaymentInfo" style="margin-top:8px;"></div>
+        </div>
+      ` : '';
 
       const refundSectionHtml = `
         ${order.status === 'cancelled' && orderTxs.length > 0 && !isRefunded ? `
@@ -2517,12 +2604,17 @@ function initOrderManagement() {
           <div style="border-top: 1px dashed var(--border-light); padding-top: 8px; margin-top: 8px;">
             <div><strong>Địa chỉ giao hoa:</strong> ${escapeHTML(order.address || '')}</div>
             <div><strong>Hình thức thanh toán:</strong> ${paymentMethodText} &mdash; ${paymentStatusHtml}</div>
+            ${order.paymentPlan === 'sepay_deposit' || order.paymentPlan === 'sepay_full' ? `
+              <div><strong>Đã thu:</strong> ${formatPrice(order.amountReceived || 0)} • <strong>Còn phải thu:</strong> ${formatPrice(cashBalance)}</div>
+            ` : ''}
             ${isUnpaidSepay && order.status !== 'cancelled' ? `
               <div id="unpaidSepayAdminGuardBanner" style="margin-top: 8px; padding: 10px 14px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; color: #92400E; font-size: 13px; font-weight: 600;">
                 Đơn hàng SePay này đang chờ khách hàng chuyển khoản. Hệ thống khóa nút duyệt, giao hàng và hoàn tất cho đến khi ngân hàng đối soát nhận tiền.
               </div>
             ` : ''}
             ${refundSectionHtml}
+            ${requestReviewHtml}
+            ${deliveryOpsHtml}
             ${order.hasGreetingCard || order.cardMessage ? `
               <div style="margin-top: 4px; padding: 6px 10px; background: rgba(142, 30, 45, 0.05); border-radius: 6px; border-left: 3px solid var(--color-primary);">
                 <strong>Thiệp chúc mừng viết tay:</strong> ${order.cardMessage ? `"${escapeHTML(order.cardMessage)}"` : 'Có yêu cầu thiệp mừng kèm bó hoa'}
@@ -2556,8 +2648,114 @@ function initOrderManagement() {
             <span>Tổng thanh toán:</span>
             <span style="color: var(--color-primary);">${formatPrice(order.totalAmount)}</span>
           </div>
+          ${showCashCollection ? `
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:12px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;">
+              <label for="cashCollectionAmount" style="font-weight:700;">Tiền mặt thu khi giao:</label>
+              <input id="cashCollectionAmount" type="number" min="1" max="${cashBalance}" value="${cashBalance}" style="max-width:160px;padding:7px;border:1px solid #D1D5DB;border-radius:6px;">
+              <button type="button" id="btnRecordCashCollection" class="btn-primary" data-order-id="${escapeHTML(order.id)}">Ghi nhận đã thu tiền</button>
+            </div>
+          ` : ''}
         </div>
       `;
+      const cashButton = bodyEl.querySelector('#btnRecordCashCollection');
+      if (cashButton) cashButton.addEventListener('click', async () => {
+        const amount = Number(bodyEl.querySelector('#cashCollectionAmount')?.value);
+        try {
+          cashButton.disabled = true;
+          const response = await api.post(`/api/orders/${encodeURIComponent(order.id)}/cash-collection`, { amount, note: 'Thu tiền mặt khi giao hàng' });
+          const updatedOrder = response.data?.order;
+          allOrders = await fetchOrders();
+          renderOrdersTable();
+          renderDashboard();
+          if (updatedOrder) openOrderDetail(updatedOrder);
+          showToast('Đã ghi nhận tiền mặt; trạng thái thanh toán được cập nhật độc lập với trạng thái giao.', 'success');
+        } catch (error) {
+          showToast(error.response?.data?.error?.message || error.message || 'Không thể ghi nhận tiền mặt.', 'error');
+        } finally {
+          cashButton.disabled = false;
+        }
+      });
+      const refreshOrderDetail = async () => {
+        allOrders = await fetchOrders();
+        renderOrdersTable();
+        renderDashboard();
+        const refreshed = allOrders.find(item => String(item.id) === String(order.id));
+        if (refreshed) openOrderDetail(refreshed);
+      };
+      const startAttemptButton = bodyEl.querySelector('#btnStartDeliveryAttempt');
+      if (startAttemptButton) startAttemptButton.addEventListener('click', async () => {
+        try {
+          await api.post(`/api/orders/${encodeURIComponent(order.id)}/delivery-attempts`, { action: 'start' });
+          await refreshOrderDetail();
+          showToast('Đã ghi nhận bắt đầu chuyến giao.', 'success');
+        } catch (error) { showToast(error.response?.data?.error?.message || error.message, 'error'); }
+      });
+      const failAttemptButton = bodyEl.querySelector('#btnFailDeliveryAttempt');
+      if (failAttemptButton) failAttemptButton.addEventListener('click', async () => {
+        try {
+          const contactLog = bodyEl.querySelector('#deliveryContactLog')?.value.trim() || '';
+          if (!contactLog) throw new Error('Hãy ghi lại các lần liên hệ trước khi báo giao thất bại.');
+          await api.post(`/api/orders/${encodeURIComponent(order.id)}/delivery-attempts`, { action: 'failed', reason: 'Không gặp được người nhận sau thời gian chờ', contactLog });
+          await refreshOrderDetail();
+          showToast('Đã ghi nhận chuyến giao thất bại và khoản cấn theo chính sách.', 'success');
+        } catch (error) { showToast(error.response?.data?.error?.message || error.message, 'error'); }
+      });
+      const redeliveryButton = bodyEl.querySelector('#btnCreateRedeliveryFee');
+      if (redeliveryButton) redeliveryButton.addEventListener('click', async () => {
+        try {
+          const response = await api.post(`/api/orders/${encodeURIComponent(order.id)}/redelivery-payment`, {});
+          const intent = response.data.paymentIntent;
+          const configResponse = await api.get('/api/sepay/config');
+          const config = configResponse.data;
+          const info = bodyEl.querySelector('#redeliveryPaymentInfo');
+          if (info) {
+            const alreadyPaid = intent.status === 'paid';
+            const qrUrl = config.simulationOnly ? '' : `https://qr.sepay.vn/img?acc=${encodeURIComponent(config.accountNumber)}&bank=${encodeURIComponent(config.bankCode)}&amount=${Number(intent.amount)}&des=${encodeURIComponent(intent.reference_code || intent.referenceCode)}&template=compact`;
+            const qrMarkup = qrUrl ? `<img src="${qrUrl}" alt="Mã QR phí giao lại" width="180" height="180" style="display:block;width:180px;height:180px;object-fit:contain;margin:10px auto;background:#fff;">` : '';
+            info.innerHTML = `<div style="padding:10px;background:#FFFBEB;border-radius:6px;">Phí giao lại: <strong>${formatPrice(intent.amount)}</strong><br>Mã chuyển khoản: <code>${escapeHTML(intent.reference_code || intent.referenceCode)}</code>${qrMarkup}<br>${alreadyPaid ? 'Đã ghi nhận phí cho chuyến này; không thu lần hai.' : 'Khách quét QR hoặc chuyển đúng số tiền và nội dung mã này trước khi bạn xuất phát.'}</div>`;
+          }
+        } catch (error) { showToast(error.response?.data?.error?.message || error.message, 'error'); }
+      });
+      const cancellationButton = bodyEl.querySelector('#btnApproveCancellation');
+      if (cancellationButton) cancellationButton.addEventListener('click', async () => {
+        try {
+          const deductibleAmount = Number(bodyEl.querySelector('#cancellationDeductible')?.value || 0);
+          const evidenceNote = bodyEl.querySelector('#cancellationEvidence')?.value.trim() || '';
+          const lines = bodyEl.querySelector('#cancellationCostLines')?.value.split('\n').map(line => line.trim()).filter(Boolean) || [];
+          const costBreakdown = lines.map(line => {
+            const [description, rawAmount] = line.split('|').map(part => part.trim());
+            return { description, amount: Number(rawAmount) };
+          });
+          await api.patch(`/api/order-cancellation-requests/${encodeURIComponent(cancellationButton.dataset.requestId)}`, { approved: true, deductibleAmount, costBreakdown, evidenceNote });
+          await refreshOrderDetail();
+          showToast('Đã duyệt hủy đơn. Nếu có tiền cần hoàn, phiếu hoàn sẽ chờ bước duyệt maker-checker.', 'success');
+        } catch (error) { showToast(error.response?.data?.error?.message || error.message, 'error'); }
+      });
+      const rejectCancellationButton = bodyEl.querySelector('#btnRejectCancellation');
+      if (rejectCancellationButton) rejectCancellationButton.addEventListener('click', async () => {
+        try {
+          await api.patch(`/api/order-cancellation-requests/${encodeURIComponent(rejectCancellationButton.dataset.requestId)}`, { approved: false });
+          await refreshOrderDetail();
+          showToast('Đã từ chối yêu cầu hủy.', 'info');
+        } catch (error) { showToast(error.response?.data?.error?.message || error.message, 'error'); }
+      });
+      const approveChangeButton = bodyEl.querySelector('#btnApproveOrderChange');
+      if (approveChangeButton) approveChangeButton.addEventListener('click', async () => {
+        try {
+          const response = await api.patch(`/api/order-change-requests/${encodeURIComponent(approveChangeButton.dataset.requestId)}`, { approved: true });
+          await refreshOrderDetail();
+          if (response.data?.paymentIntent) showToast(`Cần khách thanh toán thêm ${formatPrice(response.data.paymentIntent.amount)} với mã ${response.data.paymentIntent.reference_code}.`, 'info');
+          else showToast('Đã áp dụng thay đổi.', 'success');
+        } catch (error) { showToast(error.response?.data?.error?.message || error.message, 'error'); }
+      });
+      const rejectChangeButton = bodyEl.querySelector('#btnRejectOrderChange');
+      if (rejectChangeButton) rejectChangeButton.addEventListener('click', async () => {
+        try {
+          await api.patch(`/api/order-change-requests/${encodeURIComponent(rejectChangeButton.dataset.requestId)}`, { approved: false });
+          await refreshOrderDetail();
+          showToast('Đã từ chối yêu cầu đổi.', 'info');
+        } catch (error) { showToast(error.response?.data?.error?.message || error.message, 'error'); }
+      });
     }
 
     if (exportInvoiceBtn) {
@@ -2866,6 +3064,37 @@ async function fetchAllRefunds() {
   }
 }
 
+async function fetchUnmatchedPayments() {
+  try {
+    const response = await api.get('/api/sepay/reconciliation');
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (err) {
+    console.warn('Lỗi tải giao dịch SePay cần đối soát:', err.response?.data?.error?.message || err.message);
+    return [];
+  }
+}
+
+function renderUnmatchedPayments() {
+  const tbody = document.querySelector('#adminUnmatchedPaymentsTable');
+  const count = document.querySelector('#unmatchedPaymentCount');
+  if (count) count.textContent = `${allUnmatchedPayments.length} giao dịch`;
+  if (!tbody) return;
+  if (!allUnmatchedPayments.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Không có giao dịch đang chờ đối soát</td></tr>';
+    return;
+  }
+  tbody.innerHTML = allUnmatchedPayments.map(item => `
+    <tr>
+      <td><strong>${escapeHTML(item.providerTxId)}</strong><div style="font-size:11px;color:var(--text-muted);">${new Date(item.createdAt).toLocaleString('vi-VN')}</div></td>
+      <td style="font-weight:700;">${formatPrice(item.amount)}</td>
+      <td style="max-width:260px;overflow-wrap:anywhere;">${escapeHTML(item.content || '(không có nội dung)')}</td>
+      <td>${escapeHTML(item.bankBrand || 'SePay')} •••• ${escapeHTML(item.accountSuffix || '----')}<div style="font-size:11px;color:var(--text-muted);">${item.transactionDate ? new Date(item.transactionDate).toLocaleString('vi-VN') : ''}</div></td>
+      <td><input type="text" maxlength="500" placeholder="Ghi chú đã kiểm tra / xử lý" style="width:100%;min-width:180px;"></td>
+      <td><button type="button" class="btn-inline-action btn-reconciliation-review" data-id="${escapeHTML(item.id)}">Đã đối soát</button></td>
+    </tr>
+  `).join('');
+}
+
 function openRefundActionModal(mode, target) {
   const modal = document.querySelector('#refundActionModal');
   const titleEl = document.querySelector('#refundActionModalTitle');
@@ -2966,6 +3195,7 @@ function renderRefundsTab() {
   const tabsWrap = document.querySelector('#refundSegmentedTabs');
 
   updateNavRefundBadge();
+  renderUnmatchedPayments();
 
   const pendingList = allRefunds.filter(r => r.status === 'pending_approval');
   const approvedList = allRefunds.filter(r => r.status === 'approved');
@@ -3042,6 +3272,31 @@ function initRefundManagement() {
   const closeBtn = document.querySelector('#refundActionCloseBtn');
   const cancelBtn = document.querySelector('#refundActionCancelBtn');
   const form = document.querySelector('#refundActionForm');
+  const reconciliationTable = document.querySelector('#adminUnmatchedPaymentsTable');
+
+  if (reconciliationTable && !reconciliationTable.dataset.bound) {
+    reconciliationTable.dataset.bound = 'true';
+    reconciliationTable.addEventListener('click', async (event) => {
+      const button = event.target.closest('.btn-reconciliation-review');
+      if (!button) return;
+      const note = button.closest('tr')?.querySelector('input')?.value.trim() || '';
+      if (note.length < 3) {
+        showToast('Ghi chú cách đối soát trước khi đóng giao dịch này.', 'warning');
+        return;
+      }
+      if (!confirm('Chỉ xác nhận sau khi đã kiểm tra sao kê ngân hàng và xử lý khoản chuyển này. Tiếp tục?')) return;
+      button.disabled = true;
+      try {
+        await api.patch(`/api/sepay/reconciliation/${encodeURIComponent(button.dataset.id)}`, { note });
+        allUnmatchedPayments = await fetchUnmatchedPayments();
+        renderUnmatchedPayments();
+        showToast('Đã lưu kết quả đối soát giao dịch.', 'success');
+      } catch (error) {
+        showToast(error.response?.data?.error?.message || error.message || 'Không thể lưu kết quả đối soát.', 'error');
+        button.disabled = false;
+      }
+    });
+  }
 
   if (tabsWrap && !tabsWrap.dataset.bound) {
     tabsWrap.dataset.bound = 'true';
@@ -3773,14 +4028,15 @@ function initUserManagement() {
 // ==========================================================================
 async function loadAllData() {
   try {
-    const [categories, products, banners, promotions, orders, users, refunds] = await Promise.all([
+    const [categories, products, banners, promotions, orders, users, refunds, unmatchedPayments] = await Promise.all([
       fetchCategories().catch(e => { console.warn('Lỗi nạp danh mục:', e); return []; }),
       fetchProducts({ activeOnly: false }).catch(e => { console.warn('Lỗi nạp sản phẩm:', e); return []; }),
       fetchAllBanners().catch(e => { console.warn('Lỗi nạp banners:', e); return []; }),
       fetchAllPromotions().catch(e => { console.warn('Lỗi nạp khuyến mãi:', e); return []; }),
       fetchOrders().catch(e => { console.warn('Lỗi nạp đơn hàng:', e); return []; }),
       fetchAllUsers().catch(e => { console.warn('Lỗi nạp người dùng:', e); return []; }),
-      fetchAllRefunds().catch(e => { console.warn('Lỗi nạp hoàn tiền:', e); return []; })
+      fetchAllRefunds().catch(e => { console.warn('Lỗi nạp hoàn tiền:', e); return []; }),
+      fetchUnmatchedPayments().catch(e => { console.warn('Lỗi nạp giao dịch đối soát:', e); return []; })
     ]);
 
     allCategories = categories || [];
@@ -3790,6 +4046,7 @@ async function loadAllData() {
     allOrders = orders || [];
     allUsers = users || [];
     allRefunds = refunds || [];
+    allUnmatchedPayments = unmatchedPayments || [];
 
     // Khởi tạo các phân hệ
     initNavigation();

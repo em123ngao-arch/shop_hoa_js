@@ -70,6 +70,8 @@ export const env = {
   SEPAY_BANK_CODE: process.env.SEPAY_BANK_CODE || '',
   SEPAY_ACCOUNT_HOLDER: process.env.SEPAY_ACCOUNT_HOLDER || '',
   PENDING_PAYMENT_TTL_MINUTES: Number(process.env.PENDING_PAYMENT_TTL_MINUTES) || 30,
+  DELIVERY_STORE_LAT: Number(process.env.DELIVERY_STORE_LAT ?? 10.7744),
+  DELIVERY_STORE_LNG: Number(process.env.DELIVERY_STORE_LNG ?? 106.63412),
   CORS_ORIGINS: (process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean),
   SMTP_HOST: process.env.SMTP_HOST || '',
   SMTP_PORT: Number(process.env.SMTP_PORT) || 587,

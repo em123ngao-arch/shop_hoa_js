@@ -16,7 +16,7 @@ export const ORDER_STATUSES = Object.freeze({
 export const STATUS_MESSAGES = Object.freeze({
   [ORDER_STATUSES.PENDING]: 'Đơn hàng đang chờ xác nhận từ tiệm hoa.',
   [ORDER_STATUSES.CONFIRMED]: 'Nghệ nhân đang bắt đầu lựa hoa kẽm nhung và kết bó tỉ mỉ cho đơn hàng của bạn.',
-  [ORDER_STATUSES.SHIPPING]: 'Bó hoa nghệ thuật đang trên đường giao hỏa tốc đến địa chỉ của bạn.',
+  [ORDER_STATUSES.SHIPPING]: '🚚 Bó hoa của bạn đang trên đường giao! Shipper sắp liên hệ, quý khách vui lòng chú ý điện thoại để nhận hoa tươi đẹp nhất.',
   [ORDER_STATUSES.COMPLETED]: 'Đơn hàng đã được giao tận tay thành công. Cảm ơn bạn đã lựa chọn Tiệm Hoa Kẽm Nhung!',
   [ORDER_STATUSES.CANCELLED]: 'Đơn hàng đã được cập nhật trạng thái hủy.'
 });
@@ -58,7 +58,7 @@ export class OrderStateMachine {
       throw new ValidationError(`Luồng chuyển trạng thái không hợp lệ: Không thể chuyển từ "${fromStatus}" sang "${toStatus}"`);
     }
 
-    const isPaidOrPartiallyRefunded = ['paid', 'partially_refunded'].includes(String(paymentStatus).toLowerCase());
+    const isPaidOrPartiallyRefunded = ['partially_paid', 'paid', 'partially_refunded'].includes(String(paymentStatus).toLowerCase());
     if (
       String(paymentMethod).toLowerCase() === 'sepay' &&
       toStatus !== ORDER_STATUSES.CANCELLED &&

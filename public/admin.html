@@ -803,6 +803,33 @@
               </table>
             </div>
           </div>
+
+          <div class="panel-header" style="margin-top: 28px;">
+            <div class="panel-header-title">
+              <h3>Giao dịch SePay chưa khớp mã thanh toán</h3>
+              <p>Khoản chuyển không tự gắn vào đơn. Kiểm tra sao kê và xử lý thủ công trước khi ghi chú đã đối soát.</p>
+            </div>
+            <span class="badge-pill badge-amber" id="unmatchedPaymentCount">0 giao dịch</span>
+          </div>
+          <div class="admin-table-wrap">
+            <div class="admin-table-responsive">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Mã giao dịch ngân hàng</th>
+                    <th>Số tiền</th>
+                    <th>Nội dung chuyển</th>
+                    <th>Ngân hàng / thời điểm</th>
+                    <th>Ghi chú xử lý</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUnmatchedPaymentsTable">
+                  <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Đang tải giao dịch...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </section>
 
         <!-- ====================================================================
@@ -1312,6 +1339,62 @@
                     <option value="Mới">Mẫu mới 2026</option>
                     <option value="Handmade">Thủ công 100%</option>
                   </select>
+                </div>
+              </div>
+
+              <!-- PHÂN LOẠI & THUỘC TÍNH BỘ LỌC (MÀU SẮC, LOẠI HOA, DỊP TẶNG, CHẤT LIỆU) -->
+              <div style="margin-top: 10px; padding: 10px 12px; background: #F1F5F9; border: 1px solid var(--border-light); border-radius: 8px;">
+                <div style="font-size: 11.5px; font-weight: 700; color: var(--color-primary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                  Thuộc Tính Phân Loại &amp; Bộ Lọc Tìm Kiếm
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px;">
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" for="prodColorSelect" style="font-size: 11.5px;">Màu Sắc Chủ Đạo (*):</label>
+                    <select id="prodColorSelect" class="form-select" style="font-size: 12px; padding: 5px 8px;">
+                      <option value="cam">Màu Cam</option>
+                      <option value="do">Màu Đỏ</option>
+                      <option value="hong">Màu Hồng</option>
+                      <option value="vang">Màu Vàng</option>
+                      <option value="trang">Màu Trắng</option>
+                      <option value="tim">Màu Tím</option>
+                      <option value="xanh">Màu Xanh</option>
+                      <option value="da-sac" selected>Kết Hợp Đa Sắc</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" for="prodFlowerTypeSelect" style="font-size: 11.5px;">Loài Hoa (*):</label>
+                    <select id="prodFlowerTypeSelect" class="form-select" style="font-size: 12px; padding: 5px 8px;">
+                      <option value="tulip">Hoa Tulip</option>
+                      <option value="huong-duong">Hoa Hướng Dương</option>
+                      <option value="hoa-hong">Hoa Hồng</option>
+                      <option value="mau-don">Hoa Mẫu Đơn</option>
+                      <option value="hoa-ly-cuc">Hoa Ly &amp; Cúc</option>
+                      <option value="baby-lavender">Baby &amp; Lavender</option>
+                      <option value="khac" selected>Loài Hoa Khác</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0;">
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" for="prodOccasionSelect" style="font-size: 11.5px;">Dịp Tặng Phù Hợp:</label>
+                    <select id="prodOccasionSelect" class="form-select" style="font-size: 12px; padding: 5px 8px;">
+                      <option value="sinh-nhat">Bó Hoa Sinh Nhật</option>
+                      <option value="khai-truong">Hoa Khai Trương</option>
+                      <option value="20-11">Tri Ân Thầy Cô 20/11</option>
+                      <option value="ky-niem">Kỷ Niệm &amp; Tỏ Tình</option>
+                      <option value="de-ban">Hoa Để Bàn Mini</option>
+                      <option value="tat-ca" selected>Phù Hợp Mọi Dịp</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" for="prodMaterialSelect" style="font-size: 11.5px;">Chất Liệu Thủ Công:</label>
+                    <select id="prodMaterialSelect" class="form-select" style="font-size: 12px; padding: 5px 8px;">
+                      <option value="kem-nhung" selected>Kẽm Nhung Handmade (100%)</option>
+                      <option value="giay-nhun">Hoa Giấy Nhún</option>
+                      <option value="len">Hoa Móc Len</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>

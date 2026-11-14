@@ -65,17 +65,44 @@
   align-items: start;
 }
 
-@media (max-width: 992px) {
-  .orders-grid-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* 4. LEFT SIDEBAR: PROFILE & ASSISTANCE CARDS */
 .orders-sidebar {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+@media (max-width: 992px) {
+  .orders-grid-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .orders-sidebar {
+    display: contents !important; /* Biến các thẻ con thành flex items trực tiếp của .orders-grid-layout */
+  }
+
+  .orders-profile-card {
+    order: 1 !important; /* Thẻ thông tin khách hiển thị trên cùng */
+    width: 100%;
+  }
+
+  .orders-main-content {
+    order: 2 !important; /* Danh sách đơn hàng & lộ trình cắm hoa hiển thị chính giữa trung tâm */
+    width: 100%;
+  }
+
+  .orders-assistance-card {
+    order: 3 !important; /* Hộp hỗ trợ đổi thiệp/giờ giao xếp bên dưới danh sách đơn */
+    margin-top: 8px;
+    width: 100%;
+  }
+
+  .orders-guarantee-card {
+    order: 4 !important; /* Cam kết chất lượng xếp ở dưới cùng */
+    width: 100%;
+  }
 }
 
 .orders-sidebar-card {
@@ -167,44 +194,127 @@
 
 /* Sidebar Assistance Box */
 .assistance-card {
-  background: #F0FDF4;
-  border: 1px solid #DCFCE7;
-  border-radius: var(--radius-md, 8px);
+  background: #F4FBF9;
+  border: 1px solid #D1FAE5;
+  border-radius: 12px;
   padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .assistance-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
-  color: #166534;
+  color: #0D6B5E;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 8px;
 }
 
+.assistance-title svg {
+  color: #108474;
+}
+
 .assistance-desc {
-  font-size: 12.5px;
-  color: #374151;
+  font-size: 13px;
+  color: #4B5563;
   line-height: 1.55;
   margin-bottom: 14px;
 }
 
-.assistance-hotline-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #15803D;
-  text-decoration: none;
-  transition: all 0.2s ease;
+.assistance-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
 }
 
-.assistance-hotline-btn:hover {
-  color: #14532D;
+.assistance-hotline-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  color: #FFFFFF !important;
+}
+
+.assistance-hotline-btn .btn-brand-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #FFFFFF !important;
+}
+
+.assistance-hotline-btn span {
+  color: #FFFFFF !important;
+  font-weight: 600;
+}
+
+.assistance-hotline-btn svg {
+  color: #FFFFFF !important;
+  stroke: #FFFFFF;
+  fill: currentColor;
+}
+
+.assistance-hotline-btn .arrow-icon {
+  stroke: #FFFFFF;
+  fill: none;
+  transition: transform 0.2s ease;
+}
+
+.assistance-hotline-btn:hover .arrow-icon {
+  transform: translateX(3px);
+}
+
+/* Zalo Contact Button */
+.assistance-hotline-btn.btn-zalo {
+  background-color: #0068FF;
+  box-shadow: 0 2px 6px rgba(0, 104, 255, 0.2);
+}
+
+.assistance-hotline-btn.btn-zalo:hover {
+  background-color: #0056D2;
+  box-shadow: 0 4px 12px rgba(0, 104, 255, 0.32);
+  transform: translateY(-1px);
+}
+
+/* Messenger Contact Button */
+.assistance-hotline-btn.btn-messenger {
+  background-color: #0084FF;
+  box-shadow: 0 2px 6px rgba(0, 132, 255, 0.2);
+}
+
+.assistance-hotline-btn.btn-messenger:hover {
+  background-color: #0073E6;
+  box-shadow: 0 4px 12px rgba(0, 132, 255, 0.32);
+  transform: translateY(-1px);
+}
+
+.assistance-hotline-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  font-size: 12px;
+  color: #64748B;
+  margin-top: 6px;
+}
+
+.assistance-hotline-note a {
+  color: #108474;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.assistance-hotline-note a:hover {
   text-decoration: underline;
 }
 
@@ -575,6 +685,214 @@
   margin-top: 2px;
 }
 
+/* 7.1. SHIPPING ALERT BANNER (Thông báo & Cảnh báo đang giao hàng chuẩn TMĐT) */
+.shipping-alert-banner {
+  background: #F0FDF4;
+  border: 1.5px solid #86EFAC;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  box-shadow: 0 2px 10px rgba(16, 132, 116, 0.08);
+  animation: fadeInBanner 0.4s ease-out;
+}
+
+@keyframes fadeInBanner {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.shipping-alert-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed #BBF7D0;
+}
+
+.shipping-badge-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #DCFCE7;
+  color: #065F46;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  border: 1px solid #86EFAC;
+}
+
+.shipping-badge-pulse .pulse-ring {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pulseGreenRing 1.6s infinite cubic-bezier(0.66, 0, 0, 1);
+}
+
+@keyframes pulseGreenRing {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.shipping-eta {
+  font-size: 13px;
+  color: #047857;
+  font-weight: 600;
+  background: #FFFFFF;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid #D1FAE5;
+}
+
+.shipping-alert-body {
+  padding: 14px 0 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shipping-main-msg {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1F2937;
+  margin: 0;
+}
+
+.shipping-main-msg strong {
+  color: #065F46;
+}
+
+.shipping-phone-remind {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #92400E;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.shipping-phone-remind svg {
+  color: #D97706;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.shipping-phone-remind strong {
+  color: #78350F;
+  font-weight: 700;
+}
+
+.shipping-cash-status {
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.shipping-cash-status.status-paid {
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  color: #065F46;
+}
+
+.shipping-cash-status.status-paid strong {
+  color: #047857;
+}
+
+.shipping-cash-status.status-cod-due {
+  background: #FFF7ED;
+  border: 1px solid #FED7AA;
+  color: #9A3412;
+}
+
+.shipping-cash-status.status-cod-due strong {
+  color: #C2410C;
+}
+
+.shipping-cash-status .cash-amount {
+  font-weight: 700;
+  color: var(--color-danger, #D92D20);
+  font-size: 14px;
+}
+
+.shipping-alert-footer {
+  padding-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-shipping-zalo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #EBF5FF;
+  color: #0068FF;
+  border: 1px solid #BAE6FD;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-shipping-zalo:hover {
+  background: #0068FF;
+  color: #FFFFFF;
+  border-color: #0068FF;
+}
+
+.btn-shipping-hotline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #FFFFFF;
+  color: var(--color-primary, #108474);
+  border: 1px solid #A7F3D0;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-shipping-hotline:hover {
+  background: #ECFDF5;
+  border-color: var(--color-primary, #108474);
+  color: #065F46;
+}
+
+@media (max-width: 640px) {
+  .shipping-alert-banner {
+    padding: 12px 14px;
+  }
+  .shipping-alert-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .shipping-alert-footer {
+    justify-content: stretch;
+  }
+  .btn-shipping-hotline {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* 8. PRODUCTS IN ORDER (Preview List) */
 .order-items-preview-box {
   background: var(--bg-surface, #F9FAFB);
@@ -914,9 +1232,13 @@
 /* ==========================================================================
    RESPONSIVE CHO TRANG ĐƠN HÀNG MOBILE (< 768px) - UX-04
    ========================================================================== */
-@media (max-width: 767px) {
+@media (max-width: 768px) {
+  .top-bar {
+    display: none !important;
+  }
+
   .orders-page {
-    padding: 16px 0 40px 0;
+    padding: 16px 0 80px 0;
     overflow-x: hidden;
   }
 
@@ -1040,6 +1362,28 @@
 }
 
 @media (max-width: 600px) {
+  .orders-page-header h1 {
+    font-size: 19px;
+  }
+  .orders-page-header p {
+    font-size: 12.5px;
+  }
+  .cart-btn .action-text {
+    display: none !important;
+  }
+  .user-short-name {
+    max-width: 65px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .assistance-card {
+    padding: 16px 14px;
+  }
+  .assistance-hotline-btn {
+    padding: 11px 14px;
+    font-size: 13px;
+  }
   .guest-order-lookup-fields {
     flex-direction: column;
   }

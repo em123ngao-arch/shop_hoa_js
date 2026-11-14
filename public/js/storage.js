@@ -686,7 +686,7 @@ export async function fetchOrders() {
 
 export async function updateOrderStatus(orderId, newStatus) {
   const response = await api.patch(`/api/orders/${encodeURIComponent(orderId)}/status`, { status: newStatus });
-  return response.data?.order || { status: newStatus };
+  return { ...(response.data?.order || { status: newStatus }), cancellationRequest: response.data?.cancellationRequest || null };
 }
 
 export async function saveOrder(orderData) {
@@ -694,7 +694,7 @@ export async function saveOrder(orderData) {
     ...orderData,
     createdAt: orderData.createdAt || new Date().toISOString(),
     status: orderData.status || 'pending',
-    paymentMethod: orderData.paymentMethod || 'cod',
+    paymentMethod: orderData.paymentMethod || 'sepay',
     paymentStatus: orderData.paymentStatus || 'pending',
     isGift: Boolean(orderData.isGift),
     recipientName: orderData.recipientName || '',

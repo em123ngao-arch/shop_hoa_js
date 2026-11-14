@@ -83,6 +83,15 @@
     gap: 8px;
   }
 
+  /* Tối giản nút Giỏ Hàng trên Header Mobile: Chỉ giữ Icon và Badge số lượng để Header thoáng đãng */
+  .cart-btn span:not(.cart-badge) {
+    display: none !important;
+  }
+  .cart-btn {
+    padding: 7px 10px !important;
+    gap: 0 !important;
+  }
+
   /* Ràng buộc kỹ thuật UX-01 & UX-03: Giới hạn tên hiển thị trong .user-menu-pill */
   .user-menu-pill {
     padding: 3px 8px 3px 4px;
@@ -140,8 +149,22 @@
     margin-bottom: 18px;
   }
 
+  .hero-image-wrap {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    height: auto;
+    border-radius: 16px;
+    overflow: hidden;
+    background: transparent;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  }
+
   .hero-image-wrap img {
-    height: 220px;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center center !important;
+    display: block !important;
   }
 
   .hero-nav-btn {
@@ -190,6 +213,90 @@
   /* Category Bar - Swipe ngang mượt mà trên Mobile (UX-07) */
   .category-section {
     padding: 16px 0 10px;
+  }
+
+  /* Visual Category Hub - Carousel vuốt ngang mượt mà trên Mobile */
+  .visual-category-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    gap: 12px;
+    padding: 4px 16px 12px;
+    margin-bottom: 12px;
+  }
+
+  .visual-category-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .visual-category-card {
+    flex: 0 0 132px;
+    scroll-snap-align: start;
+    border-radius: 12px;
+  }
+
+  .visual-cat-img-wrap {
+    aspect-ratio: 1 / 1;
+  }
+
+  .visual-cat-name {
+    font-size: 12px;
+  }
+
+  .visual-cat-count {
+    font-size: 10.5px;
+  }
+
+  /* Multi-Facet Filter Toolbar Mobile */
+  .catalog-filter-hub {
+    padding: 14px;
+    border-radius: 12px;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .filter-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .filter-row-label {
+    min-width: auto;
+    font-size: 11.5px;
+  }
+
+  .filter-chip-group,
+  .filter-swatch-group {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    width: 100%;
+    padding-bottom: 4px;
+    gap: 6px;
+  }
+
+  .filter-chip-group::-webkit-scrollbar,
+  .filter-swatch-group::-webkit-scrollbar {
+    display: none;
+  }
+
+  .filter-chip,
+  .price-chip {
+    padding: 5px 12px;
+    font-size: 11.5px;
+    flex-shrink: 0;
+  }
+
+  .color-swatch-btn {
+    padding: 4px 10px;
+    font-size: 11.5px;
+    flex-shrink: 0;
   }
 
   .category-list {
@@ -393,8 +500,10 @@
   }
 
   /* Tự động nâng nút Chatbot lên cao khi Sticky Bar xuất hiện (UX-05) */
-  body.has-sticky-bar .chat-launcher-btn,
-  body.sticky-bar-active .chat-launcher-btn,
+  body.has-sticky-bar .floating-contact-stack,
+  body.has-sticky-bar .floating-speed-dial,
+  body.sticky-bar-active .floating-contact-stack,
+  body.sticky-bar-active .floating-speed-dial,
   body.sticky-bar-active #aiChatWidget,
   body.sticky-bar-active .chatbot-toggler,
   body.sticky-bar-active #chatbotToggleBtn {
@@ -502,10 +611,11 @@
     box-shadow: 0 2px 5px rgba(217, 45, 32, 0.35);
   }
 
-  /* Chống va chạm Chatbot & Toast với Bottom Nav */
-  .chat-launcher-btn,
+  /* Chống va chạm Cụm nút nổi đa kênh & Toast với Bottom Nav */
   #aiChatWidget,
-  .chatbot-toggler {
+  .chatbot-toggler,
+  .floating-contact-stack,
+  .floating-speed-dial {
     bottom: calc(var(--bottom-nav-h, 60px) + 14px) !important;
     z-index: var(--z-chat-launcher, 1020);
     transition: bottom 0.25s ease;
@@ -516,8 +626,148 @@
     z-index: var(--z-toast, 1200);
   }
 
+  /* Hiệu ứng viền nổi bật khi Bottom Nav kích hoạt nút Tìm Kiếm */
+  @keyframes searchPulse {
+    0% { box-shadow: 0 0 0 0 rgba(16, 132, 116, 0.6); }
+    70% { box-shadow: 0 0 0 8px rgba(16, 132, 116, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 132, 116, 0); }
+  }
+  .search-highlight-pulse {
+    animation: searchPulse 1.2s ease-out !important;
+    border-color: var(--color-primary, #108474) !important;
+  }
+
   /* Khi có cả Sticky Buy Bar và Bottom Nav trên trang Chi Tiết */
   body.has-sticky-bar .mobile-bottom-nav {
     display: none !important;
+  }
+}
+
+/* ==========================================================================
+   HOAHANDMADE.VN THEME RESPONSIVE RULES (TABLET & MOBILE)
+   ========================================================================== */
+@media (max-width: 992px) {
+  .mobile-hamburger-btn {
+    display: flex !important;
+  }
+  .main-nav-bar {
+    display: none !important;
+  }
+  .composite-search-wrap {
+    order: 3;
+    width: 100%;
+    max-width: 100%;
+    margin: 8px 0 0 0;
+  }
+  .search-price-select-wrap {
+    width: 120px;
+  }
+  .catalog-layout {
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+  }
+  .catalog-sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 310px;
+    max-width: 85vw;
+    height: 100vh;
+    z-index: 9999;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow-y: auto;
+    padding: 20px 16px 80px 16px;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.2);
+  }
+  .catalog-sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-mobile-header {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #E5E7EB;
+  }
+  .sidebar-mobile-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #181318;
+  }
+  .btn-close-sidebar {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #6B7280;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9998;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s;
+  }
+  .sidebar-backdrop.active {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  .mobile-filter-trigger-bar {
+    display: block !important;
+    margin-bottom: 16px;
+  }
+  .btn-mobile-filter {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    background: #0D6B5E;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(13, 107, 94, 0.25);
+  }
+}
+
+@media (max-width: 768px) {
+  .top-bar {
+    display: none !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .search-price-select-wrap {
+    display: none !important;
+  }
+  .search-box-separator {
+    display: none !important;
+  }
+  .composite-search-box {
+    border-radius: 20px;
+    height: 38px;
+  }
+  .header-action-link .action-text {
+    display: none !important;
+  }
+  .cart-btn .action-text {
+    display: none !important;
+  }
+  .product-price-online {
+    font-size: 13.5px !important;
+  }
+  .btn-quick-add {
+    width: 32px !important;
+    height: 32px !important;
   }
 }

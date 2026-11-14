@@ -33,6 +33,11 @@ export class PrismaCatalogRepository {
       image_url: p.image_url,
       description: p.description,
       badge: p.badge || '',
+      color: p.color || 'ket-hop',
+      flowerType: p.flower_type || 'khac',
+      flower_type: p.flower_type || 'khac',
+      occasion: p.occasion || 'tat-ca',
+      material: p.material || 'kem-nhung',
       categoryId: p.category_id,
       category_id: p.category_id,
       categoryName: p.categories?.name || 'Hoa Kem Nhung',
@@ -133,6 +138,10 @@ export class PrismaCatalogRepository {
         image_url: data.image || data.image_url || './images/300.png',
         description: data.description || '',
         badge: data.badge || null,
+        color: data.color || 'ket-hop',
+        flower_type: data.flowerType || data.flower_type || 'khac',
+        occasion: data.occasion || 'tat-ca',
+        material: data.material || 'kem-nhung',
         is_active: data.isActive !== undefined ? Boolean(data.isActive) : true
       },
       include: { categories: true, reviews: true }
@@ -179,6 +188,12 @@ export class PrismaCatalogRepository {
     }
     if (data.description !== undefined) updatePayload.description = data.description;
     if (data.badge !== undefined) updatePayload.badge = data.badge;
+    if (data.color !== undefined) updatePayload.color = data.color;
+    if (data.flowerType !== undefined || data.flower_type !== undefined) {
+      updatePayload.flower_type = data.flowerType ?? data.flower_type;
+    }
+    if (data.occasion !== undefined) updatePayload.occasion = data.occasion;
+    if (data.material !== undefined) updatePayload.material = data.material;
     if (data.categoryId !== undefined || data.category_id !== undefined) {
       updatePayload.category_id = String(data.categoryId ?? data.category_id);
     }
