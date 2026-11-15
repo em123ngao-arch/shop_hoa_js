@@ -78,9 +78,13 @@ model orders {
   delivery_zone            String?                       @db.VarChar(40)
   delivery_place_id        String?                       @db.VarChar(255)
   delivery_distance_meters Int?
+  delivery_snap_offset_meters Int?
+  delivery_route_provider String?                    @db.VarChar(40)
+  delivery_rate_version   String?                       @db.VarChar(40)
   delivery_latitude        Float?                        @db.Double
   delivery_longitude       Float?                        @db.Double
   delivery_quote_at        DateTime?                     @db.DateTime(0)
+  delivery_quote_request_id String?                       @unique(map: "uq_orders_delivery_quote_request") @db.VarChar(36)
   delivery_date            String?                       @db.VarChar(20)
   delivery_slot            String?                       @db.VarChar(100)
   has_greeting_card        Boolean                       @default(false)
@@ -99,6 +103,7 @@ model orders {
   voucher_code             String?                       @db.VarChar(50)
   created_at               DateTime                      @default(now()) @db.DateTime(0)
   completed_at             DateTime?                     @db.DateTime(0)
+  cancelled_at             DateTime?                     @db.DateTime(0)
   notifications            notifications[]
   order_items              order_items[]
   users                    users?                        @relation(fields: [user_id], references: [id], map: "fk_orders_user")
@@ -109,6 +114,7 @@ model orders {
   change_requests          order_change_requests[]
   cancellation_requests    order_cancellation_requests[]
   refund_requests          refund_requests[]
+  delivery_quote_request   delivery_quote_requests?      @relation(fields: [delivery_quote_request_id], references: [id], onDelete: SetNull, map: "fk_order_delivery_quote_request")
 
   @@index([user_id], map: "fk_orders_user")
   @@index([status], map: "idx_orders_status")
@@ -211,6 +217,44 @@ model delivery_attempts {
   @@unique([order_id, attempt_number], map: "uq_delivery_attempt_number")
   @@index([order_id, status], map: "idx_delivery_attempt_order_status")
   @@index([reschedule_deadline], map: "idx_delivery_reschedule_deadline")
+}
+
+model delivery_quote_requests {
+  id                    String    @id @db.VarChar(36)
+  request_code          String    @unique(map: "uq_delivery_quote_request_code") @db.VarChar(20)
+  user_id               String?   @db.VarChar(64)
+  customer_name         String    @db.VarChar(100)
+  customer_phone        String    @db.VarChar(20)
+  customer_email        String?   @db.VarChar(254)
+  shipping_address      String    @db.VarChar(255)
+  delivery_area         String    @db.VarChar(100)
+  delivery_latitude     Float?    @db.Double
+  delivery_longitude    Float?    @db.Double
+  delivery_distance_meters Int?
+  delivery_snap_offset_meters Int?
+  delivery_route_provider String? @db.VarChar(40)
+  delivery_date         String?   @db.VarChar(20)
+  delivery_slot         String?   @db.VarChar(100)
+  quoted_delivery_date  String?   @db.VarChar(20)
+  quoted_delivery_slot  String?   @db.VarChar(100)
+  payment_plan          String    @default("sepay_full") @db.VarChar(40)
+  payload_json          String    @db.LongText
+  status                String    @default("requested") @db.VarChar(24)
+  quoted_shipping_fee   Int?
+  shop_note             String?   @db.Text
+  quote_expires_at      DateTime? @db.DateTime(0)
+  reviewed_by_id        String?   @db.VarChar(64)
+  reviewed_at           DateTime? @db.DateTime(0)
+  accepted_at           DateTime? @db.DateTime(0)
+  created_at            DateTime  @default(now()) @db.DateTime(0)
+  updated_at            DateTime  @updatedAt @db.DateTime(0)
+  users                 users?    @relation(fields: [user_id], references: [id], onDelete: SetNull, map: "fk_delivery_quote_user")
+  orders                orders?
+
+  @@index([status, created_at], map: "idx_delivery_quote_status_created")
+  @@index([customer_phone, created_at], map: "idx_delivery_quote_phone_created")
+  @@index([quote_expires_at], map: "idx_delivery_quote_expiry")
+  @@index([user_id], map: "idx_delivery_quote_user")
 }
 
 model order_change_requests {
@@ -362,6 +406,7 @@ model users {
   created_at            DateTime                @default(now()) @db.DateTime(0)
   notifications         notifications[]
   orders                orders[]
+  delivery_quote_requests delivery_quote_requests[]
   reviews               reviews[]
   review_helpful_votes  review_helpful_votes[]
   review_comments       review_comments[]

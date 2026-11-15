@@ -1,118 +1,80 @@
-# Phần 17: Thanh toán trước và tự giao trên local
+# Thanh toán và giao hàng tự quản lý — bản local
 
-> Phạm vi: hoàn thiện luồng thử nghiệm local. Không kết nối SePay Live, không gọi Google Maps ở local, không áp dụng migration vào database đang cấu hình và không triển khai public.
+> Phạm vi: hoàn thiện và chạy thử trong môi trường local. Không kết nối SePay để thu tiền thật, không chạy migration trên database đang cấu hình, không triển khai và không push.
 
-## 1. Bản đồ vị trí code
+## 1. Luồng khách đặt hàng
 
-| Phần | File | Trách nhiệm |
+1. Khách chọn quận/khu vực quen thuộc (tên cũ để lọc), rồi chọn phường hiện hành; nhập số nhà/tên đường và chỉ dẫn giao.
+2. Checkout gọi `POST /api/delivery/quote`. Backend tra mức phí cố định theo phường từ bảng cấu hình dùng chung; không gọi API định tuyến và không tính km từ ghim.
+3. Khách ghim vị trí/cổng nhận trên Google Maps. Ghim chỉ lưu tọa độ giúp người giao tìm nhà; nó không xác minh số nhà, địa giới phường hay tuyến đi.
+4. Mức phí khởi điểm hiện tại: Phường Tân Phú 0₫; bốn phường lân cận Tân Sơn Nhì, Phú Thọ Hòa, Phú Thạnh, Tây Thạnh 35.000₫; các phường còn lại trong danh sách phục vụ 50.000₫. Đây là biểu phí thử do tiệm đặt, không phải cước hãng giao hàng.
+5. Server tính lại phí khi tạo đơn và lưu snapshot tên phường, vùng phí, phí, phiên bản bảng giá và tọa độ ghim. Không lưu khoảng cách hoặc hình học tuyến cho đơn theo biểu phí mới.
+
+## 2. Thanh toán
+
+- Đơn mới có hai lựa chọn: **SePay trả đủ 100%**, hoặc **trả trước 50% tổng cuối qua SePay và trả phần còn lại bằng tiền mặt khi nhận**. Đây không phải luồng COD không cọc.
+- Cọc được tính trên tổng cuối sau voucher và phí giao: `floor(totalAmount / 2)`. Phần còn lại bằng `totalAmount - amountPaidFirst`.
+- SePay intent giữ mã tham chiếu riêng, số tiền và mục đích. Webhook phải khớp intent; giao dịch trùng/thiếu/thừa/đến sau khi hủy không tự cộng nhầm vào đơn.
+- Non-production chỉ trả cấu hình `LOCAL-MOCK`, không đọc/hiển thị tài khoản ngân hàng thật và không tạo QR thật. Nút mô phỏng ghi payment intent với mã `SIM-*`; SePay API polling bị chặn khỏi gọi mạng. Production cần bật riêng `SEPAY_LIVE_ENABLED=true` sau khi đã cấu hình và xác minh; mặc định false.
+- Webhook ngân hàng thật chỉ được xử lý ở production (test được phép gọi controller/service theo cấu hình test); mô phỏng thanh toán chỉ dành cho non-production và bị chặn trong production.
+- Production chỉ trả cấu hình SePay thật nếu đủ biến môi trường. Luồng live chưa được xác minh trong lượt làm local này.
+
+## 3. Địa chỉ, bản đồ và phí
+
+- Checkout có hai bước rõ ràng: chọn quận/khu vực cũ để lọc, sau đó chọn phường hiện hành. Giá trị lưu vào đơn là phường hiện hành; nhãn quận cũ chỉ hỗ trợ người quen địa chỉ trước sắp xếp.
+- Bản đồ dùng Google Maps JavaScript API. Người dùng bấm bản đồ hoặc kéo ghim để chỉ điểm nhận. Cần Internet, browser API key có giới hạn HTTP referrer, bật Maps JavaScript API và billing; key được gửi tới trình duyệt nên tuyệt đối không dùng key server-side hoặc key không giới hạn.
+- V1 không dùng Google Routes, Places, Geocoding, ORS hay dịch vụ tính km. Ghim không đổi phí. Nếu key chưa cấu hình hoặc API không tải được, khu vực bản đồ sẽ hiện thông báo lỗi cụ thể thay vì để khung xám trống.
+- Phí hiện được tra từ danh sách dùng chung `public/js/delivery-areas.js`; server là nguồn chốt phí. Thay đổi bảng giá cần tăng `rateVersion` để đơn cũ giữ nguyên snapshot.
+- Tọa độ giao được lưu cùng đơn để tiệm mở bản đồ tìm địa điểm, và được xóa 30 ngày sau khi đơn hoàn tất/hủy bởi tác vụ nền. Địa chỉ chữ và snapshot phí vẫn được giữ theo hồ sơ đơn.
+
+## 4. Yêu cầu báo giá thủ công (luồng cũ)
+
+Các endpoint và bảng yêu cầu báo giá thủ công vẫn được giữ để đọc dữ liệu cũ. Biểu phí hiện hành gán sẵn mức cho các phường đang phục vụ, nên checkout mới không tạo yêu cầu báo giá thủ công. Phường không có trong danh sách sẽ bị từ chối, không tự gán vùng hoặc mức phí.
+
+| Trạng thái | Ý nghĩa | Hành động tiếp theo |
 |---|---|---|
-| Checkout | [public/index.html](../public/index.html), [public/detail.html](../public/detail.html), [public/js/checkout.js](../public/js/checkout.js) | Chọn trả đủ hoặc trả trước 50%, chọn phường theo nhóm, nhập riêng số nhà/đường và chỉ dẫn, chủ động yêu cầu báo giá, xác nhận điều khoản và mở màn hình chuyển khoản. |
-| Khu vực giao | [public/js/delivery-areas.js](../public/js/delivery-areas.js), [DeliveryZoneRules.js](../server/application/DeliveryZoneRules.js) | Dropdown phường/xã và bảng gán vùng/giá cố định do server quyết định. |
-| Quy tắc tiền | [server/application/PaymentRules.js](../server/application/PaymentRules.js) | Tính tiền phải trả trước, số còn thu khi giao và số tiền đã cấn vào đơn. |
-| Quy tắc giao | [server/application/DeliveryService.js](../server/application/DeliveryService.js) | Tra phí cố định theo vùng; tọa độ pin chỉ kiểm tra phạm vi, không tính phí tuyến. |
-| Nghiệp vụ đơn | [server/application/OrderService.js](../server/application/OrderService.js) | Tính lại giá/voucher/phí phía server, xác thực quyền đổi/hủy, điều phối giao hàng. |
-| Lưu trữ | [server/adapters/out/persistence/PrismaOrderRepository.js](../server/adapters/out/persistence/PrismaOrderRepository.js) | Tạo intent riêng, ghi sổ thu/chi, lịch sử giao, yêu cầu đổi/hủy, chặn xử lý giao dịch lặp. |
-| Đối soát SePay | [server/application/PaymentService.js](../server/application/PaymentService.js), [server/adapters/in/web/PaymentController.js](../server/adapters/in/web/PaymentController.js) | Mô phỏng local, xử lý webhook production, mã sai/không rõ được đưa vào danh sách cần đối soát. |
-| Hoàn tiền | [server/adapters/out/persistence/PrismaRefundRepository.js](../server/adapters/out/persistence/PrismaRefundRepository.js) | Maker-checker, giới hạn theo tiền thực nhận, yêu cầu mã tham chiếu trước khi ghi hoàn tất. |
-| Quản trị | [public/admin.html](../public/admin.html), [public/js/admin.js](../public/js/admin.js) | Ghi nhận tiền mặt, theo dõi lần giao, xử lý hủy/đổi, phí giao lại và giao dịch SePay chưa khớp. |
-| Dữ liệu | [prisma/schema.prisma](../prisma/schema.prisma), [migration SQL](../prisma/migrations/20261114_payment_delivery_v1/migration.sql) | Schema sổ tiền, payment intent, lần giao, yêu cầu đổi/hủy và giao dịch chưa khớp. Migration mới được tạo, chưa áp dụng vào DB. |
+| `requested` | Dữ liệu yêu cầu cũ, chưa có phí | Shop xem lại thông tin và quyết định xử lý thủ công |
+| `reviewing` | Shop đang kiểm tra yêu cầu cũ | Chưa giữ lịch hoặc tồn kho |
+| `quoted` | Shop đã chốt phí, ngày, khung giờ | Khách xác nhận/từ chối trong 24 giờ |
+| `accepted` | Khách đã xác nhận báo giá cũ, đơn đã được tạo | Chờ SePay nhận đủ khoản phải trả trước |
+| `declined` | Shop hoặc khách từ chối | Không tạo đơn, không trừ kho |
+| `expired` | Hết hạn | Khách gửi yêu cầu mới để được báo lại |
 
-## 2. Sơ đồ luồng
+Hạn 24 giờ áp dụng cho yêu cầu/báo giá. Sau khi khách xác nhận nhưng chưa thanh toán, TTL đơn SePay hiện hữu sẽ hủy đơn và trả tồn kho; giao dịch đến muộn cần shop đối soát. Không tự nhận lại chỗ giao nếu sức chứa có thể đã thay đổi.
 
-```mermaid
-flowchart TD
-  A[Khách chọn phương thức thanh toán] --> B[Checkout gọi báo giá giao]
-  B --> C[Server tra vùng và phí cố định]
-  C --> D[Khách xác nhận điều khoản]
-  D --> E[Server tính lại sản phẩm, voucher, phí, tổng cuối]
-  E --> F{Kế hoạch thanh toán}
-  F -->|SePay 100%| G[Intent full_payment = tổng cuối]
-  F -->|SePay 50%| H[Intent advance_50 = floor tổng cuối / 2]
-  G --> I[Local mô phỏng hoặc production nhận webhook]
-  H --> I
-  I --> J[Webhook khớp mã riêng, intent, số tiền]
-  J --> K[Sổ tiền ghi nhận; đơn chỉ xác nhận sau khoản SePay hợp lệ]
-  K --> L[Shop tự giao và ghi lần giao]
-  L --> M[Trả trước 50% thì shop ghi riêng tiền mặt còn thu]
-  M --> N[Trạng thái giao và trạng thái tiền độc lập]
-```
+## 5. File chính
 
-Khi đổi địa chỉ, server tra lại vùng từ phường mới. Phí tăng tạo intent mới và địa chỉ chỉ cập nhật sau khi thanh toán; phí giảm làm giảm số còn thu và khách có thể yêu cầu hoàn. Khi giao thất bại, nhân viên ghi liên hệ và thời điểm chờ 30 phút; khoản cấn và phí chuyến giao lại được ghi thành các dòng riêng.
+| Phần | File |
+|---|---|
+| UI checkout và Google Maps | [public/index.html](../public/index.html), [public/detail.html](../public/detail.html), [public/js/checkout.js](../public/js/checkout.js), [public/js/delivery-map.js](../public/js/delivery-map.js) |
+| Danh sách khu vực | [public/js/delivery-areas.js](../public/js/delivery-areas.js), [server/application/DeliveryZoneRules.js](../server/application/DeliveryZoneRules.js) |
+| Tra phí cố định theo phường | [server/application/DeliveryService.js](../server/application/DeliveryService.js), [public/js/delivery-areas.js](../public/js/delivery-areas.js) |
+| Trạng thái, báo giá, tạo đơn | [server/application/OrderService.js](../server/application/OrderService.js), [server/adapters/in/web/OrderController.js](../server/adapters/in/web/OrderController.js) |
+| Lưu trữ và hết hạn/xóa tọa độ | [server/adapters/out/persistence/PrismaOrderRepository.js](../server/adapters/out/persistence/PrismaOrderRepository.js), [server/application/OrderExpiryService.js](../server/application/OrderExpiryService.js) |
+| Màn hình khách tra cứu/SePay | [public/delivery-quote.html](../public/delivery-quote.html), [public/js/delivery-quote.js](../public/js/delivery-quote.js) |
+| Màn hình shop xử lý | [public/admin.html](../public/admin.html), [public/js/admin.js](../public/js/admin.js) |
+| Prisma và migration mới | [prisma/schema.prisma](../prisma/schema.prisma), [migration SQL](../prisma/migrations/20261115_manual_delivery_quotes/migration.sql) |
 
-## 3. Các quy tắc chính và lý do
+## 6. Việc cần làm trước khi mở môi trường public
 
-- Đơn mới không có COD. Khách chọn **SePay trả đủ 100%** hoặc **trả trước 50% qua SePay, phần còn lại trả tiền mặt khi nhận**. Khoản thứ hai là thanh toán từng phần; không gọi là COD.
-- Số trả trước bằng `Math.floor(totalAmount / 2)`; phần còn lại bằng tổng cuối trừ số trả trước. Tổng cuối đã bao gồm voucher và phí giao.
-- Phí giao tra theo phường trên server: phường Tân Phú 0₫; phường Tân Sơn Nhì, Phú Thọ Hòa, Phú Thạnh, Tây Thạnh 35.000₫; các phường còn lại trong dropdown 50.000₫. Đây là bảng pilot cần chủ shop xác nhận và chỉnh theo chi phí chuyến thực tế trước khi công khai.
-- Mỗi khoản cần chuyển có `reference_code`, số tiền và mục đích riêng. Webhook không suy luận loại tiền từ mã đơn. Tiền sai mã, sai số hoặc đến sau khi hủy không tự cộng vào khoản đã thanh toán.
-- Địa chỉ checkout chọn phường/xã, nhập số nhà/tên đường/chỉ dẫn; phí được tra ngay theo phường. Báo giá có thể xem trước khi ghim, nhưng lúc tạo đơn/đổi địa chỉ phải gửi tọa độ pin để lưu cho người giao. Haversine chỉ dùng chặn pin xa hơn 15 km đường chim bay và gắn cờ cần shop xác nhận ở mép vùng; không dùng để ra phí.
-- Backend không geocode, không gọi Google Routes/Places và không dùng kết quả giả lập. Tọa độ shop hiện có là giá trị mặc định cần xác nhận ghim thực tế trước khi bật bắt buộc pin. Tọa độ khách được xóa sau 30 ngày khi đơn đã hoàn tất/hủy; vùng và phí snapshot vẫn giữ để đối soát.
-- Bản đồ tương tác chưa được tích hợp vào frontend ở phần backend này. Nếu dùng tile OpenStreetMap công cộng, cần hiển thị attribution và tuân thủ chính sách cache/usage; dịch vụ tile là best-effort, không có SLA. Xem [OSM Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/).
-- Webhook trùng được chặn bằng unique `provider_tx_id`. Webhook không tìm thấy intent/đơn được lưu tại `unmatched_payment_transactions` và hiện trong Admin; nhân viên phải kiểm tra sao kê, ghi chú cách xử lý rồi mới đóng mục đối soát.
-- Giao dịch hoàn được chuyển thủ công. Admin chỉ đánh dấu hoàn tất sau khi nhập mã tham chiếu chuyển tiền. Trạng thái đơn giao không tự đổi trạng thái thanh toán.
+- Nhập `GOOGLE_MAPS_API_KEY` là browser key đã giới hạn đúng domain và chỉ bật Maps JavaScript API. Tọa độ `DELIVERY_STORE_LAT/LNG` chỉ dùng làm tâm mở bản đồ, không dùng tính phí.
+- Rà danh sách phường được phục vụ và mức phí vùng; các phường xa cần được loại khỏi danh sách hoặc có mức giá riêng trước khi mở bán rộng.
+- Tạo một database test cô lập, áp dụng migration mới tại đó, sinh Prisma Client và kiểm tra API/UI/E2E trên DB test.
+- Xác minh SePay webhook bằng HTTPS, secret thật và giao dịch thử; không bật nhận tiền thật từ local.
+- Kiểm tra phí ở Phường Tân Phú, Phường Tân Sơn Nhì và một phường ngoài vùng lân cận; kéo ghim phải không làm đổi phí.
+- Mở bản đồ trên trình duyệt thật sau khi có API key hợp lệ; kiểm tra điểm ghim, lưu tọa độ và mở hướng dẫn đường trên điện thoại.
 
-### Ví dụ code
+## 7. Trạng thái kiểm tra lần này
 
-```js
-const amountDueNow = Math.floor(totalAmount / 2);
-const amountDueAtDelivery = totalAmount - amountDueNow;
-```
+- Checkout tra phí cố định theo phường; Google Maps chỉ cung cấp bản đồ và tọa độ ghim, không chạy định tuyến.
+- API key Google Maps chưa được cấu hình trong `.env` của môi trường local tại thời điểm cập nhật; map thật sẽ báo rõ yêu cầu cấu hình cho tới khi có browser key hợp lệ.
+- Migration `20261115_manual_delivery_quotes` mới chỉ được tạo; chưa áp dụng vào database.
+- Không chạy test suite, migration, webhook thật hay giao dịch SePay trong lượt này. Trước khi dùng cần kiểm tra trên database test cô lập.
 
-Server tính lại giá trong `OrderService.createOrder`; frontend chỉ hiển thị. Vì vậy sửa giá ở DevTools không làm thay đổi số tiền trong đơn. `PrismaOrderRepository.recordPaymentIntent` dùng giao dịch DB và chỉ cập nhật đơn sau khi kiểm tra intent còn chờ, mã đúng, số tiền đúng, mục đích đúng và đơn chưa hủy.
+## Tham khảo kỹ thuật
 
-## 4. Nhật ký lỗi và cách xử lý
-
-| Hiện tượng | Nguyên nhân | Cách xử lý |
-|---|---|---|
-| Intent trả trước 50% bị hiển thị là “thanh toán đủ” | UI so sánh purpose `cod_deposit`, trong khi intent mới dùng `advance_50` | Đổi nhãn theo purpose: trả trước, trả đủ, phí điều chỉnh hoặc phí giao lại. |
-| Webhook chứa mã chuyển không tìm được đơn sẽ biến mất khỏi ứng dụng | Luồng cũ chỉ trả `processed: false` | Tạo bảng giao dịch chưa khớp, endpoint nhân viên và bảng đối soát trong Admin; khoản này không được tự nhận là tiền của đơn nào. |
-| Cấu hình local trỏ nhầm Google có thể gọi API thật | Chỉ dựa vào biến cấu hình mode | Chặn Places/Routes ngoài production; local dùng mô phỏng. |
-| Webhook SePay cần xác nhận đã nhận sự kiện | SePay yêu cầu body `{ success: true }`; một số cấu hình cũ/OAuth chỉ chấp nhận HTTP 201 | Endpoint trả HTTP 201 sau khi lưu sự kiện thành công. SePay cũng yêu cầu chống giao dịch trùng theo `id`; xem [hướng dẫn Webhook SePay](https://docs.sepay.vn/tich-hop-webhooks.html). |
-
-## 5. Vấn đáp và nguồn tham khảo
-
-**Hỏi: Vì sao em bỏ COD?**  
-Đáp: Đây là lựa chọn theo điều kiện vận hành của tiệm: hiện chỉ một người giao hàng, nên cần nhận trước một phần để giảm rủi ro khách không nhận. Khách vẫn có lựa chọn trả phần còn lại bằng tiền mặt khi nhận, nhưng hệ thống gọi đó là thanh toán từng phần vì đã có khoản chuyển trước.
-
-**Hỏi: Tại sao cọc bằng 50% tổng cuối?**  
-Đáp: Đây là chính sách đã thống nhất với chủ shop, không phải quy định bắt buộc của mọi cửa hàng. Tính trên tổng cuối giúp khoản trả trước tính cả voucher và phí giao; làm tròn xuống giúp phần còn lại luôn cộng đúng tổng.
-
-**Hỏi: Dựa vào đâu để tích hợp SePay?**  
-Đáp: Em dựa vào tài liệu Webhook chính thức của SePay để xử lý POST, xác thực API key, kiểm tra giao dịch tiền vào, trả phản hồi thành công và chống giao dịch lặp. Còn mã intent riêng, khớp số tiền/mục đích và sổ thu chi là thiết kế của hệ thống để không gắn nhầm tiền giữa các đơn.
-
-**Hỏi: Vì sao dùng Maps nếu API có thể tính phí?**  
-Đáp: Bản đồ dùng để khách ghim vị trí và shop mở đường đi; phí do bảng vùng trong server tính. Nếu dùng tile OpenStreetMap công cộng phải ghi nguồn và tuân thủ chính sách sử dụng; tile không có SLA. Shop có thể mở đường đi trong Google Maps bằng URL mà không cần API key.
-
-**Hỏi: Vì sao dùng phí theo phường thay vì phí theo tuyến?**  
-Đáp: Shop hiện tự giao và cần tránh API tính tuyến có billing. Backend gán mỗi phường vào một vùng phí; pin chỉ giúp người giao tìm địa chỉ và kiểm tra phạm vi. Đây là chính sách vận hành của shop, không phải giá cước chính thức của hãng vận chuyển.
-
-**Hỏi: Em đã kiểm tra trên database thật chưa?**  
-Đáp: Chưa. Migration được tạo nhưng chưa áp dụng vì chưa xác nhận database hiện tại là DB test cô lập. Trước khi dùng public, cần tạo DB test riêng, áp dụng migration ở đó, chạy API/UI/E2E, sau đó cấu hình SePay Live, HTTPS, địa chỉ tiệm và quota Maps.
-
-### Nguồn chính thức
-
-- [SePay — Hướng dẫn tích hợp Webhook](https://docs.sepay.vn/tich-hop-webhooks.html)
-- [OpenStreetMap — Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/)
-- [Google Maps — Maps URLs](https://developers.google.com/maps/documentation/urls/get-started)
-- [Nghị quyết 1685/NQ-UBTVQH15 — sắp xếp đơn vị hành chính cấp xã TP.HCM năm 2025](https://xaydungchinhsach.chinhphu.vn/toan-van-nghi-quyet-so-1685-nq-ubtvqh15-sap-xep-cac-dvhc-cap-xa-cua-thanh-pho-ho-chi-minh-nam-2025-119250616211341304.htm)
-
-## 6. Kết quả kiểm tra local trước khi chuyển sang phí vùng
-
-- Đạt: 10/10 kiểm thử unit quy tắc tiền, mốc phí giao, chặn gọi Google trên local và webhook chưa khớp.
-- Đạt: `npx prisma validate` và kiểm tra cú pháp Node.js cho các file backend/frontend đã sửa.
-- Đạt: đối chiếu chênh lệch Prisma schema với schema trước thay đổi; migration SQL chưa được áp dụng.
-- Chưa chạy migration, truy vấn API có DB, UI/E2E hoặc webhook thật vì chưa xác nhận được một database test cô lập. Không dùng database đang cấu hình trong `.env` cho các thao tác ghi.
-- Các kiểm tra trên được thực hiện trước khi thay phí km bằng phí vùng; không xác nhận thay đổi mới ở mục 7. Trước khi mở public cần tạo DB test và kiểm tra luồng map/pin với tọa độ tiệm chính xác.
-- Countdown VietQR hiện bám hạn thật của payment intent; không còn nút gia hạn chỉ đổi giờ ở trình duyệt. Khi hết hạn, khách cần tạo đơn mới hoặc liên hệ tiệm nếu đã chuyển tiền.
-
-## 7. Chuyển phí sang vùng cố định và ghim bản đồ (14/11/2026)
-
-- Backend đã đổi từ phí km/mock/Google Routes sang bảng phí pilot theo phường; báo giá có thể trả ngay khi chỉ biết phường, không cần địa chỉ đường hoặc API ngoài.
-- API báo giá nhận `latitude`/`longitude` (hoặc `deliveryLatitude`/`deliveryLongitude`) tùy chọn để xem vùng trước khi ghim. Tạo đơn và đổi địa chỉ yêu cầu tọa độ hợp lệ; pin quá 15 km đường chim bay bị từ chối, pin xa tương đối so với vùng yêu cầu shop xác nhận. Khoảng cách không tham gia tính phí.
-- Prisma lưu `delivery_zone`, `delivery_latitude`, `delivery_longitude`; đổi địa chỉ sẽ chụp vùng và tọa độ mới vào yêu cầu, và cập nhật sau khi được áp dụng. Tọa độ được xóa sau 30 ngày khi đơn kết thúc; phí/vùng lịch sử được giữ.
-- Mức pilot hiện tại: phường Tân Phú miễn phí; 4 phường Tân Phú lân cận 35.000₫; các phường còn lại trong dropdown 50.000₫. Cần xác nhận lại phân vùng, tọa độ chính xác của tiệm và chi phí chuyến trước khi dùng thật.
-- Checkout và trang đơn đã có Leaflet/OpenStreetMap để khách bấm bản đồ hoặc kéo ghim; bản đồ chỉ cung cấp vị trí điều hướng, không xác minh số nhà hay ranh giới hành chính. Khách vẫn phải nhập địa chỉ chữ chính xác; tiệm cần xác nhận khi ghim nằm xa so với vùng đã chọn.
-- `POST /api/delivery/quote` tính giá từ phường trên máy chủ; ghim chỉ kiểm tra phạm vi, không tham gia tính phí. Khi tạo đơn hoặc gửi yêu cầu đổi địa chỉ, thiếu ghim hoặc ghim cần xác nhận đều bị chặn. Bản đồ nền dùng tile công cộng OSM, cần internet và tuân thủ chính sách ghi công/sử dụng tile.
-- Admin xem chi tiết ghim và có thể mở tuyến điều hướng trong Google Maps bằng URL thường; không dùng Google Maps API hay API key.
-- Mức pilot hiện tại: phường Tân Phú miễn phí; Tân Sơn Nhì, Phú Thọ Hòa, Phú Thạnh, Tây Thạnh 35.000₫; các phường còn lại có trong danh sách 50.000₫. Đây là cấu hình thử, chưa được kiểm chứng theo chi phí chạy từng tuyến; cần xác nhận lại phân phường, địa chỉ tiệm và mức giá trước khi mở bán.
-- Bỏ tọa độ mặc định giả lập tại API tạo đơn: request không có ghim không còn bị gán nhầm vào tọa độ tiệm. Chưa chạy migration, suite, API có DB hoặc UI/E2E sau phần tích hợp này.
+- [Google Maps JavaScript API: tạo API key](https://developers.google.com/maps/documentation/javascript/get-api-key)
+- [Google Maps Platform: giá dịch vụ](https://developers.google.com/maps/billing-and-pricing/pricing)
+- [Google Maps Platform: bảo vệ API key](https://developers.google.com/maps/api-security-best-practices)
+- [Nghị quyết 1685/NQ-UBTVQH15 về sắp xếp đơn vị hành chính TP.HCM năm 2025](https://xaydungchinhsach.chinhphu.vn/toan-van-nghi-quyet-so-1685-nq-ubtvqh15-sap-xep-cac-dvhc-cap-xa-cua-thanh-pho-ho-chi-minh-nam-2025-119250616211341304.htm)
+- [SePay — Hướng dẫn webhook](https://docs.sepay.vn/tich-hop-webhooks.html)

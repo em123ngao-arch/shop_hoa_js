@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 /**
  * PrismaNotificationRepository.js - Xu ly thong bao don hang theo user tren MySQL 8.0
  * Thuoc tang Adapters / Out / Persistence
@@ -6,6 +8,37 @@
 export class PrismaNotificationRepository {
   constructor(prismaClient) {
     this.prisma = prismaClient;
+  }
+
+  /**
+   * Tao thong bao moi cho nguoi dung
+   */
+  async createNotification({ userId, orderId = null, title, message }) {
+    if (!userId || !title || !message) return null;
+    try {
+      const created = await this.prisma.notifications.create({
+        data: {
+          id: randomUUID(),
+          user_id: userId,
+          order_id: orderId || null,
+          title: String(title).slice(0, 200),
+          message: String(message),
+          is_read: false
+        }
+      });
+      return {
+        id: created.id,
+        userId: created.user_id,
+        orderId: created.order_id,
+        title: created.title,
+        message: created.message,
+        read: created.is_read,
+        createdAt: created.created_at
+      };
+    } catch (err) {
+      console.error('[NotificationRepository] Khong tao duoc thong bao:', err.message);
+      return null;
+    }
   }
 
   /**

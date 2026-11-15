@@ -29,6 +29,7 @@ console.log('🧪 BẮT ĐẦU KIỂM THỬ TÍCH HỢP TOÀN DIỆN: CONTROLLER
     customerName: 'Nguyễn Văn Đạt',
     phone: '0901234567',
     address: '123 Nguyễn Thị Minh Khai, Q1',
+    deliveryArea: 'Phường Tân Phú',
     paymentMethod: 'sepay',
     items: [
       { productId: 'PROD-001', quantity: 1 }
@@ -144,8 +145,13 @@ console.log('🧪 BẮT ĐẦU KIỂM THỬ TÍCH HỢP TOÀN DIỆN: CONTROLLER
     body: {
       customerName: 'Người Tặng Hoa',
       phone: '0901234567',
-      address: '72 Lê Thánh Tôn, Q1',
+      address: '72 Trịnh Đình Thảo',
+      deliveryArea: 'Phường Tân Phú',
+      deliveryLatitude: 10.7744,
+      deliveryLongitude: 106.6341,
       paymentMethod: 'sepay',
+      paymentPlan: 'sepay_full',
+      termsAccepted: true,
       deliveryDate: validDateStr,
       deliverySlot: 'Chiều (13:30 - 17:30)',
       isAnonymous: true,
@@ -168,6 +174,9 @@ console.log('🧪 BẮT ĐẦU KIỂM THỬ TÍCH HỢP TOÀN DIỆN: CONTROLLER
   };
 
   await controller.createOrder(req, res);
+  if (responseStatus !== 201) {
+    console.log('❌ Lỗi createOrder:', responseStatus, responseData);
+  }
 
   assert.equal(responseStatus, 201, 'Controller phải trả HTTP 201 Created');
   assert.ok(databaseInsertData, 'Dữ liệu phải được gửi tới Prisma');

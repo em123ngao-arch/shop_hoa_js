@@ -47,8 +47,10 @@ export class OrderController {
         paymentPlan = 'sepay_deposit';
       } else if (pm === 'sepay' || pm === 'sepay_full') {
         paymentPlan = 'sepay_full';
+      } else if (pm === 'cod' || pm === 'legacy_cod') {
+        paymentPlan = 'legacy_cod';
       } else {
-        paymentPlan = process.env.NODE_ENV !== 'production' ? 'legacy_cod' : 'sepay_full';
+        paymentPlan = 'sepay_full';
       }
     }
 
@@ -59,8 +61,8 @@ export class OrderController {
     if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
       throw new ValidationError('Email nhận biên nhận không hợp lệ');
     }
-    if (!['sepay_full', 'sepay_deposit', 'legacy_cod'].includes(paymentPlan)) {
-      throw new ValidationError('Đơn mới chỉ hỗ trợ chuyển khoản đủ 100% hoặc chuyển khoản trước 50%, phần còn lại thu tiền mặt khi giao');
+    if (!['sepay_full', 'sepay_deposit'].includes(paymentPlan)) {
+      throw new ValidationError('Đơn mới chỉ hỗ trợ chuyển khoản đủ 100% hoặc trả trước 50% qua SePay, phần còn lại thu tiền mặt khi giao');
     }
     const termsAccepted = body.termsAccepted === true || body.terms_accepted === true || (process.env.NODE_ENV !== 'production' && body.termsAccepted === undefined);
     if (!termsAccepted) {
@@ -93,7 +95,10 @@ export class OrderController {
     const isAnonymous = Boolean(body.isAnonymous || body.is_anonymous);
     const rawDeliveryDate = body.deliveryDate || body.delivery_date;
     const deliveryDate = rawDeliveryDate ? String(rawDeliveryDate).trim().slice(0, 50) : null;
-    if (deliveryDate && !/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate)) {
+    if (!deliveryDate) {
+      throw new ValidationError('Vui lòng chọn ngày hẹn giao hoa (trong vòng 7 ngày tới)');
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate)) {
       throw new ValidationError('Định dạng ngày hẹn giao hoa không hợp lệ (chuẩn YYYY-MM-DD)');
     }
 
@@ -117,7 +122,8 @@ export class OrderController {
       phone,
       email,
       address,
-      paymentMethod: String(body.paymentMethod || body.payment_method || (paymentPlan === 'legacy_cod' ? 'cod' : 'sepay')).toLowerCase(),
+      // Chỉ giữ 2 phương án SePay cho đơn mới; lịch sử COD cũ vẫn được đọc từ DB.
+      paymentMethod: 'sepay',
       paymentPlan,
       deliveryArea: deliveryArea.slice(0, 100),
       deliveryPlaceId: '',
@@ -161,7 +167,7 @@ export class OrderController {
     }
   };
 
-  // POST /api/delivery/quote — giá tuyến luôn do backend tính.
+  // POST /api/delivery/quote — phí cố định theo phường do backend tra bảng.
   quoteDelivery = async (req, res) => {
     try {
       const quote = await this.orderService.quoteDelivery({
@@ -181,7 +187,7 @@ export class OrderController {
 
   getDeliveryMapConfig = async (_req, res) => {
     try {
-      res.set('Cache-Control', 'public, max-age=3600');
+      res.set('Cache-Control', 'no-store');
       return res.status(200).json(this.orderService.getDeliveryMapConfig());
     } catch (err) {
       console.error('Loi getDeliveryMapConfig:', err);
@@ -197,6 +203,96 @@ export class OrderController {
       if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
       console.error('Loi suggestDeliveryAddresses:', err);
       return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể gợi ý địa chỉ' } });
+    }
+  };
+
+  // POST /api/delivery/quote-requests: gửi yêu cầu báo giá mà chưa tạo đơn/trừ kho.
+  createDeliveryQuoteRequest = async (req, res) => {
+    try {
+      const orderData = this._parseOrderPayload(req.body || {});
+      const result = await this.orderService.createManualDeliveryQuoteRequest({ orderData, userId: req.user?.id || null });
+      return res.status(201).json({
+        ...result,
+        customerUrl: `/delivery-quote.html?code=${encodeURIComponent(result.requestCode)}`
+      });
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi createDeliveryQuoteRequest:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể gửi yêu cầu báo giá giao hàng' } });
+    }
+  };
+
+  getDeliveryQuoteRequest = async (req, res) => {
+    try {
+      const quote = await this.orderService.getManualDeliveryQuote({ requestCode: req.params.code, phone: req.body?.phone });
+      return res.status(200).json(quote);
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi getDeliveryQuoteRequest:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể tải báo giá' } });
+    }
+  };
+
+  acceptDeliveryQuoteRequest = async (req, res) => {
+    try {
+      const order = await this.orderService.acceptManualDeliveryQuote({
+        requestCode: req.params.code, phone: req.body?.phone,
+        paymentPlan: String(req.body?.paymentPlan || 'sepay_full').trim(), userId: req.user?.id || null
+      });
+      const draftToken = this._signDraftToken(order.id);
+      return res.status(201).json(draftToken ? { ...order, draftToken } : order);
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi acceptDeliveryQuoteRequest:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể xác nhận báo giá' } });
+    }
+  };
+
+  declineDeliveryQuoteRequest = async (req, res) => {
+    try {
+      const result = await this.orderService.declineManualDeliveryQuote({ requestCode: req.params.code, phone: req.body?.phone });
+      return res.status(200).json(result);
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi declineDeliveryQuoteRequest:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể từ chối báo giá' } });
+    }
+  };
+
+  listDeliveryQuoteRequests = async (_req, res) => {
+    try {
+      const requests = await this.orderService.listManualDeliveryQuoteRequests();
+      return res.status(200).json(requests.map(request => ({
+        id: request.id, requestCode: request.request_code, customerName: request.customer_name,
+        customerPhone: request.customer_phone, customerEmail: request.customer_email || '',
+        shippingAddress: request.shipping_address, deliveryArea: request.delivery_area,
+        latitude: request.delivery_latitude, longitude: request.delivery_longitude,
+        distanceMeters: request.delivery_distance_meters, snapOffsetMeters: request.delivery_snap_offset_meters,
+        routeProvider: request.delivery_route_provider, deliveryDate: request.delivery_date,
+        deliverySlot: request.delivery_slot, quotedDeliveryDate: request.quoted_delivery_date,
+        quotedDeliverySlot: request.quoted_delivery_slot, paymentPlan: request.payment_plan, status: request.status,
+        shippingFee: request.quoted_shipping_fee, shopNote: request.shop_note || '',
+        expiresAt: request.quote_expires_at, createdAt: request.created_at,
+        payload: (() => { try { return JSON.parse(request.payload_json); } catch { return {}; } })()
+      })));
+    } catch (err) {
+      console.error('Loi listDeliveryQuoteRequests:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể tải yêu cầu báo giá' } });
+    }
+  };
+
+  updateDeliveryQuoteRequest = async (req, res) => {
+    try {
+      const result = await this.orderService.updateManualDeliveryQuote({
+        requestId: req.params.id, action: req.body?.action,
+        shippingFee: req.body?.shippingFee, shopNote: req.body?.shopNote,
+        deliveryDate: req.body?.deliveryDate, deliverySlot: req.body?.deliverySlot, user: req.user
+      });
+      return res.status(200).json({ success: true, request: result });
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+      console.error('Loi updateDeliveryQuoteRequest:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể cập nhật báo giá' } });
     }
   };
 

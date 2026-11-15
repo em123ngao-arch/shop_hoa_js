@@ -1,0 +1,48 @@
+CREATE TABLE `delivery_quote_requests` (
+  `id` VARCHAR(36) NOT NULL,
+  `request_code` VARCHAR(20) NOT NULL,
+  `user_id` VARCHAR(64) NULL,
+  `customer_name` VARCHAR(100) NOT NULL,
+  `customer_phone` VARCHAR(20) NOT NULL,
+  `customer_email` VARCHAR(254) NULL,
+  `shipping_address` VARCHAR(255) NOT NULL,
+  `delivery_area` VARCHAR(100) NOT NULL,
+  `delivery_latitude` DOUBLE NULL,
+  `delivery_longitude` DOUBLE NULL,
+  `delivery_distance_meters` INT NULL,
+  `delivery_snap_offset_meters` INT NULL,
+  `delivery_route_provider` VARCHAR(40) NULL,
+  `delivery_date` VARCHAR(20) NULL,
+  `delivery_slot` VARCHAR(100) NULL,
+  `quoted_delivery_date` VARCHAR(20) NULL,
+  `quoted_delivery_slot` VARCHAR(100) NULL,
+  `payment_plan` VARCHAR(40) NOT NULL DEFAULT 'sepay_full',
+  `payload_json` LONGTEXT NOT NULL,
+  `status` VARCHAR(24) NOT NULL DEFAULT 'requested',
+  `quoted_shipping_fee` INT NULL,
+  `shop_note` TEXT NULL,
+  `quote_expires_at` DATETIME(0) NULL,
+  `reviewed_by_id` VARCHAR(64) NULL,
+  `reviewed_at` DATETIME(0) NULL,
+  `accepted_at` DATETIME(0) NULL,
+  `created_at` DATETIME(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
+  `updated_at` DATETIME(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
+  UNIQUE INDEX `uq_delivery_quote_request_code` (`request_code`),
+  INDEX `idx_delivery_quote_status_created` (`status`, `created_at`),
+  INDEX `idx_delivery_quote_phone_created` (`customer_phone`, `created_at`),
+  INDEX `idx_delivery_quote_expiry` (`quote_expires_at`),
+  INDEX `idx_delivery_quote_user` (`user_id`),
+  CONSTRAINT `fk_delivery_quote_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+ALTER TABLE `orders`
+  ADD COLUMN `cancelled_at` DATETIME(0) NULL,
+  ADD COLUMN `delivery_snap_offset_meters` INT NULL,
+  ADD COLUMN `delivery_route_provider` VARCHAR(40) NULL,
+  ADD COLUMN `delivery_rate_version` VARCHAR(40) NULL,
+  ADD COLUMN `delivery_quote_request_id` VARCHAR(36) NULL,
+  ADD UNIQUE INDEX `uq_orders_delivery_quote_request` (`delivery_quote_request_id`),
+  ADD CONSTRAINT `fk_order_delivery_quote_request`
+    FOREIGN KEY (`delivery_quote_request_id`) REFERENCES `delivery_quote_requests` (`id`)
+    ON DELETE SET NULL ON UPDATE CASCADE;

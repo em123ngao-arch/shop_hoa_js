@@ -5,8 +5,8 @@ import { isOrderPaid, isUnpaidSepayOrder } from './business-rules.js';
 import { initUniversalCartDrawer, openCartDrawer } from './cart-drawer.js';
 import { initMobileBottomNav } from './bottom-nav.js';
 import api, { authApi, reviewApi } from './api.js';
-import { DELIVERY_AREA_GROUPS } from './delivery-areas.js';
-import { createDeliveryPinMap } from './delivery-map.js?v=20261114_delivery_zones_v1';
+import { DELIVERY_AREA_GROUPS } from './delivery-areas.js?v=20261115_area_rates_v2';
+import { createDeliveryPinMap } from './delivery-map.js?v=20261115_google_maps_v2';
 
 /**
  * orders.js - Logic Quản Lý & Tra Cứu Lịch Sử Đơn Hàng (Dedicated Page)
@@ -97,8 +97,12 @@ async function initOrdersPage() {
   }
 
   const avatarTriggerBtn = document.getElementById('btnUploadAvatarTrigger');
+  const avatarDragHint = document.getElementById('avatarDragHint');
   if (avatarTriggerBtn) {
     avatarTriggerBtn.style.display = cachedCurrentUser ? '' : 'none';
+  }
+  if (avatarDragHint) {
+    avatarDragHint.style.display = cachedCurrentUser ? 'block' : 'none';
   }
   const searchWrapper = document.querySelector('.orders-search-wrapper');
   if (searchWrapper) {
@@ -500,24 +504,27 @@ function renderOrdersList(orders = []) {
     const isPartialPayment = String(order.paymentStatus || '').toLowerCase() === 'partially_paid';
     const canChangeAddress = Boolean(canManageAsOwner && ['paid', 'partially_paid'].includes(String(order.paymentStatus || '').toLowerCase()) && !['completed', 'cancelled'].includes(status));
     const pendingAddressChange = order.changeRequests?.some(request => ['pending', 'awaiting_payment'].includes(request.status));
-    const deliveryAreaOptions = DELIVERY_AREA_GROUPS.map(group => `
-      <optgroup label="${escapeHTML(group.label)}">
-        ${group.areas.map(area => `<option value="${escapeHTML(area)}" ${area === order.deliveryArea ? 'selected' : ''}>${escapeHTML(area)}</option>`).join('')}
-      </optgroup>
+    const currentDeliveryRegion = DELIVERY_AREA_GROUPS.find(group => group.areas.includes(order.deliveryArea));
+    const deliveryRegionOptions = DELIVERY_AREA_GROUPS.map(group => `
+      <option value="${escapeHTML(group.label)}" ${group === currentDeliveryRegion ? 'selected' : ''}>${escapeHTML(group.label)}</option>
     `).join('');
+    const deliveryAreaOptions = currentDeliveryRegion?.areas.map(area =>
+      `<option value="${escapeHTML(area)}" ${area === order.deliveryArea ? 'selected' : ''}>${escapeHTML(area)}</option>`
+    ).join('') || '';
     const addressChangeFormHtml = canChangeAddress && !pendingAddressChange ? `
       <details style="flex-basis:100%;margin-top:10px;padding:10px;border:1px solid #E8E8E8;border-radius:8px;">
         <summary style="cursor:pointer;font-weight:700;">Yêu cầu đổi địa chỉ giao</summary>
         <div style="display:grid;gap:8px;margin-top:8px;">
           <span style="font-size:12px;color:#64748B;">Địa chỉ hiện tại: ${escapeHTML(order.address || 'Thông tin địa chỉ không khả dụng')}</span>
           <span class="delivery-city-fixed">Thành phố Hồ Chí Minh</span>
-          <select class="order-change-area" aria-label="Phường/xã giao mới"><option value="">Chọn phường/xã</option>${deliveryAreaOptions}</select>
+          <select class="order-change-region" aria-label="Quận/khu vực giao mới"><option value="">Chọn quận/khu vực quen thuộc</option>${deliveryRegionOptions}</select>
+          <select class="order-change-area" aria-label="Phường/xã giao mới" ${currentDeliveryRegion ? '' : 'disabled'}><option value="">Chọn phường/xã hiện hành</option>${deliveryAreaOptions}</select>
           <input class="order-change-address" type="text" maxlength="255" placeholder="Số nhà, tên đường mới">
           <input class="order-change-address-details" type="text" maxlength="255" placeholder="Căn hộ, hẻm hoặc chỉ dẫn thêm (không bắt buộc)">
           <button type="button" class="btn-action-secondary btn-order-change-map">Chọn vị trí trên bản đồ</button>
           <div class="order-change-delivery-map delivery-pin-map" hidden role="application" aria-label="Bản đồ chọn địa chỉ giao mới"></div>
           <span class="order-change-map-hint field-hint" aria-live="polite">Cần ghim lại vị trí nếu đổi địa chỉ.</span>
-          <span class="order-change-delivery-quote field-hint" aria-live="polite">Chọn phường để xem phí theo khu vực.</span>
+          <span class="order-change-delivery-quote field-hint" aria-live="polite">Phí được tra sẵn theo phường đã chọn; ghim bản đồ không đổi phí.</span>
           <button type="button" class="btn-action-secondary btn-order-change-address" data-order-id="${order.isGuestLookup ? safeOrderCode : safeOrderId}">Gửi yêu cầu đổi địa chỉ</button>
           <label>Số điện thoại người đặt mới
             <input class="order-change-customer-phone" type="tel" maxlength="20" value="${escapeHTML(order.isGuestLookup ? '' : (order.customerPhone || order.phone || ''))}" placeholder="09xxxxxxxx">
@@ -1027,17 +1034,21 @@ function setupOrdersPageEvents() {
     });
   }
 
-  // 3.1. Sự kiện Upload Ảnh Đại Diện Cá Nhân (Canvas 200x200 nén < 30KB)
+  // 3.1. Sự kiện Upload & Kéo Thả Ảnh Đại Diện Cá Nhân (Canvas 200x200 nén WebP < 30KB)
+  const avatarDropzone = document.getElementById('avatarDropzoneWrap');
   const avatarTrigger = document.getElementById('btnUploadAvatarTrigger');
   const avatarInput = document.getElementById('userAvatarFileInput');
-  if (avatarTrigger && avatarInput) {
-    avatarTrigger.addEventListener('click', () => {
-      avatarInput.click();
-    });
 
-    avatarInput.addEventListener('change', async (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
+  if (avatarInput) {
+    const handleAvatarFile = async (file) => {
+      if (!cachedCurrentUser) {
+        showToast('Vui lòng đăng nhập để thay đổi ảnh đại diện!', 'warning');
+        return;
+      }
+      if (!file || !file.type || !file.type.startsWith('image/')) {
+        showToast('Vui lòng chọn đúng tệp hình ảnh (JPG, PNG, WebP)!', 'error');
+        return;
+      }
 
       try {
         showToast('Đang nén và tối ưu hóa ảnh đại diện...', 'info');
@@ -1052,15 +1063,110 @@ function setupOrdersPageEvents() {
       } finally {
         avatarInput.value = '';
       }
+    };
+
+    // Ngăn chặn trình duyệt mở ảnh toàn trang khi người dùng kéo thả trượt ra ngoài
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      window.addEventListener(eventName, (e) => {
+        if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) {
+          e.preventDefault();
+        }
+      }, false);
+    });
+
+    if (avatarDropzone) {
+      let dragCounter = 0;
+
+      avatarDropzone.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter++;
+        if (cachedCurrentUser) {
+          avatarDropzone.classList.add('drag-active');
+        }
+      });
+
+      avatarDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (cachedCurrentUser && !avatarDropzone.classList.contains('drag-active')) {
+          avatarDropzone.classList.add('drag-active');
+        }
+      });
+
+      avatarDropzone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter = Math.max(0, dragCounter - 1);
+        if (dragCounter === 0) {
+          avatarDropzone.classList.remove('drag-active');
+        }
+      });
+
+      avatarDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter = 0;
+        avatarDropzone.classList.remove('drag-active');
+
+        const dt = e.dataTransfer;
+        const file = dt && dt.files && dt.files[0];
+        if (file) {
+          handleAvatarFile(file);
+        }
+      });
+
+      avatarDropzone.addEventListener('click', (e) => {
+        if (e.target.closest('#btnUploadAvatarTrigger')) return;
+        if (!cachedCurrentUser) {
+          showToast('Vui lòng đăng nhập để thay đổi ảnh đại diện!', 'info');
+          return;
+        }
+        avatarInput.click();
+      });
+    }
+
+    if (avatarTrigger) {
+      avatarTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!cachedCurrentUser) {
+          showToast('Vui lòng đăng nhập để thay đổi ảnh đại diện!', 'info');
+          return;
+        }
+        avatarInput.click();
+      });
+    }
+
+    avatarInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) {
+        handleAvatarFile(file);
+      }
     });
   }
 
   // 4. Bắt sự kiện trên các nút hành động (Event Delegation)
   const listContainer = document.getElementById('ordersListContainer');
   if (listContainer) {
+    listContainer.addEventListener('toggle', event => {
+      if (event.target.matches('.order-craft-card details') && event.target.open) {
+        refreshOrderAddressQuote(event.target.closest('.order-craft-card'));
+      }
+    }, true);
+
     listContainer.addEventListener('change', event => {
-      if (event.target.matches('.order-change-area')) {
-        const card = event.target.closest('.order-craft-card');
+      const card = event.target.closest('.order-craft-card');
+      if (event.target.matches('.order-change-region')) {
+        const regionSelect = event.target;
+        const areaSelect = card?.querySelector('.order-change-area');
+        const selectedGroup = DELIVERY_AREA_GROUPS.find(group => group.label === regionSelect.value);
+        if (areaSelect) {
+          areaSelect.replaceChildren(new Option(selectedGroup ? 'Chọn phường/xã hiện hành' : 'Chọn quận/khu vực trước', ''));
+          selectedGroup?.areas.forEach(area => areaSelect.append(new Option(area, area)));
+          areaSelect.disabled = !selectedGroup;
+        }
+      }
+      if (event.target.matches('.order-change-region, .order-change-area')) {
         const mapElement = card?.querySelector('.order-change-delivery-map');
         const mapState = mapElement ? orderAddressMaps.get(mapElement) : null;
         if (mapState?.pin) {
@@ -1068,23 +1174,23 @@ function setupOrdersPageEvents() {
           mapState.pin = null;
         }
         const hint = card?.querySelector('.order-change-map-hint');
-        if (hint) hint.textContent = 'Phường vừa thay đổi. Hãy ghim lại đúng vị trí nhận hoa.';
+        if (hint) hint.textContent = 'Khu vực vừa thay đổi. Hãy ghim lại đúng vị trí nhận hoa.';
         refreshOrderAddressQuote(card);
       }
     });
+
     listContainer.addEventListener('input', event => {
       if (!event.target.matches('.order-change-address, .order-change-address-details')) return;
       const card = event.target.closest('.order-craft-card');
       const mapElement = card?.querySelector('.order-change-delivery-map');
       const mapState = mapElement ? orderAddressMaps.get(mapElement) : null;
-      if (!mapState?.pin) return;
-      mapState.controller.clearPin(false);
-      mapState.pin = null;
-      const hint = card?.querySelector('.order-change-map-hint');
-      if (hint) hint.textContent = 'Địa chỉ vừa thay đổi. Hãy ghim lại đúng vị trí nhận hoa.';
-      refreshOrderAddressQuote(card);
+      if (mapState?.pin) {
+        mapState.controller.clearPin(false);
+        mapState.pin = null;
+        const hint = card.querySelector('.order-change-map-hint');
+        if (hint) hint.textContent = 'Địa chỉ chữ vừa thay đổi. Hãy ghim lại đúng điểm nhận hoa.';
+      }
     });
-
     listContainer.addEventListener('click', (e) => {
       // A. Nút Sao Chép Mã Đơn
       const copyBtn = e.target.closest('.btn-copy-code');
@@ -1224,7 +1330,6 @@ function setupOrdersPageEvents() {
                 ? `Đã ghim ${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}. Phí vẫn tính theo phường.`
                 : 'Chưa ghim vị trí giao mới. Bấm bản đồ để đặt ghim.';
             }
-            refreshOrderAddressQuote(card);
           },
           onError: message => {
             if (hint) {
@@ -1235,7 +1340,6 @@ function setupOrdersPageEvents() {
         }).then(controller => {
           orderAddressMaps.set(mapElement, { controller, pin: null });
           requestAnimationFrame(() => controller.invalidateSize());
-          refreshOrderAddressQuote(card);
         }).catch(error => {
           if (hint) {
             hint.textContent = error.message;
@@ -1396,7 +1500,9 @@ async function openSepayQrModal(order) {
   if (localPlaceholder) localPlaceholder.classList.toggle('hidden', !config.simulationOnly);
   if (amountEl) amountEl.textContent = formatPrice(totalAmount);
   if (contentEl) contentEl.textContent = paymentContent;
-  if (pollingText) pollingText.textContent = `Đang kiểm tra mã thanh toán ${paymentContent}...`;
+      if (pollingText) pollingText.textContent = config.simulationOnly
+        ? `LOCAL MOCK: ${formatPrice(totalAmount)} — không chuyển tiền thật.`
+        : `Đang kiểm tra mã thanh toán ${paymentContent}...`;
 
   // Xóa interval polling cũ nếu có
   if (currentPollingInterval) clearInterval(currentPollingInterval);
@@ -1437,7 +1543,7 @@ async function openSepayQrModal(order) {
   // Nút Tôi Đã Chuyển Khoản (Kiểm tra tức thì không cần đợi chu kỳ polling)
   const btnCheckNow = document.getElementById('btnModalCheckPaidNow');
   if (btnCheckNow) {
-    const defaultHtml = `
+    const defaultHtml = currentSepayConfig?.simulationOnly ? '<span>Mô phỏng thanh toán (local)</span>' : `
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <polyline points="20 6 9 17 4 12"></polyline>
       </svg>
@@ -1455,10 +1561,23 @@ async function openSepayQrModal(order) {
         </svg>
         <span>Đang kiểm tra với ngân hàng...</span>
       `;
-      if (pollingText) pollingText.innerHTML = '<span style="color: #0284C7; font-weight: 600;">Đang đối soát trực tiếp với SePay & Sacombank...</span>';
+      if (pollingText) pollingText.textContent = currentSepayConfig?.simulationOnly
+        ? 'Đang ghi nhận mô phỏng nội bộ. Không có giao dịch ngân hàng thật.'
+        : 'Đang đối soát giao dịch qua SePay...';
 
       try {
         const phone = order.isGuestLookup ? (verifiedGuestPhone || '') : (order.phone || order.customerPhone || '');
+        if (currentSepayConfig?.simulationOnly) {
+          const simulationResponse = await fetch(`/api/sepay/simulate-payment/${encodeURIComponent(order.id)}`, {
+            method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, intentId: intent?.id || null })
+          });
+          const simulation = await simulationResponse.json().catch(() => ({}));
+          if (!simulationResponse.ok) throw new Error(simulation.error?.message || 'Không mô phỏng được khoản thanh toán local.');
+          if (currentPollingInterval) { clearInterval(currentPollingInterval); currentPollingInterval = null; }
+          handlePaymentSuccess(simulation.order || order);
+          return;
+        }
         const res = await fetch(`/api/sepay/check-payment/${encodeURIComponent(order.id)}`, {
           method: 'POST',
           credentials: 'same-origin',

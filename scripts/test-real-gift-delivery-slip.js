@@ -166,13 +166,13 @@ console.log('--- KIỂM THỬ THẬT: NGHIỆP VỤ P1 (DELIVERY DATE, ANONYMOUS
     orderService.validateDeliveryDate('2020-01-01');
   }, /quá khứ/i, 'Phải chặn ngày giao hàng trong quá khứ');
 
-  // Test ngày quá 60 ngày
+  // Test ngày quá 7 ngày
   const farFuture = new Date();
-  farFuture.setDate(farFuture.getDate() + 90);
+  farFuture.setDate(farFuture.getDate() + 15);
   const farFutureStr = farFuture.toISOString().slice(0, 10);
   assert.throws(() => {
     orderService.validateDeliveryDate(farFutureStr);
-  }, /60 ngày/i, 'Phải chặn ngày giao đặt trước vượt quá 60 ngày');
+  }, /7 ngày/i, 'Phải chặn ngày giao đặt trước vượt quá 7 ngày');
 
   // Test ngày hợp lệ (3 ngày tới)
   const validDate = new Date();
@@ -181,7 +181,7 @@ console.log('--- KIỂM THỬ THẬT: NGHIỆP VỤ P1 (DELIVERY DATE, ANONYMOUS
   const validated = orderService.validateDeliveryDate(validDateStr);
   assert.equal(validated, validDateStr);
 
-  console.log('✓ PASS: OrderService.validateDeliveryDate chặn đúng ngày quá khứ và đặt trước quá 60 ngày');
+  console.log('✓ PASS: OrderService.validateDeliveryDate chặn đúng ngày quá khứ và đặt trước quá 7 ngày');
 }
 
 // 6. Kiểm thử PrismaOrderRepository: Ánh xạ chuẩn trường delivery_date và is_anonymous

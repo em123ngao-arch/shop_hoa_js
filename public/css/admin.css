@@ -2243,3 +2243,513 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ==========================================================================
+   STREAMLINED ADMIN DASHBOARD & LIVE SIDEBAR BADGES
+   ========================================================================== */
+
+/* Red Nav Badge Count on Sidebar */
+.nav-badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background-color: #EF4444;
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.45);
+  transition: transform 0.2s ease;
+}
+
+/* Sidebar Group Headings (Template 2: Grouped Commerce Layout) */
+.nav-group-title {
+  padding: 16px 14px 6px 14px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748B;
+  user-select: none;
+}
+.nav-group-title:first-of-type {
+  padding-top: 2px;
+}
+
+/* Shipping & Logistics Panel Styles */
+.logistics-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (max-width: 1024px) {
+  .logistics-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .logistics-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.logistics-kpi-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light, #E2E8F0);
+  border-radius: var(--radius-md, 12px);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.logistics-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+.logistics-kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.logistics-kpi-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary, #475569);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.logistics-kpi-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.logistics-kpi-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-main, #0F172A);
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+.logistics-kpi-sub {
+  font-size: 12px;
+  color: var(--text-muted, #94A3B8);
+}
+
+/* Subtabs bar */
+.logistics-subtabs-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-light, #E2E8F0);
+  margin-bottom: 20px;
+  padding-bottom: 2px;
+  overflow-x: auto;
+}
+.logistics-subtab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.logistics-subtab-btn:hover {
+  color: var(--color-primary, #108474);
+}
+.logistics-subtab-btn.active {
+  color: var(--color-primary, #108474);
+  border-bottom-color: var(--color-primary, #108474);
+  font-weight: 700;
+}
+.subtab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background-color: #EF4444;
+  color: #FFF;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.logistics-subpanel {
+  display: none;
+}
+.logistics-subpanel.active {
+  display: block;
+}
+
+/* Filter bar for orders in logistics */
+.logistics-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  background: #FFFFFF;
+  padding: 12px 16px;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--border-light, #E2E8F0);
+}
+.logistics-filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.logistics-filter-pill {
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 20px;
+  border: 1px solid var(--border-light, #E2E8F0);
+  background: #F8FAFC;
+  color: var(--text-secondary, #475569);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.logistics-filter-pill:hover {
+  background: #E2E8F0;
+}
+.logistics-filter-pill.active {
+  background: var(--color-primary, #108474);
+  color: #FFFFFF;
+  border-color: var(--color-primary, #108474);
+}
+
+.nav-badge-count.pulse {
+  animation: badgePulse 1.8s infinite ease-in-out;
+}
+
+@keyframes badgePulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  50% { transform: scale(1.12); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Period Toggle Group */
+.period-toggle-group {
+  display: inline-flex;
+  background: #F1F5F9;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+}
+
+.btn-period-toggle {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-period-toggle:hover {
+  color: #0F172A;
+}
+
+.btn-period-toggle.active {
+  background: #FFFFFF;
+  color: #108474;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.dash-date-picker {
+  border: 1px solid #CBD5E1;
+  background: #FFFFFF;
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+  color: #334155;
+  outline: none;
+}
+
+.dash-date-picker:focus {
+  border-color: #108474;
+}
+
+.btn-dash-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-export-pdf {
+  background: #108474;
+  color: #FFFFFF;
+  border: 1px solid #108474;
+}
+
+.btn-export-pdf:hover {
+  background: #0D6E60;
+}
+
+.btn-export-excel {
+  background: #FFFFFF;
+  color: #1E293B;
+  border: 1px solid #CBD5E1;
+}
+
+.btn-export-excel:hover {
+  background: #F8FAFC;
+  border-color: #94A3B8;
+}
+
+/* 4 Thẻ Chỉ Số Vàng Dashboard */
+.dash-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .dash-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .dash-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dash-kpi-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dash-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.dash-kpi-card.card-revenue { border-left: 4px solid #108474; }
+.dash-kpi-card.card-profit { border-left: 4px solid #D97706; }
+.dash-kpi-card.card-orders { border-left: 4px solid #0284C7; }
+.dash-kpi-card.card-action { border-left: 4px solid #EF4444; }
+
+.dash-kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.dash-kpi-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 0.5px;
+}
+
+.dash-kpi-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.badge-green { background: #ECFDF5; color: #065F46; }
+.badge-amber { background: #FEF3C7; color: #92400E; }
+.badge-blue { background: #E0F2FE; color: #075985; }
+
+.dash-kpi-action-pill {
+  font-size: 11px;
+  font-weight: 700;
+  color: #DC2626;
+  background: #FEE2E2;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.dash-kpi-amount {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 6px;
+  font-family: inherit;
+}
+
+.text-emerald { color: #108474; }
+.text-amber { color: #D97706; }
+.text-blue { color: #0284C7; }
+.text-red { color: #DC2626; }
+
+.dash-kpi-note {
+  font-size: 12px;
+  color: #64748B;
+}
+
+/* Sơ đồ cột SVG */
+.dash-bar-chart-container {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 12px;
+  min-height: 220px;
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.chart-svg-wrap {
+  width: 100%;
+  height: 220px;
+}
+
+/* Orders Subtab Switch */
+.orders-subtab-switch {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.btn-subtab {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #E2E8F0;
+  background: #FFFFFF;
+  color: #475569;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-subtab.active {
+  background: #108474;
+  color: #FFFFFF;
+  border-color: #108474;
+}
+
+.subtab-badge {
+  background: #EF4444;
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+/* DẢI BÓC TÁCH MINH BẠCH TÀI CHÍNH (FINANCIAL STREAMLINE BAR) */
+.dash-financial-streamline-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow-x: auto;
+}
+
+.fin-step-card {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fin-step-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.tag-emerald { background: #ECFDF5; color: #065F46; }
+.tag-blue { background: #E0F2FE; color: #0369A1; }
+.tag-teal { background: #F0FDFA; color: #0F766E; }
+.tag-slate { background: #F1F5F9; color: #475569; }
+.tag-amber { background: #FEF3C7; color: #92400E; }
+
+.fin-step-value {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.text-teal { color: #0D9488; }
+.text-slate { color: #475569; }
+
+.fin-step-desc {
+  font-size: 11px;
+  color: #64748B;
+  white-space: nowrap;
+}
+
+.fin-step-operator {
+  font-size: 20px;
+  font-weight: 700;
+  color: #94A3B8;
+  padding: 0 4px;
+  user-select: none;
+}
+
+.fin-step-profit {
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+@media (max-width: 900px) {
+  .dash-financial-streamline-bar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .fin-step-operator {
+    display: none;
+  }
+}

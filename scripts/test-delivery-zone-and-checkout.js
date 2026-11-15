@@ -5,11 +5,11 @@ import prisma from '../server/infrastructure/db/prisma.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const brainDir = 'C:\\Users\\ADMIN\\.gemini\\antigravity\\brain\\b91ae753-3bab-41de-b4ee-38eda5fb83ca';
+const brainDir = 'C:\\Users\\ADMIN\\.gemini\\antigravity\\brain\\df58fbe0-caf1-4d2a-9095-600eafdbd0f3';
 
 async function runAudit() {
   console.log('================================================================');
-  console.log('🌸 STARTING LIVE E2E AUDIT: DELIVERY ZONE & MAP PINNING');
+  console.log('🌸 STARTING LIVE E2E AUDIT: DELIVERY ZONE & MAP PINNING (LEAFLET)');
   console.log('================================================================');
 
   const browser = await chromium.launch({ headless: true });
@@ -50,12 +50,15 @@ async function runAudit() {
     // BƯỚC 2: KIỂM TRA DROPDOWN KHU VỰC & TÍNH PHÍ GIAO HÀNG
     // -------------------------------------------------------------
     console.log('\n--- 2. Testing Delivery Zones & Fee Calculation ---');
+    const regionSelect = page.locator('#checkoutDeliveryRegion');
     const areaSelect = page.locator('#checkoutDeliveryArea');
-    await areaSelect.scrollIntoViewIfNeeded();
+    await regionSelect.scrollIntoViewIfNeeded();
 
-    // 2.1 Chọn Phường Tân Phú (Miễn phí)
+    // 2.1 Chọn Quận Tân Phú (tên cũ) -> Phường Tân Phú (Miễn phí 0₫)
+    await regionSelect.selectOption('Quận Tân Phú (tên cũ)');
+    await page.waitForTimeout(500);
     await areaSelect.selectOption('Phường Tân Phú');
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(1000);
     const quoteHint = page.locator('#deliveryQuoteHint');
     const quoteTextNear = await quoteHint.textContent();
     console.log('Phường Tân Phú quote:', quoteTextNear);
@@ -63,9 +66,9 @@ async function runAudit() {
     // Click ghim bản đồ
     const mapElement = page.locator('#checkoutDeliveryMap');
     await mapElement.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(500);
-    await mapElement.click({ force: true, position: { x: 150, y: 120 } });
     await page.waitForTimeout(800);
+    await mapElement.click({ force: true, position: { x: 180, y: 120 } });
+    await page.waitForTimeout(1000);
 
     const pinHint = page.locator('#checkoutMapPinHint');
     const pinText = await pinHint.textContent();
@@ -76,26 +79,28 @@ async function runAudit() {
 
     // 2.2 Đổi sang Phường Tân Sơn Nhì (Lân cận - 35.000₫)
     await areaSelect.selectOption('Phường Tân Sơn Nhì');
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(1000);
     const quoteTextLocal = await quoteHint.textContent();
     const feeTextLocal = await page.locator('#checkoutShippingFee').textContent();
     console.log('Phường Tân Sơn Nhì fee:', feeTextLocal, '| hint:', quoteTextLocal);
 
     await mapElement.scrollIntoViewIfNeeded();
-    await mapElement.click({ force: true, position: { x: 170, y: 100 } });
+    await mapElement.click({ force: true, position: { x: 200, y: 110 } });
     await page.waitForTimeout(800);
 
     await page.screenshot({ path: path.join(brainDir, '72_checkout_map_tansonnhi_35k.png') });
     console.log('📸 Đã lưu ảnh: 72_checkout_map_tansonnhi_35k.png');
 
-    // 2.3 Đổi sang Phường Bến Thành (Khu vực xa - 50.000₫)
+    // 2.3 Đổi sang Quận 1 -> Phường Bến Thành (Khu vực xa - 50.000₫)
+    await regionSelect.selectOption('Quận 1 (tên cũ)');
+    await page.waitForTimeout(500);
     await areaSelect.selectOption('Phường Bến Thành');
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(1000);
     const feeTextExt = await page.locator('#checkoutShippingFee').textContent();
     console.log('Phường Bến Thành fee:', feeTextExt);
 
     await mapElement.scrollIntoViewIfNeeded();
-    await mapElement.click({ force: true, position: { x: 190, y: 140 } });
+    await mapElement.click({ force: true, position: { x: 220, y: 130 } });
     await page.waitForTimeout(800);
 
     await page.screenshot({ path: path.join(brainDir, '73_checkout_map_benthanh_50k.png') });
@@ -107,6 +112,8 @@ async function runAudit() {
     console.log('\n--- 3. Submitting Real Order & VietQR Sepay Transition ---');
     await page.fill('#checkoutSenderName', 'Nguyễn Thị Hoa Nhung');
     await page.fill('#checkoutSenderPhone', '0908765432');
+    await regionSelect.selectOption('Quận Tân Phú (tên cũ)');
+    await page.waitForTimeout(500);
     await areaSelect.selectOption('Phường Tân Phú');
     await page.waitForTimeout(500);
     await page.fill('#checkoutAddress', '14 Trịnh Đình Thảo');
@@ -115,7 +122,7 @@ async function runAudit() {
 
     // Ghim bản đồ cho địa chỉ cuối cùng
     await mapElement.scrollIntoViewIfNeeded();
-    await mapElement.click({ force: true, position: { x: 150, y: 120 } });
+    await mapElement.click({ force: true, position: { x: 180, y: 120 } });
     await page.waitForTimeout(800);
 
     // Đồng ý chính sách
@@ -152,35 +159,27 @@ async function runAudit() {
     }
 
     // -------------------------------------------------------------
-    // BƯỚC 4: TRANG ORDERS & YÊU CẦU ĐỔI ĐỊA CHỈ BẰNG BẢN ĐỒ
+    // BƯỚC 4: TRANG ORDERS & TRA CỨU ĐƠN HÀNG VỚI BẢN ĐỒ
     // -------------------------------------------------------------
-    console.log('\n--- 4. Testing Orders Page & Change Address Map ---');
+    console.log('\n--- 4. Testing Orders Page & Guest Lookup ---');
     if (latestOrder) {
-      await page.goto(`${baseUrl}/orders.html?orderCode=${encodeURIComponent(latestOrder.order_code)}`, { waitUntil: 'networkidle' });
-      await page.waitForTimeout(1500);
+      await page.goto(`${baseUrl}/orders.html`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
 
-      const changeAddressSummary = page.locator('summary:has-text("Yêu cầu đổi địa chỉ giao")').first();
-      if (await changeAddressSummary.isVisible()) {
-        await changeAddressSummary.click();
-        await page.waitForTimeout(600);
+      const guestCodeInput = page.locator('#guestOrderCode');
+      const guestPhoneInput = page.locator('#guestOrderPhone');
+      if (await guestCodeInput.isVisible()) {
+        await guestCodeInput.fill(latestOrder.order_code);
+        await guestPhoneInput.fill('0908765432');
+        await page.click('#guestOrderLookupForm button[type="submit"]');
+        await page.waitForTimeout(1500);
 
-        const openMapBtn = page.locator('.btn-order-change-map').first();
-        if (await openMapBtn.isVisible()) {
-          await openMapBtn.click();
-          await page.waitForTimeout(1200);
+        const orderCard = page.locator('.order-craft-card').first();
+        const hasCard = await orderCard.isVisible();
+        console.log('✅ Đã tra cứu thành công đơn hàng khách vãng lai:', hasCard);
 
-          const changeMapEl = page.locator('.order-change-delivery-map').first();
-          const isChangeMapVisible = await changeMapEl.isVisible();
-          console.log('✅ Bản đồ đổi địa chỉ hiển thị:', isChangeMapVisible);
-
-          if (isChangeMapVisible) {
-            await changeMapEl.click({ force: true, position: { x: 120, y: 80 } });
-            await page.waitForTimeout(800);
-          }
-
-          await page.screenshot({ path: path.join(brainDir, '75_orders_change_address_map.png') });
-          console.log('📸 Đã lưu ảnh: 75_orders_change_address_map.png');
-        }
+        await page.screenshot({ path: path.join(brainDir, '75_orders_guest_lookup.png') });
+        console.log('📸 Đã lưu ảnh: 75_orders_guest_lookup.png');
       }
     }
 
@@ -191,7 +190,7 @@ async function runAudit() {
     // Đăng nhập Admin
     await page.goto(`${baseUrl}/login.html`, { waitUntil: 'networkidle' });
     await page.fill('#email', 'admin@shophoa.example');
-    await page.fill('#password', 'Admin@123456');
+    await page.fill('#password', 'admin123');
     await page.click('#submitBtn');
     await page.waitForTimeout(1500);
 
@@ -200,14 +199,14 @@ async function runAudit() {
     await page.waitForTimeout(1500);
 
     // Mở tab Quản Lý Đơn Hàng
-    const ordersTab = page.locator('.sidebar-nav-item:has-text("Quản Lý Đơn Hàng"), [data-tab="orders"]').first();
+    const ordersTab = page.locator('button[data-tab="orders"]').first();
     if (await ordersTab.isVisible()) {
       await ordersTab.click();
       await page.waitForTimeout(1000);
     }
 
     // Bấm xem chi tiết đơn hàng
-    const viewBtn = page.locator('.btn-view-order, #ordersTableBody .btn-action').first();
+    const viewBtn = page.locator('.view-order-btn').first();
     if (await viewBtn.isVisible()) {
       await viewBtn.click();
       await page.waitForTimeout(1200);

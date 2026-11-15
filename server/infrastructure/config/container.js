@@ -75,13 +75,15 @@ class Container {
     this.paymentService = new PaymentService(this.orderRepo, this.env.SEPAY_API_TOKEN, {
       bankCode: this.env.SEPAY_BANK_CODE,
       accountNumber: this.env.SEPAY_ACCOUNT_NUMBER,
-      accountHolder: this.env.SEPAY_ACCOUNT_HOLDER
-    });
+      accountHolder: this.env.SEPAY_ACCOUNT_HOLDER,
+      liveEnabled: this.env.SEPAY_LIVE_ENABLED
+    }, this.notificationRepo);
     this.deliveryService = new DeliveryService({
       originLat: this.env.DELIVERY_STORE_LAT,
-      originLng: this.env.DELIVERY_STORE_LNG
+      originLng: this.env.DELIVERY_STORE_LNG,
+      mapsApiKey: this.env.GOOGLE_MAPS_API_KEY
     });
-    this.orderService = new OrderService(this.orderRepo, this.deliveryService);
+    this.orderService = new OrderService(this.orderRepo, this.deliveryService, this.env.DELIVERY_QUOTE_TTL_HOURS, this.notificationRepo);
     this.refundService = new RefundService(this.refundRepo);
 
     // 3. Khoi tao Inbound Adapters (Web Controllers & Middlewares)
@@ -93,7 +95,7 @@ class Container {
     this.wishlistController = new WishlistController(this.wishlistRepo);
     this.notificationController = new NotificationController(this.notificationRepo);
     this.userController = new UserController(this.prisma);
-    this.paymentController = new PaymentController(this.paymentService, this.env.SEPAY_WEBHOOK_API_KEY);
+    this.paymentController = new PaymentController(this.paymentService, this.env.SEPAY_WEBHOOK_API_KEY, this.env.SEPAY_LIVE_ENABLED);
     this.refundController = new RefundController(this.refundService);
 
     // Middlewares

@@ -569,9 +569,13 @@ function buildPeriodBucket(label, bucketOrders, products = [], extra = {}) {
     }
     return sum;
   }, 0);
+  const shippingFee = recognizedOrders.reduce((sum, o) => {
+    return sum + Number(o.shippingFee ?? o.shipping_fee ?? 0);
+  }, 0);
+  const netProductRevenue = Math.max(0, revenue - shippingFee);
   const cost = calculateOrdersCost(recognizedOrders, products);
-  const profit = revenue - cost;
-  const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
+  const profit = Math.max(0, netProductRevenue - cost);
+  const margin = netProductRevenue > 0 ? Math.round((profit / netProductRevenue) * 100) : 0;
 
   return {
     label,
@@ -579,6 +583,8 @@ function buildPeriodBucket(label, bucketOrders, products = [], extra = {}) {
     gmv,
     orderCount: recognizedOrders.length,
     revenue,
+    shippingFee,
+    netProductRevenue,
     refundedAmount,
     cost,
     profit,

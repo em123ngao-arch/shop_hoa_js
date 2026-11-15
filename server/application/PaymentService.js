@@ -13,10 +13,12 @@ export class PaymentService {
    * @param {string} [sepayApiToken='']
    * @param {Object} [bankConfig={}]
    */
-  constructor(orderRepository, sepayApiToken = '', bankConfig = {}) {
+  constructor(orderRepository, sepayApiToken = '', bankConfig = {}, notificationRepository = null) {
     this.orderRepo = orderRepository;
     this.sepayApiToken = sepayApiToken;
     this.bankConfig = bankConfig;
+    this.liveEnabled = bankConfig.liveEnabled === true || String(process.env.SEPAY_LIVE_ENABLED || '').toLowerCase() === 'true';
+    this.notifRepo = notificationRepository;
   }
 
   /**
@@ -96,6 +98,20 @@ export class PaymentService {
       console.warn(`[SePay Warning] Đơn hàng #${orderCode} đã bị hủy trước đó nhưng nhận được khoản thanh toán ${amount.toLocaleString()}đ (Mã GD: ${providerTxId}). Đã lưu vết payment_transactions để kế toán hoàn tiền thủ công.`);
     }
 
+    if (result.recorded && !result.cancelled && this.notifRepo) {
+      this.orderRepo.findOrderById(orderId).then(order => {
+        if (order?.userId) {
+          const code = order.orderCode || order.id;
+          this.notifRepo.createNotification({
+            userId: order.userId,
+            orderId: order.id,
+            title: 'Đã nhận thanh toán VietQR',
+            message: `Tiệm đã nhận được khoản thanh toán ${Number(amount).toLocaleString('vi-VN')}₫ cho đơn hàng #${code}.`
+          }).catch(err => console.error('[PaymentService] Lỗi tạo thông báo thanh toán:', err.message));
+        }
+      }).catch(() => {});
+    }
+
     return result;
   }
 
@@ -125,6 +141,9 @@ export class PaymentService {
       if (intent.status === 'paid') return { paid: true, settled: true, order, paymentIntent: intent };
       if (['cancelled', 'expired', 'needs_review'].includes(intent.status)) {
         return { paid: false, cancelled: order.status === 'cancelled', order, paymentIntent: intent, message: 'Khoản thanh toán cần shop đối soát hoặc đã bị hủy' };
+      }
+      if ((process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') || !this.liveEnabled) {
+        return { paid: false, order, paymentIntent: intent, message: 'Local simulation mode; chưa có giao dịch ngân hàng thật.' };
       }
       if (!this.sepayApiToken) {
         return { paid: false, order, paymentIntent: intent, message: 'SePay Sandbox Mode (Chưa cấu hình API Token)' };
@@ -266,9 +285,9 @@ export class PaymentService {
       providerTxId: simTxId,
       amount: intent.amount,
       transaction: {
-      bankBrand: this.bankConfig?.bankCode || process.env.SEPAY_BANK_CODE || 'SePay Bank',
-      accountNumber: this.bankConfig?.accountNumber || process.env.SEPAY_ACCOUNT_NUMBER || '',
-      transactionDate: new Date()
+        bankBrand: 'LOCAL-MOCK',
+        accountNumber: '',
+        transactionDate: new Date()
       }
     });
 
@@ -320,6 +339,24 @@ export class PaymentService {
           transactionDate: payload.transactionDate || Date.now()
         }
       });
+
+      if (result.processed && !result.cancelled && this.notifRepo) {
+        const targetOrderId = intent.order_id || intent.orderId;
+        if (targetOrderId) {
+          this.orderRepo.findOrderById(targetOrderId).then(order => {
+            if (order?.userId) {
+              const code = order.orderCode || order.order_code || order.id;
+              this.notifRepo.createNotification({
+                userId: order.userId,
+                orderId: order.id,
+                title: 'Đã nhận thanh toán VietQR',
+                message: `Tiệm đã nhận được khoản thanh toán ${Number(amount).toLocaleString('vi-VN')}₫ cho đơn hàng #${code}.`
+              }).catch(err => console.error('[PaymentService] Lỗi tạo thông báo thanh toán intent:', err.message));
+            }
+          }).catch(() => {});
+        }
+      }
+
       return { success: true, processed: result.processed, duplicate: result.duplicate || false, cancelled: result.cancelled || false, needsReview: result.needsReview || false };
     }
 

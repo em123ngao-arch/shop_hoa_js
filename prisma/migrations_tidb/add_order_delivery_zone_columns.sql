@@ -9,3 +9,4 @@ ALTER TABLE `orders`
   ADD COLUMN IF NOT EXISTS `delivery_zone` VARCHAR(40) NULL,
   ADD COLUMN IF NOT EXISTS `delivery_latitude` DOUBLE NULL,
   ADD COLUMN IF NOT EXISTS `delivery_longitude` DOUBLE NULL;
+
