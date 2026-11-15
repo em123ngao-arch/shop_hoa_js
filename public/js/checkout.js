@@ -7,6 +7,7 @@ import {
 } from './storage.js';
 import { formatPrice, showToast, updateCartBadge } from './utils.js';
 import { DELIVERY_AREA_GROUPS } from './delivery-areas.js';
+import { createDeliveryPinMap } from './delivery-map.js?v=20261114_delivery_zones_v1';
 
 /**
  * checkout.js - Universal Checkout & SePay VietQR Payment Workflow
@@ -28,6 +29,9 @@ async function fetchSepayConfig() {
 let activeCheckoutOptions = { mode: 'cart', directItems: null };
 let currentDeliveryQuote = null;
 let deliveryQuoteRequestId = 0;
+let checkoutDeliveryMap = null;
+let checkoutDeliveryPin = null;
+let checkoutMapInitPromise = null;
 let currentDraftOrder = null;
 let currentDraftToken = null;
 let currentDraftSignature = null;
@@ -94,22 +98,41 @@ function getDeliveryAddressInput() {
   return {
     address: document.querySelector('#checkoutAddress')?.value.trim() || '',
     addressDetails: document.querySelector('#checkoutAddressDetails')?.value.trim() || '',
-    area: document.querySelector('#checkoutDeliveryArea')?.value || ''
+    area: document.querySelector('#checkoutDeliveryArea')?.value || '',
+    latitude: checkoutDeliveryPin?.latitude ?? null,
+    longitude: checkoutDeliveryPin?.longitude ?? null
   };
 }
 
 function getDeliveryInputSignature(input = getDeliveryAddressInput()) {
-  return JSON.stringify({ address: input.address, addressDetails: input.addressDetails, area: input.area });
+  return JSON.stringify({ area: input.area, latitude: input.latitude, longitude: input.longitude });
 }
 
-function clearDeliveryQuote(message = 'Chọn phường, nhập số nhà và tên đường, rồi bấm tính phí.', cancelPendingRequest = true) {
+/** Xóa ghim cũ khi khách sửa thông tin mô tả điểm giao để tránh giữ tọa độ lỗi thời. */
+function invalidateCheckoutDeliveryPin(message = 'Địa chỉ vừa thay đổi. Hãy ghim lại đúng vị trí nhận hoa.') {
+  const previousQuote = currentDeliveryQuote;
+  checkoutDeliveryPin = null;
+  checkoutDeliveryMap?.clearPin(false);
+  currentDeliveryQuote = null;
+  const hint = document.querySelector('#checkoutMapPinHint');
+  if (hint) {
+    hint.classList.remove('delivery-pin-hint-error');
+    hint.textContent = message;
+  }
+  const quoteHint = document.querySelector('#deliveryQuoteHint');
+  if (quoteHint && previousQuote?.area === document.querySelector('#checkoutDeliveryArea')?.value) {
+    quoteHint.textContent = `${previousQuote.zoneName}: ${previousQuote.fee === 0 ? 'miễn phí' : formatPrice(previousQuote.fee)}. Phí không đổi theo địa chỉ chi tiết; ${message.toLowerCase()}`;
+  }
+}
+
+function clearDeliveryQuote(message = 'Chọn phường để xem phí giao theo khu vực.', cancelPendingRequest = true) {
   currentDeliveryQuote = null;
   if (cancelPendingRequest) {
     deliveryQuoteRequestId += 1;
     const quoteButton = document.querySelector('#btnQuoteDelivery');
     if (quoteButton) {
       quoteButton.disabled = false;
-      quoteButton.textContent = 'Tính quãng đường và phí giao';
+      quoteButton.textContent = 'Xem phí giao';
     }
   }
   const fee = document.querySelector('#checkoutShippingFee');
@@ -119,25 +142,28 @@ function clearDeliveryQuote(message = 'Chọn phường, nhập số nhà và t�
   const total = document.querySelector('#checkoutTotal');
   if (total) {
     const summary = getActiveCheckoutSummary();
-    total.textContent = `${formatPrice(summary.totalPrice)} + phí giao sau khi kiểm tra tuyến`;
+    total.textContent = `${formatPrice(summary.totalPrice)} + phí giao theo khu vực`;
   }
 }
 
 async function requestDeliveryQuote() {
   const input = getDeliveryAddressInput();
   const hint = document.querySelector('#deliveryQuoteHint');
-  if (!input.address || !input.area) throw new Error('Chọn phường và nhập số nhà, tên đường trước khi tính phí.');
+  if (!input.area) {
+    clearDeliveryQuote('Chọn phường để xem phí giao theo khu vực.');
+    return null;
+  }
   const requestId = ++deliveryQuoteRequestId;
   const inputSignature = getDeliveryInputSignature(input);
   currentDeliveryQuote = null;
   const fee = document.querySelector('#checkoutShippingFee');
-  if (fee) fee.textContent = 'Đang tính…';
-  if (hint) hint.textContent = 'Đang kiểm tra địa chỉ và tính tuyến xe…';
+  if (fee) fee.textContent = 'Đang tra phí…';
+  if (hint) hint.textContent = 'Đang tra mức phí cố định theo khu vực…';
   const quoteButton = document.querySelector('#btnQuoteDelivery');
   const originalButtonText = quoteButton?.textContent || '';
   if (quoteButton) {
     quoteButton.disabled = true;
-    quoteButton.textContent = 'Đang tính phí…';
+    quoteButton.textContent = 'Đang tra phí…';
   }
   try {
     const response = await fetch('/api/delivery/quote', {
@@ -146,14 +172,17 @@ async function requestDeliveryQuote() {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error?.message || 'Chưa tính được phí giao; vui lòng kiểm tra lại địa chỉ.');
-    if (!data.serviceable) throw new Error('Địa chỉ vượt quá phạm vi giao tối đa 20 km.');
+    if (!data.serviceable) throw new Error(data.message || 'Vị trí ghim nằm ngoài phạm vi tự giao hiện tại.');
     if (requestId !== deliveryQuoteRequestId || inputSignature !== getDeliveryInputSignature()) {
-      throw new Error('Địa chỉ vừa thay đổi. Hãy tính phí lại để cập nhật tuyến mới.');
+      throw new Error('Khu vực hoặc ghim vừa thay đổi. Đang cập nhật phí theo khu vực, vui lòng thử lại.');
     }
     currentDeliveryQuote = { ...data, inputSignature };
-    if (fee) fee.textContent = data.fee === 0 ? 'Miễn phí (0–3 km)' : formatPrice(data.fee);
-    const quoteSource = data.simulated ? 'Báo giá mô phỏng local — chưa phải phí thực tế.' : 'Nguồn tuyến: Google Maps.';
-    if (hint) hint.textContent = `Tuyến xe một chiều ${data.distanceKm} km • ${quoteSource}`;
+    if (fee) fee.textContent = data.fee === 0 ? 'Miễn phí' : formatPrice(data.fee);
+    const pinDistance = data.pinProvided && Number.isFinite(Number(data.pinDistanceKm))
+      ? ` • Ghim cách tiệm ${data.pinDistanceKm} km đường chim bay`
+      : '';
+    const reviewNotice = data.requiresShopConfirmation ? ' • Shop cần xác nhận vị trí trước khi nhận đơn.' : '';
+    if (hint) hint.textContent = `${data.zoneName || 'Phí theo khu vực'}: ${data.fee === 0 ? 'miễn phí' : formatPrice(data.fee)}. Phí không thay đổi theo ghim.${pinDistance}${reviewNotice}`;
     const summary = getActiveCheckoutSummary();
     const total = document.querySelector('#checkoutTotal');
     if (total) total.textContent = formatPrice(Math.max(0, summary.totalPrice) + data.fee);
@@ -164,9 +193,62 @@ async function requestDeliveryQuote() {
   } finally {
     if (quoteButton && requestId === deliveryQuoteRequestId) {
       quoteButton.disabled = false;
-      quoteButton.textContent = originalButtonText;
+      quoteButton.textContent = originalButtonText || 'Xem phí giao';
     }
   }
+}
+
+/** Mở Leaflet sau khi modal hiện để kích thước bản đồ được đo đúng. */
+async function initializeCheckoutDeliveryMap() {
+  const element = document.querySelector('#checkoutDeliveryMap');
+  if (!element) return;
+  if (checkoutDeliveryMap) {
+    requestAnimationFrame(() => checkoutDeliveryMap?.invalidateSize());
+    return;
+  }
+  if (checkoutMapInitPromise) return checkoutMapInitPromise;
+  checkoutMapInitPromise = createDeliveryPinMap(element, {
+    onChange: pin => {
+      checkoutDeliveryPin = pin;
+      const hint = document.querySelector('#checkoutMapPinHint');
+      if (hint) {
+        hint.classList.remove('delivery-pin-hint-error');
+        hint.textContent = pin
+          ? `Đã ghim ${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}. Phí vẫn tính theo phường đã chọn.`
+          : 'Chưa ghim vị trí nhận hàng. Bấm bản đồ để đặt ghim.';
+      }
+      if (document.querySelector('#checkoutDeliveryArea')?.value) {
+        requestDeliveryQuote().catch(error => {
+          const pinHint = document.querySelector('#checkoutMapPinHint');
+          if (pinHint) {
+            pinHint.textContent = error.message;
+            pinHint.classList.add('delivery-pin-hint-error');
+          }
+        });
+      }
+    },
+    onError: message => {
+      const hint = document.querySelector('#checkoutMapPinHint');
+      if (hint) {
+        hint.textContent = message;
+        hint.classList.add('delivery-pin-hint-error');
+      }
+    }
+  }).then(controller => {
+    checkoutDeliveryMap = controller;
+    requestAnimationFrame(() => controller.invalidateSize());
+    return controller;
+  }).catch(error => {
+    const hint = document.querySelector('#checkoutMapPinHint');
+    if (hint) {
+      hint.textContent = error.message;
+      hint.classList.add('delivery-pin-hint-error');
+    }
+    throw error;
+  }).finally(() => {
+    checkoutMapInitPromise = null;
+  });
+  return checkoutMapInitPromise;
 }
 
 export function openCheckoutModal(options = {}) {
@@ -198,6 +280,19 @@ export function openCheckoutModal(options = {}) {
   currentDraftOrder = null;
   currentDraftToken = null;
   currentDraftSignature = null;
+  checkoutDeliveryPin = null;
+  checkoutDeliveryMap?.clearPin(false);
+  const mapPinHint = document.querySelector('#checkoutMapPinHint');
+  if (mapPinHint) {
+    mapPinHint.classList.remove('delivery-pin-hint-error');
+    mapPinHint.textContent = 'Chọn phường rồi ghim điểm nhận hàng.';
+  }
+  const deliveryAreaInput = document.querySelector('#checkoutDeliveryArea');
+  const deliveryStreetInput = document.querySelector('#checkoutAddress');
+  const deliveryDetailsInput = document.querySelector('#checkoutAddressDetails');
+  if (deliveryAreaInput) deliveryAreaInput.value = '';
+  if (deliveryStreetInput) deliveryStreetInput.value = '';
+  if (deliveryDetailsInput) deliveryDetailsInput.value = '';
   clearDeliveryQuote();
   if (errorBanner) errorBanner.classList.add('hidden');
 
@@ -246,7 +341,7 @@ export function openCheckoutModal(options = {}) {
     shippingFeeEl.textContent = 'Chưa báo giá';
     shippingFeeEl.style.color = '';
   }
-  if (totalEl) totalEl.textContent = `${formatPrice(summary.totalPrice)} + phí giao sau khi kiểm tra tuyến`;
+  if (totalEl) totalEl.textContent = `${formatPrice(summary.totalPrice)} + phí giao theo khu vực`;
 
   // Tự động điền thông tin nếu khách hàng đã đăng nhập
   const currentUserJson = localStorage.getItem('user');
@@ -269,6 +364,10 @@ export function openCheckoutModal(options = {}) {
 
   // Mở modal
   modal.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    initializeCheckoutDeliveryMap().catch(() => {});
+    checkoutDeliveryMap?.invalidateSize();
+  });
 }
 
 export function closeCheckoutModal() {
@@ -318,22 +417,27 @@ export function initCheckoutWorkflow() {
       areaSelect.append(optionGroup);
     });
   }
-  [addressInput, addressDetailsInput, areaSelect].filter(Boolean).forEach(input => {
-    if (input.dataset.deliveryBound === 'true') return;
-    input.dataset.deliveryBound = 'true';
-    input.addEventListener(input === areaSelect ? 'change' : 'input', () => {
-      clearDeliveryQuote('Thông tin địa chỉ đã đổi. Bấm “Tính quãng đường và phí giao” để cập nhật.');
+  if (areaSelect && areaSelect.dataset.deliveryBound !== 'true') {
+    areaSelect.dataset.deliveryBound = 'true';
+    areaSelect.addEventListener('change', () => {
+      invalidateCheckoutDeliveryPin('Phường vừa thay đổi. Hãy ghim lại đúng vị trí nhận hoa.');
+      if (areaSelect.value) requestDeliveryQuote().catch(error => clearDeliveryQuote(error.message, false));
+      else clearDeliveryQuote();
     });
-    if (input !== areaSelect) {
-      input.addEventListener('change', () => {
-        clearDeliveryQuote('Thông tin địa chỉ đã đổi. Bấm “Tính quãng đường và phí giao” để cập nhật.');
-      });
-    }
+  }
+  [addressInput, addressDetailsInput].filter(Boolean).forEach(input => {
+    if (input.dataset.deliveryAddressBound === 'true') return;
+    input.dataset.deliveryAddressBound = 'true';
+    input.addEventListener('input', () => {
+      if (input.value.length > 255) input.setCustomValidity('Địa chỉ không được vượt quá 255 ký tự.');
+      else input.setCustomValidity('');
+      if (checkoutDeliveryPin) invalidateCheckoutDeliveryPin();
+    });
   });
   if (quoteButton && !quoteButton.dataset.deliveryBound) {
     quoteButton.dataset.deliveryBound = 'true';
     quoteButton.addEventListener('click', async () => {
-      try { await requestDeliveryQuote(); showToast('Đã tính phí theo tuyến giao.', 'success'); }
+      try { await requestDeliveryQuote(); showToast('Đã tra phí giao theo khu vực.', 'success'); }
       catch (error) { showToast(error.message, 'error'); }
     });
   }
@@ -462,6 +566,7 @@ export function initCheckoutWorkflow() {
       const note = document.querySelector('#checkoutNote').value.trim();
       const paymentPlan = radioDeposit && radioDeposit.checked ? 'sepay_deposit' : 'sepay_full';
       const deliveryArea = document.querySelector('#checkoutDeliveryArea').value;
+      const deliveryPin = checkoutDeliveryPin;
       const fullDeliveryAddress = [address, addressDetails, deliveryArea, 'Thành phố Hồ Chí Minh'].filter(Boolean).join(', ');
 
       // Validation
@@ -561,6 +666,8 @@ export function initCheckoutWorkflow() {
         paymentMethod: 'sepay',
         paymentPlan,
         deliveryArea,
+        latitude: deliveryPin?.latitude ?? null,
+        longitude: deliveryPin?.longitude ?? null,
         termsAccepted,
         paymentStatus: 'pending',
         items: validItems,
@@ -581,10 +688,15 @@ export function initCheckoutWorkflow() {
       };
 
       if (!deliveryArea) { showCheckoutError('Vui lòng chọn phường/xã giao hàng.'); return; }
+      if (!deliveryPin) { showCheckoutError('Vui lòng ghim vị trí nhận hoa trên bản đồ để tiệm giao đúng địa chỉ.'); return; }
       if (!termsAccepted) { showCheckoutError('Vui lòng xác nhận chính sách thanh toán và giao hàng.'); return; }
 
       try {
-        await requestDeliveryQuote();
+        const deliveryQuote = await requestDeliveryQuote();
+        if (deliveryQuote?.requiresShopConfirmation) {
+          showCheckoutError(deliveryQuote.message || 'Vị trí này cần shop xác nhận trước khi nhận đơn. Vui lòng liên hệ tiệm.');
+          return;
+        }
       } catch (quoteError) {
         showCheckoutError(quoteError.message);
         return;
@@ -600,6 +712,8 @@ export function initCheckoutWorkflow() {
         address,
         addressDetails,
         deliveryArea,
+        latitude: deliveryPin.latitude,
+        longitude: deliveryPin.longitude,
         deliveryDate,
         deliverySlot,
         hasGreetingCard,

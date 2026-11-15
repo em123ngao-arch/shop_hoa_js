@@ -185,6 +185,7 @@ const customerOrderActionLimiter = createRateLimiter({
   keyGenerator: (req) => `order-action:${req.ip || req.socket?.remoteAddress || 'unknown'}:${String(req.params?.id || '').toUpperCase()}`
 });
 // Tạo đơn hàng (cho phép cả khách vãng lai và user đã đăng nhập, tự động trừ kho nguyên tử)
+app.get('/api/delivery/map-config', deliveryQuoteLimiter, container.orderController.getDeliveryMapConfig);
 app.post('/api/delivery/quote', deliveryQuoteLimiter, container.orderController.quoteDelivery);
 app.get('/api/delivery/suggestions', deliverySuggestionLimiter, container.orderController.suggestDeliveryAddresses);
 app.post(['/api/orders', '/orders'], container.optionalAuthMiddleware, container.orderController.createOrder);

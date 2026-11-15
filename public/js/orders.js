@@ -6,6 +6,7 @@ import { initUniversalCartDrawer, openCartDrawer } from './cart-drawer.js';
 import { initMobileBottomNav } from './bottom-nav.js';
 import api, { authApi, reviewApi } from './api.js';
 import { DELIVERY_AREA_GROUPS } from './delivery-areas.js';
+import { createDeliveryPinMap } from './delivery-map.js?v=20261114_delivery_zones_v1';
 
 /**
  * orders.js - Logic Quản Lý & Tra Cứu Lịch Sử Đơn Hàng (Dedicated Page)
@@ -23,6 +24,40 @@ let currentPollingInterval = null;
 let cachedCurrentUser = null;
 let reviewedProductIds = null;
 let verifiedGuestPhone = '';
+const orderAddressMaps = new WeakMap();
+const orderAddressQuoteRequestIds = new WeakMap();
+
+async function refreshOrderAddressQuote(card) {
+  const area = card?.querySelector('.order-change-area')?.value || '';
+  const address = card?.querySelector('.order-change-address')?.value.trim() || '';
+  const addressDetails = card?.querySelector('.order-change-address-details')?.value.trim() || '';
+  const mapElement = card?.querySelector('.order-change-delivery-map');
+  const mapState = mapElement ? orderAddressMaps.get(mapElement) : null;
+  const pin = mapState?.pin || null;
+  const quoteElement = card?.querySelector('.order-change-delivery-quote');
+  if (!quoteElement) return;
+  const requestId = (orderAddressQuoteRequestIds.get(card) || 0) + 1;
+  orderAddressQuoteRequestIds.set(card, requestId);
+  if (!area) {
+    quoteElement.textContent = 'Chọn phường để xem phí theo khu vực.';
+    return;
+  }
+
+  quoteElement.textContent = 'Đang tra phí theo khu vực…';
+  try {
+    const response = await fetch('/api/delivery/quote', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ area, address, addressDetails, latitude: pin?.latitude, longitude: pin?.longitude })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error?.message || 'Không tra được phí giao.');
+    if (!data.serviceable) throw new Error(data.message || 'Vị trí nằm ngoài vùng tự giao.');
+    if (orderAddressQuoteRequestIds.get(card) !== requestId) return;
+    quoteElement.textContent = `${data.zoneName}: ${data.fee === 0 ? 'miễn phí' : formatPrice(data.fee)}${data.requiresShopConfirmation ? ' • Shop cần xác nhận vị trí.' : ''}`;
+  } catch (error) {
+    if (orderAddressQuoteRequestIds.get(card) === requestId) quoteElement.textContent = error.message;
+  }
+}
 
 let currentSepayConfig = null;
 
@@ -479,6 +514,10 @@ function renderOrdersList(orders = []) {
           <select class="order-change-area" aria-label="Phường/xã giao mới"><option value="">Chọn phường/xã</option>${deliveryAreaOptions}</select>
           <input class="order-change-address" type="text" maxlength="255" placeholder="Số nhà, tên đường mới">
           <input class="order-change-address-details" type="text" maxlength="255" placeholder="Căn hộ, hẻm hoặc chỉ dẫn thêm (không bắt buộc)">
+          <button type="button" class="btn-action-secondary btn-order-change-map">Chọn vị trí trên bản đồ</button>
+          <div class="order-change-delivery-map delivery-pin-map" hidden role="application" aria-label="Bản đồ chọn địa chỉ giao mới"></div>
+          <span class="order-change-map-hint field-hint" aria-live="polite">Cần ghim lại vị trí nếu đổi địa chỉ.</span>
+          <span class="order-change-delivery-quote field-hint" aria-live="polite">Chọn phường để xem phí theo khu vực.</span>
           <button type="button" class="btn-action-secondary btn-order-change-address" data-order-id="${order.isGuestLookup ? safeOrderCode : safeOrderId}">Gửi yêu cầu đổi địa chỉ</button>
           <label>Số điện thoại người đặt mới
             <input class="order-change-customer-phone" type="tel" maxlength="20" value="${escapeHTML(order.isGuestLookup ? '' : (order.customerPhone || order.phone || ''))}" placeholder="09xxxxxxxx">
@@ -1019,6 +1058,33 @@ function setupOrdersPageEvents() {
   // 4. Bắt sự kiện trên các nút hành động (Event Delegation)
   const listContainer = document.getElementById('ordersListContainer');
   if (listContainer) {
+    listContainer.addEventListener('change', event => {
+      if (event.target.matches('.order-change-area')) {
+        const card = event.target.closest('.order-craft-card');
+        const mapElement = card?.querySelector('.order-change-delivery-map');
+        const mapState = mapElement ? orderAddressMaps.get(mapElement) : null;
+        if (mapState?.pin) {
+          mapState.controller.clearPin(false);
+          mapState.pin = null;
+        }
+        const hint = card?.querySelector('.order-change-map-hint');
+        if (hint) hint.textContent = 'Phường vừa thay đổi. Hãy ghim lại đúng vị trí nhận hoa.';
+        refreshOrderAddressQuote(card);
+      }
+    });
+    listContainer.addEventListener('input', event => {
+      if (!event.target.matches('.order-change-address, .order-change-address-details')) return;
+      const card = event.target.closest('.order-craft-card');
+      const mapElement = card?.querySelector('.order-change-delivery-map');
+      const mapState = mapElement ? orderAddressMaps.get(mapElement) : null;
+      if (!mapState?.pin) return;
+      mapState.controller.clearPin(false);
+      mapState.pin = null;
+      const hint = card?.querySelector('.order-change-map-hint');
+      if (hint) hint.textContent = 'Địa chỉ vừa thay đổi. Hãy ghim lại đúng vị trí nhận hoa.';
+      refreshOrderAddressQuote(card);
+    });
+
     listContainer.addEventListener('click', (e) => {
       // A. Nút Sao Chép Mã Đơn
       const copyBtn = e.target.closest('.btn-copy-code');
@@ -1134,6 +1200,55 @@ function setupOrdersPageEvents() {
         return;
       }
 
+      const mapButton = e.target.closest('.btn-order-change-map');
+      if (mapButton) {
+        const card = mapButton.closest('.order-craft-card');
+        const mapElement = card?.querySelector('.order-change-delivery-map');
+        const hint = card?.querySelector('.order-change-map-hint');
+        if (!mapElement) return;
+        mapElement.hidden = false;
+        const existingMap = orderAddressMaps.get(mapElement);
+        if (existingMap) {
+          requestAnimationFrame(() => existingMap.controller.invalidateSize());
+          return;
+        }
+        mapButton.disabled = true;
+        mapButton.textContent = 'Đang tải bản đồ…';
+        createDeliveryPinMap(mapElement, {
+          onChange: pin => {
+            const mapState = orderAddressMaps.get(mapElement);
+            if (mapState) mapState.pin = pin;
+            if (hint) {
+              hint.classList.remove('delivery-pin-hint-error');
+              hint.textContent = pin
+                ? `Đã ghim ${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}. Phí vẫn tính theo phường.`
+                : 'Chưa ghim vị trí giao mới. Bấm bản đồ để đặt ghim.';
+            }
+            refreshOrderAddressQuote(card);
+          },
+          onError: message => {
+            if (hint) {
+              hint.textContent = message;
+              hint.classList.add('delivery-pin-hint-error');
+            }
+          }
+        }).then(controller => {
+          orderAddressMaps.set(mapElement, { controller, pin: null });
+          requestAnimationFrame(() => controller.invalidateSize());
+          refreshOrderAddressQuote(card);
+        }).catch(error => {
+          if (hint) {
+            hint.textContent = error.message;
+            hint.classList.add('delivery-pin-hint-error');
+          }
+          showToast(error.message, 'error');
+        }).finally(() => {
+          mapButton.disabled = false;
+          mapButton.textContent = 'Chọn vị trí trên bản đồ';
+        });
+        return;
+      }
+
       const changeButton = e.target.closest('.btn-order-change-address');
       if (!changeButton) return;
       const card = changeButton.closest('.order-craft-card');
@@ -1141,13 +1256,16 @@ function setupOrdersPageEvents() {
       const address = card?.querySelector('.order-change-address')?.value.trim() || '';
       const addressDetails = card?.querySelector('.order-change-address-details')?.value.trim() || '';
       const area = card?.querySelector('.order-change-area')?.value || '';
+      const mapElement = card?.querySelector('.order-change-delivery-map');
+      const deliveryPin = mapElement ? orderAddressMaps.get(mapElement)?.pin : null;
       if (!order || !address || !area) { showToast('Chọn phường/xã và nhập số nhà, tên đường mới.', 'warning'); return; }
+      if (!deliveryPin) { showToast('Ghim lại vị trí nhận hàng mới trên bản đồ trước khi gửi.', 'warning'); return; }
       try {
         changeButton.disabled = true;
         changeButton.textContent = 'Đang gửi yêu cầu...';
         const changeOrderKey = order.isGuestLookup ? order.orderCode : order.id;
         const response = await api.post(`/api/orders/${encodeURIComponent(changeOrderKey)}/change-requests`, {
-          changeType: 'address', value: { address, addressDetails, area },
+          changeType: 'address', value: { address, addressDetails, area, latitude: deliveryPin.latitude, longitude: deliveryPin.longitude },
           ...(order.isGuestLookup ? { phone: verifiedGuestPhone } : {})
         });
         const result = response.data || {};

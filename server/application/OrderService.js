@@ -110,6 +110,10 @@ export class OrderService {
     return quote;
   }
 
+  getDeliveryMapConfig() {
+    return this.deliveryService.getMapConfig();
+  }
+
   async suggestDeliveryAddresses(query = '', area = '') {
     return this.deliveryService.suggest(query, area);
   }

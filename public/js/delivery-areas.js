@@ -1,11 +1,11 @@
 /**
  * Danh sách phường hiện hành trong phạm vi cửa hàng có thể nhận giao.
  * TP.HCM được chọn cố định ở checkout; khách chọn phường rồi nhập số nhà và tên đường.
- * Nhóm chỉ giúp chọn nhanh, không đại diện cho ranh giới tính phí.
+ * Nhóm hiển thị mức phí cấu hình theo phường; backend vẫn là nguồn tính phí cuối cùng.
  */
 export const DELIVERY_AREA_GROUPS = Object.freeze([
   {
-    label: 'Gần cửa hàng',
+    label: 'Tiệm và phường lân cận (Tân Phú: miễn phí; 4 phường còn lại: 35.000₫)',
     areas: Object.freeze([
       'Phường Tân Phú',
       'Phường Tân Sơn Nhì',
@@ -15,7 +15,7 @@ export const DELIVERY_AREA_GROUPS = Object.freeze([
     ])
   },
   {
-    label: 'Khu vực lân cận',
+    label: 'Các phường khác tại TP.HCM — 50.000₫',
     areas: Object.freeze([
       'Phường Tân Bình',
       'Phường Tân Sơn',
@@ -45,7 +45,7 @@ export const DELIVERY_AREA_GROUPS = Object.freeze([
     ])
   },
   {
-    label: 'Các khu vực khác tại TP.HCM',
+    label: 'Các phường còn lại tại TP.HCM — 50.000₫',
     areas: Object.freeze([
       'Phường Sài Gòn',
       'Phường Tân Định',

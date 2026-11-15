@@ -2603,6 +2603,12 @@ function initOrderManagement() {
           </div>
           <div style="border-top: 1px dashed var(--border-light); padding-top: 8px; margin-top: 8px;">
             <div><strong>Địa chỉ giao hoa:</strong> ${escapeHTML(order.address || '')}</div>
+            ${Number.isFinite(Number(order.deliveryLatitude)) && Number.isFinite(Number(order.deliveryLongitude))
+              && order.deliveryLatitude !== null && order.deliveryLongitude !== null
+              ? `<div><strong>Phí khu vực:</strong> ${escapeHTML(order.deliveryZone || order.deliveryArea || 'Đã lưu theo đơn')} — ${Number(order.shippingFee || 0) === 0 ? 'Miễn phí' : formatPrice(order.shippingFee)}</div>
+                 <a href="https://www.google.com/maps/dir/?api=1&amp;destination=${encodeURIComponent(`${order.deliveryLatitude},${order.deliveryLongitude}`)}&amp;travelmode=driving" target="_blank" rel="noopener noreferrer" style="display:inline-flex;margin:6px 0;color:var(--color-primary,#108474);font-weight:700;">Mở ghim giao hàng trong Google Maps</a>`
+              : `<div><strong>Phí khu vực:</strong> ${escapeHTML(order.deliveryZone || order.deliveryArea || 'Chưa lưu vùng')} — ${Number(order.shippingFee || 0) === 0 ? 'Miễn phí' : formatPrice(order.shippingFee)}</div>`}
+            <div class="field-hint">Ghim do khách chọn để hỗ trợ điều hướng; xác nhận lại địa chỉ chữ và phường với khách trước khi xuất phát.</div>
             <div><strong>Hình thức thanh toán:</strong> ${paymentMethodText} &mdash; ${paymentStatusHtml}</div>
             ${order.paymentPlan === 'sepay_deposit' || order.paymentPlan === 'sepay_full' ? `
               <div><strong>Đã thu:</strong> ${formatPrice(order.amountReceived || 0)} • <strong>Còn phải thu:</strong> ${formatPrice(cashBalance)}</div>

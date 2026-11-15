@@ -105,11 +105,14 @@ Server tính lại giá trong `OrderService.createOrder`; frontend chỉ hiển 
 - Các kiểm tra trên được thực hiện trước khi thay phí km bằng phí vùng; không xác nhận thay đổi mới ở mục 7. Trước khi mở public cần tạo DB test và kiểm tra luồng map/pin với tọa độ tiệm chính xác.
 - Countdown VietQR hiện bám hạn thật của payment intent; không còn nút gia hạn chỉ đổi giờ ở trình duyệt. Khi hết hạn, khách cần tạo đơn mới hoặc liên hệ tiệm nếu đã chuyển tiền.
 
-## 7. Chuyển phí sang vùng cố định (15/11/2026)
+## 7. Chuyển phí sang vùng cố định và ghim bản đồ (14/11/2026)
 
 - Backend đã đổi từ phí km/mock/Google Routes sang bảng phí pilot theo phường; báo giá có thể trả ngay khi chỉ biết phường, không cần địa chỉ đường hoặc API ngoài.
 - API báo giá nhận `latitude`/`longitude` (hoặc `deliveryLatitude`/`deliveryLongitude`) tùy chọn để xem vùng trước khi ghim. Tạo đơn và đổi địa chỉ yêu cầu tọa độ hợp lệ; pin quá 15 km đường chim bay bị từ chối, pin xa tương đối so với vùng yêu cầu shop xác nhận. Khoảng cách không tham gia tính phí.
 - Prisma lưu `delivery_zone`, `delivery_latitude`, `delivery_longitude`; đổi địa chỉ sẽ chụp vùng và tọa độ mới vào yêu cầu, và cập nhật sau khi được áp dụng. Tọa độ được xóa sau 30 ngày khi đơn kết thúc; phí/vùng lịch sử được giữ.
 - Mức pilot hiện tại: phường Tân Phú miễn phí; 4 phường Tân Phú lân cận 35.000₫; các phường còn lại trong dropdown 50.000₫. Cần xác nhận lại phân vùng, tọa độ chính xác của tiệm và chi phí chuyến trước khi dùng thật.
-- Chưa sửa frontend vì Anti đang làm giao diện; giao diện cần gửi tọa độ pin và gọi `POST /api/delivery/quote` khi phường được chọn. Chưa chạy migration hay test suite.
-- Chưa chạy test suite, kiểm tra API có DB hoặc migration sau thay đổi phí vùng.
+- Checkout và trang đơn đã có Leaflet/OpenStreetMap để khách bấm bản đồ hoặc kéo ghim; bản đồ chỉ cung cấp vị trí điều hướng, không xác minh số nhà hay ranh giới hành chính. Khách vẫn phải nhập địa chỉ chữ chính xác; tiệm cần xác nhận khi ghim nằm xa so với vùng đã chọn.
+- `POST /api/delivery/quote` tính giá từ phường trên máy chủ; ghim chỉ kiểm tra phạm vi, không tham gia tính phí. Khi tạo đơn hoặc gửi yêu cầu đổi địa chỉ, thiếu ghim hoặc ghim cần xác nhận đều bị chặn. Bản đồ nền dùng tile công cộng OSM, cần internet và tuân thủ chính sách ghi công/sử dụng tile.
+- Admin xem chi tiết ghim và có thể mở tuyến điều hướng trong Google Maps bằng URL thường; không dùng Google Maps API hay API key.
+- Mức pilot hiện tại: phường Tân Phú miễn phí; Tân Sơn Nhì, Phú Thọ Hòa, Phú Thạnh, Tây Thạnh 35.000₫; các phường còn lại có trong danh sách 50.000₫. Đây là cấu hình thử, chưa được kiểm chứng theo chi phí chạy từng tuyến; cần xác nhận lại phân phường, địa chỉ tiệm và mức giá trước khi mở bán.
+- Bỏ tọa độ mặc định giả lập tại API tạo đơn: request không có ghim không còn bị gán nhầm vào tọa độ tiệm. Chưa chạy migration, suite, API có DB hoặc UI/E2E sau phần tích hợp này.
