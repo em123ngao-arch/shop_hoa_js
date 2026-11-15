@@ -17,9 +17,10 @@ export class PaymentController {
    * @param {import('../../application/PaymentService.js').PaymentService} paymentService
    * @param {string} [webhookApiKey='']
    */
-  constructor(paymentService, webhookApiKey = '') {
+  constructor(paymentService, webhookApiKey = '', liveEnabled = String(process.env.SEPAY_LIVE_ENABLED || '').toLowerCase() === 'true') {
     this.paymentService = paymentService;
     this.webhookApiKey = webhookApiKey;
+    this.liveEnabled = liveEnabled === true;
   }
 
   /**
@@ -33,6 +34,21 @@ export class PaymentController {
   // GET /api/sepay/config
   getConfig = (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
+    if (process.env.NODE_ENV === 'production' && !this.liveEnabled) {
+      return res.status(503).json({
+        error: { code: 'PAYMENT_UNAVAILABLE', message: 'SePay Live chưa được bật cho môi trường production.' }
+      });
+    }
+    // Khi chưa bật liveEnabled và không phải production: hiển thị simulation mock để an toàn
+    if (!this.liveEnabled && process.env.NODE_ENV !== 'production') {
+      return res.status(200).json({
+        bankCode: 'LOCAL-MOCK',
+        accountNumber: 'KHÔNG ÁP DỤNG',
+        accountHolder: 'CHỈ MÔ PHỎNG TRÊN LOCAL',
+        simulationOnly: true,
+        simulationEnabled: true
+      });
+    }
     const bankCode = process.env.SEPAY_BANK_CODE;
     const accountNumber = process.env.SEPAY_ACCOUNT_NUMBER;
     const accountHolder = process.env.SEPAY_ACCOUNT_HOLDER;
@@ -51,7 +67,7 @@ export class PaymentController {
       accountNumber,
       accountHolder,
       simulationOnly: false,
-      simulationEnabled: false
+      simulationEnabled: process.env.NODE_ENV !== 'production'
     });
   };
 
@@ -97,19 +113,33 @@ export class PaymentController {
     }
   };
 
-  // POST /api/sepay/simulate-payment/:orderId (Đã vô hiệu hóa hoàn toàn)
+  // POST /api/sepay/simulate-payment/:orderId — chỉ cho local/dev.
   simulatePayment = async (req, res) => {
-    return res.status(403).json({
-      error: {
-        code: 'FORBIDDEN',
-        message: 'Chế độ mô phỏng thanh toán đã bị vô hiệu hóa hoàn toàn. Hệ thống chỉ xử lý giao dịch thực tế từ ngân hàng qua SePay.'
-      }
-    });
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({
+        error: { code: 'FORBIDDEN', message: 'Mô phỏng thanh toán bị tắt trong production.' }
+      });
+    }
+    try {
+      const result = await this.paymentService.simulatePayment(req.params.orderId, {
+        user: req.user || null,
+        phone: req.body?.phone || '',
+        intentId: req.body?.intentId || null
+      });
+      return res.status(200).json(result);
+    } catch (err) {
+      if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code || err.name, message: err.message } });
+      console.error('Loi simulatePayment:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể mô phỏng thanh toán local' } });
+    }
   };
 
   // POST /api/sepay/webhook
   webhook = async (req, res) => {
     try {
+      if (!this.liveEnabled && process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
+        return res.status(403).json({ success: false, error: 'Webhook ngân hàng thật chỉ được bật khi SEPAY_LIVE_ENABLED=true hoặc production; local dùng mô phỏng.' });
+      }
       if (!this.webhookApiKey) {
         return res.status(503).json({ success: false, error: 'Webhook thanh toán chưa được cấu hình xác thực' });
       }

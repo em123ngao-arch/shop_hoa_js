@@ -1,60 +1,47 @@
 import { ValidationError } from '../domain/errors/DomainErrors.js';
-import { getDeliveryZone } from './DeliveryZoneRules.js';
+import { validateDeliveryArea } from './DeliveryZoneRules.js';
 
-/** Điểm xuất phát cấu hình hiện tại; cần kiểm tra lại ghim thực tế trước khi mở bán. */
+/** Điểm xuất phát mặc định dùng để mở bản đồ; không dùng tính phí hoặc tính tuyến. */
 export const SHOP_COORDINATES = Object.freeze({
-  address: '14 Trịnh Đình Thảo, Phường Tân Phú, Thành phố Hồ Chí Minh, Việt Nam',
+  address: '14 Trịnh Đình Thảo, Hòa Thạnh, Tân Phú, Thành phố Hồ Chí Minh, Việt Nam',
   lat: Number(process.env.DELIVERY_STORE_LAT ?? 10.7744),
   lng: Number(process.env.DELIVERY_STORE_LNG ?? 106.63412)
 });
 
-const MAX_PIN_DISTANCE_METERS = 15000;
 const MAX_ADDRESS_LENGTH = 255;
 
-/** Khoảng cách đường chim bay chỉ dùng kiểm tra phạm vi ghim, tuyệt đối không dùng tính tiền ship. */
-export function calculateStraightLineDistanceMeters(origin, destination) {
-  const toRadians = degrees => degrees * (Math.PI / 180);
-  const earthRadiusMeters = 6371000;
-  const latDelta = toRadians(destination.latitude - origin.latitude);
-  const lngDelta = toRadians(destination.longitude - origin.longitude);
-  const originLat = toRadians(origin.latitude);
-  const destinationLat = toRadians(destination.latitude);
-  const haversine = Math.sin(latDelta / 2) ** 2
-    + Math.cos(originLat) * Math.cos(destinationLat) * Math.sin(lngDelta / 2) ** 2;
-  return Math.round(2 * earthRadiusMeters * Math.asin(Math.sqrt(haversine)));
-}
-
-/** @deprecated Chỉ giữ tương thích mã cũ; báo giá hiện hành dùng phí cố định từ getDeliveryZone(). */
-export function getDeliveryFee(distanceMeters) {
-  const d = Number(distanceMeters);
-  if (!Number.isFinite(d) || d < 0) return null;
-  if (d <= 3000) return 0;
-  if (d <= 10000) return 25000;
-  if (d <= 20000) return 40000;
-  return null;
-}
-
-/** Dịch vụ phí giao cố định theo phường; không gọi Google/OSRM hay tự ước lượng tuyến xe. */
+/** Dịch vụ báo phí theo phường; tuyệt đối không gọi API định tuyến. */
 export class DeliveryService {
-  constructor({ originLat = SHOP_COORDINATES.lat, originLng = SHOP_COORDINATES.lng } = {}) {
+  constructor({
+    originLat = SHOP_COORDINATES.lat,
+    originLng = SHOP_COORDINATES.lng,
+    mapsApiKey = process.env.GOOGLE_MAPS_API_KEY || ''
+  } = {}) {
     const latitude = Number(originLat);
     const longitude = Number(originLng);
     if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90
       || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-      throw new TypeError('Cấu hình tọa độ cửa hàng DELIVERY_STORE_LAT/LNG không hợp lệ');
+      throw new TypeError('Tọa độ tâm bản đồ DELIVERY_STORE_LAT/LNG không hợp lệ');
     }
-    this.origin = { latitude, longitude };
+    this.mapCenter = { latitude, longitude };
+    this.mapsApiKey = String(mapsApiKey || '').trim();
   }
 
-  /** Trả điểm tiệm công khai để bản đồ checkout tập trung đúng vị trí xuất phát. */
+  /** Trả cấu hình hiển thị bản đồ giao hàng; hỗ trợ cả Leaflet và Google Maps. */
   getMapConfig() {
-    return { origin: { ...this.origin }, label: 'Tiệm hoa' };
+    return {
+      center: { ...this.mapCenter },
+      origin: { ...this.mapCenter },
+      label: 'Tiệm hoa ShopHoa (14 Trịnh Đình Thảo)',
+      googleMapsApiKey: this.mapsApiKey
+    };
   }
 
   /**
-   * Tính phí từ bảng vùng server; ghim bản đồ chỉ kiểm tra phạm vi và hỗ trợ tìm địa chỉ.
+   * Tra phí cố định từ phường. Tọa độ nếu có chỉ được lưu để người giao mở bản đồ;
+   * chúng không tham gia quyết định vùng, phí hoặc khả năng phục vụ.
    * @param {{address?:string,addressDetails?:string,area:string,latitude?:number,longitude?:number}} input
-   * @returns {Promise<Object>} Mức phí cố định, vùng, và cảnh báo phạm vi ghim nếu có.
+   * @returns {Promise<Object>} Phí do bảng phường phía server xác định.
    */
   async quote({ address = '', addressDetails = '', area = '', latitude, longitude } = {}) {
     const cleanAddress = String(address || '').trim();
@@ -63,72 +50,43 @@ export class DeliveryService {
     if (cleanAddress.length > MAX_ADDRESS_LENGTH || cleanDetails.length > MAX_ADDRESS_LENGTH) {
       throw new ValidationError('Địa chỉ hoặc chỉ dẫn quá dài; vui lòng rút gọn dưới 255 ký tự');
     }
-    if (cleanAddress && `${cleanAddress}, ${cleanDetails}, ${cleanArea}, TP.HCM`.length > MAX_ADDRESS_LENGTH) {
-      throw new ValidationError('Địa chỉ giao hàng quá dài; vui lòng rút gọn thông tin');
-    }
 
-    const zone = getDeliveryZone(cleanArea);
+    const rate = validateDeliveryArea(cleanArea);
     const hasLatitude = latitude !== undefined && latitude !== null && String(latitude).trim() !== '';
     const hasLongitude = longitude !== undefined && longitude !== null && String(longitude).trim() !== '';
-    if (hasLatitude !== hasLongitude) throw new ValidationError('Ghim bản đồ chưa có đủ tọa độ');
+    if (hasLatitude !== hasLongitude) throw new ValidationError('Tọa độ ghim chưa đầy đủ');
 
-    let pinDistanceMeters = null;
-    let requiresShopConfirmation = false;
+    let pin = null;
     if (hasLatitude && hasLongitude) {
-      const pin = { latitude: Number(latitude), longitude: Number(longitude) };
-      if (!Number.isFinite(pin.latitude) || pin.latitude < -90 || pin.latitude > 90
-        || !Number.isFinite(pin.longitude) || pin.longitude < -180 || pin.longitude > 180) {
-        throw new ValidationError('Vị trí ghim trên bản đồ không hợp lệ');
+      const lat = Number(latitude);
+      const lng = Number(longitude);
+      if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+        throw new ValidationError('Vị trí ghim trên Google Maps không hợp lệ');
       }
-      pinDistanceMeters = calculateStraightLineDistanceMeters(this.origin, pin);
-      if (pinDistanceMeters > MAX_PIN_DISTANCE_METERS) {
-        return {
-          serviceable: false,
-          reason: 'outside_delivery_radius',
-          message: 'Vị trí ghim đang ngoài phạm vi tự giao của tiệm; vui lòng liên hệ shop.',
-          zoneId: zone.id,
-          zoneName: zone.name,
-          fee: null,
-          latitude: pin.latitude,
-          longitude: pin.longitude,
-          pinDistanceMeters,
-          pinDistanceKm: Number((pinDistanceMeters / 1000).toFixed(1)),
-          requiresShopConfirmation: true,
-          provider: 'configured-zone',
-          simulated: false,
-          quotedAt: new Date()
-        };
-      }
-
-      // Các ghim sát biên vùng có thể có tuyến xe dài; yêu cầu shop rà thủ công trước khi nhận.
-      requiresShopConfirmation = pinDistanceMeters > zone.maxPinDistanceKm * 1000;
+      pin = { latitude: lat, longitude: lng };
     }
 
     return {
       serviceable: true,
-      zoneId: zone.id,
-      zoneName: zone.name,
+      requiresShopConfirmation: false,
+      manualQuoteRequired: false,
       area: cleanArea,
-      fee: zone.fee,
-      latitude: hasLatitude ? Number(latitude) : null,
-      longitude: hasLongitude ? Number(longitude) : null,
-      pinDistanceMeters,
-      pinDistanceKm: pinDistanceMeters === null ? null : Number((pinDistanceMeters / 1000).toFixed(1)),
-      pinProvided: pinDistanceMeters !== null,
-      requiresShopConfirmation,
-      message: requiresShopConfirmation
-        ? 'Ghim nằm xa so với vùng phí đã chọn; shop cần xác nhận trước khi nhận đơn.'
-        : '',
-      provider: 'configured-zone',
-      simulated: false,
-      placeId: '',
+      zoneId: rate.id,
+      zoneName: rate.name,
+      fee: rate.fee,
+      latitude: pin?.latitude ?? null,
+      longitude: pin?.longitude ?? null,
+      pinProvided: Boolean(pin),
+      distanceMeters: null,
+      snappedOffsetMeters: null,
+      provider: 'preconfigured-area-rate-v1',
+      rateVersion: 'delivery-area-rate-v1-2026-11',
       quotedAt: new Date()
     };
   }
 
-  /** Giữ tương thích endpoint cũ; chưa có dịch vụ gợi ý địa chỉ hay geocoding. */
+  /** Không dùng dịch vụ gợi ý/geocoding ngoài; khách tự nhập địa chỉ và ghim trên bản đồ. */
   async suggest() {
     return [];
   }
 }
-

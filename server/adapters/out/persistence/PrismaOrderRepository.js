@@ -16,6 +16,130 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
     this.prisma = prismaClient;
   }
 
+  /** Tạo mã báo giá ngẫu nhiên; yêu cầu chưa giữ tồn kho hoặc lịch giao. */
+  async createDeliveryQuoteRequest(data) {
+    const now = new Date();
+    const request = await this.prisma.delivery_quote_requests.create({
+      data: {
+        id: crypto.randomUUID(),
+        request_code: `DQ${crypto.randomBytes(6).toString('hex').toUpperCase()}`,
+        user_id: data.userId || null,
+        customer_name: data.customerName,
+        customer_phone: data.customerPhone,
+        customer_email: data.customerEmail || null,
+        shipping_address: data.shippingAddress,
+        delivery_area: data.deliveryArea,
+        delivery_latitude: data.deliveryLatitude,
+        delivery_longitude: data.deliveryLongitude,
+        delivery_distance_meters: data.deliveryDistanceMeters,
+        delivery_snap_offset_meters: data.deliverySnapOffsetMeters,
+        delivery_route_provider: data.deliveryRouteProvider,
+        delivery_date: data.deliveryDate || null,
+        delivery_slot: data.deliverySlot || null,
+        payment_plan: data.paymentPlan,
+        payload_json: JSON.stringify(data.payload),
+        quote_expires_at: new Date(now.getTime() + Math.max(1, Number(data.ttlHours) || 24) * 60 * 60 * 1000)
+      }
+    });
+    return {
+      id: request.id,
+      requestCode: request.request_code,
+      status: request.status,
+      expiresAt: request.quote_expires_at
+    };
+  }
+
+  async listDeliveryQuoteRequests() {
+    return this.prisma.delivery_quote_requests.findMany({
+      where: { status: { in: ['requested', 'reviewing', 'quoted'] } },
+      orderBy: { created_at: 'asc' },
+      take: 100
+    });
+  }
+
+  async findDeliveryQuoteRequestByCode(requestCode) {
+    return this.prisma.delivery_quote_requests.findUnique({
+      where: { request_code: String(requestCode || '').trim().toUpperCase() },
+      include: { orders: { select: { id: true, order_code: true, status: true, payment_status: true, payment_plan: true, total_amount: true, payment_intents: true } } }
+    });
+  }
+
+  async markDeliveryQuoteReviewing({ requestId, reviewerId }) {
+    const updated = await this.prisma.delivery_quote_requests.updateMany({
+      where: { id: requestId, status: { in: ['requested', 'reviewing'] }, quote_expires_at: { gt: new Date() } },
+      data: { status: 'reviewing', reviewed_by_id: reviewerId, reviewed_at: new Date() }
+    });
+    if (updated.count !== 1) throw new ValidationError('Yêu cầu đã hết hạn hoặc không còn chờ xử lý');
+    return this.prisma.delivery_quote_requests.findUnique({ where: { id: requestId } });
+  }
+
+  async quoteDeliveryRequest({ requestId, shippingFee, shopNote, reviewerId, deliveryDate = null, deliverySlot = null, ttlHours = 24 }) {
+    const now = new Date();
+    const updated = await this.prisma.delivery_quote_requests.updateMany({
+      where: { id: requestId, status: { in: ['requested', 'reviewing'] }, quote_expires_at: { gt: now } },
+      data: {
+        status: 'quoted', quoted_shipping_fee: shippingFee, shop_note: shopNote || null,
+        reviewed_by_id: reviewerId, reviewed_at: now,
+        quoted_delivery_date: deliveryDate,
+        quoted_delivery_slot: deliverySlot,
+        quote_expires_at: new Date(now.getTime() + Math.max(1, Number(ttlHours) || 24) * 60 * 60 * 1000)
+      }
+    });
+    if (updated.count !== 1) throw new ValidationError('Yêu cầu đã hết hạn, đã được báo giá hoặc không còn chờ xử lý');
+    return this.prisma.delivery_quote_requests.findUnique({ where: { id: requestId } });
+  }
+
+  async declineDeliveryQuoteRequest({ requestId, reviewerId, shopNote }) {
+    const updated = await this.prisma.delivery_quote_requests.updateMany({
+      where: { id: requestId, status: { in: ['requested', 'reviewing', 'quoted'] } },
+      data: { status: 'declined', shop_note: shopNote || null, reviewed_by_id: reviewerId, reviewed_at: new Date() }
+    });
+    if (updated.count !== 1) throw new ValidationError('Yêu cầu không còn ở trạng thái có thể từ chối');
+    return this.prisma.delivery_quote_requests.findUnique({ where: { id: requestId } });
+  }
+
+  async expireDeliveryQuoteRequest(requestId) {
+    return this.prisma.delivery_quote_requests.updateMany({
+      where: { id: requestId, status: { in: ['requested', 'reviewing', 'quoted'] }, quote_expires_at: { lte: new Date() } },
+      data: { status: 'expired' }
+    });
+  }
+
+  async expireDeliveryQuoteRequests(now = new Date()) {
+    const result = await this.prisma.delivery_quote_requests.updateMany({
+      where: { status: { in: ['requested', 'reviewing', 'quoted'] }, quote_expires_at: { lte: now } },
+      data: { status: 'expired' }
+    });
+    const pinDataExpiry = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    await this.prisma.delivery_quote_requests.updateMany({
+      where: {
+        status: { in: ['accepted', 'declined', 'expired'] },
+        updated_at: { lte: pinDataExpiry },
+        OR: [{ delivery_latitude: { not: null } }, { delivery_longitude: { not: null } }]
+      },
+      data: { delivery_latitude: null, delivery_longitude: null, delivery_distance_meters: null, delivery_snap_offset_meters: null }
+    });
+    return result.count;
+  }
+
+  /** Xóa tọa độ giao sau 30 ngày kể từ khi đơn hoàn tất/hủy; giữ địa chỉ chữ và snapshot phí. */
+  async purgeExpiredDeliveryCoordinates(now = new Date()) {
+    const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const purged = await this.prisma.orders.updateMany({
+      where: {
+        AND: [
+          { OR: [{ delivery_latitude: { not: null } }, { delivery_longitude: { not: null } }] },
+          { OR: [
+            { status: 'completed', completed_at: { lte: cutoff } },
+            { status: 'cancelled', cancelled_at: { lte: cutoff } }
+          ] }
+        ]
+      },
+      data: { delivery_latitude: null, delivery_longitude: null }
+    });
+    return purged.count;
+  }
+
   /**
    * Tra cuu danh sach phu kien hoat dong theo ID
    */
@@ -155,9 +279,13 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
       delivery_place_id: (orderData.deliveryPlaceId || orderData.delivery_place_id || '').trim() || null,
       delivery_latitude: orderData.deliveryQuote?.latitude == null ? null : Number(orderData.deliveryQuote.latitude),
       delivery_longitude: orderData.deliveryQuote?.longitude == null ? null : Number(orderData.deliveryQuote.longitude),
-      // Giữ km cho mock local; ở production chỉ lưu Place ID và phí đã áp dụng, tránh lưu Routes content.
-      delivery_distance_meters: orderData.deliveryQuote?.provider === 'local-mock' && Number.isSafeInteger(orderData.deliveryQuote?.distanceMeters)
+      // Bảng phí cố định không tính km; giữ cột nullable để đọc đơn lịch sử có quãng đường.
+      delivery_distance_meters: ['local-mock', 'heigit-ors-driving-car', 'shop-manual'].includes(orderData.deliveryQuote?.provider)
+        && Number.isSafeInteger(orderData.deliveryQuote?.distanceMeters)
         ? orderData.deliveryQuote.distanceMeters : null,
+      delivery_snap_offset_meters: Number.isSafeInteger(orderData.deliveryQuote?.snappedOffsetMeters) ? orderData.deliveryQuote.snappedOffsetMeters : null,
+      delivery_route_provider: orderData.deliveryQuote?.provider || null,
+      delivery_rate_version: orderData.deliveryQuote?.rateVersion || null,
       delivery_quote_at: orderData.deliveryQuote?.quotedAt ? new Date(orderData.deliveryQuote.quotedAt) : null,
       delivery_date: (orderData.deliveryDate || orderData.delivery_date || '').trim() || null,
       delivery_slot: (orderData.deliverySlot || orderData.delivery_slot || '').trim() || null,
@@ -202,7 +330,7 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
    * Tao don hang moi voi giao dich ACID, thuc thi khoa tru kho nguyen tu va luu tru ban ghi
    * Tuan thu Hexagonal: Nhan specifications da qua kiem duyet tu OrderService (Application Layer)
    */
-  async createOrder({ orderData, userId = null }) {
+  async createOrder({ orderData, userId = null, deliveryQuoteRequestId = null }) {
     const verifiedItems = orderData?.verifiedItems;
     if (!Array.isArray(verifiedItems) || verifiedItems.length === 0) {
       throw new ValidationError('Danh sách sản phẩm hợp lệ trong đơn hàng không được để trống');
@@ -214,6 +342,14 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
 
     // Thuc thi ben trong Prisma Transaction (ACID Isolation)
     return await this.prisma.$transaction(async (tx) => {
+      if (deliveryQuoteRequestId) {
+        const request = await tx.delivery_quote_requests.findUnique({ where: { id: deliveryQuoteRequestId } });
+        if (!request || request.status !== 'quoted' || !request.quote_expires_at || request.quote_expires_at <= new Date()
+          || Number(request.quoted_shipping_fee) !== writeFields.shipping_fee
+          || normalizeVnPhone(request.customer_phone) !== normalizeVnPhone(writeFields.customer_phone)) {
+          throw new ValidationError('Báo giá vừa hết hạn hoặc thay đổi; vui lòng tải lại và xác nhận lại');
+        }
+      }
       await this._reserveStockAndVoucher(tx, verifiedItems, appliedVoucherCode);
 
       // Sinh ma don hang duy nhat (12 ky tu gon de khong bi cat ngan khi chuyen khoan Ngan hang)
@@ -227,6 +363,7 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
           order_code: orderCode,
           ...(userId ? { users: { connect: { id: userId } } } : {}),
           ...writeFields,
+          ...(deliveryQuoteRequestId ? { delivery_quote_request: { connect: { id: deliveryQuoteRequestId } } } : {}),
           status: 'pending',
           payment_status: 'pending'
         }
@@ -242,6 +379,14 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
           );
 
       await this._insertOrderItemsAndAddons(tx, createdOrder.id, verifiedItems);
+
+      if (deliveryQuoteRequestId) {
+        const accepted = await tx.delivery_quote_requests.updateMany({
+          where: { id: deliveryQuoteRequestId, status: 'quoted', quote_expires_at: { gt: new Date() } },
+          data: { status: 'accepted', accepted_at: new Date() }
+        });
+        if (accepted.count !== 1) throw new ValidationError('Báo giá vừa được dùng hoặc đã hết hạn; hãy tải lại trang');
+      }
 
       // Tu dong sinh thong bao dau tien neu co user_id
       if (userId) {
@@ -516,7 +661,7 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
 
       const claimed = await tx.orders.updateMany({
         where: { id: order.id, status: order.status },
-        data: { status: 'cancelled' }
+        data: { status: 'cancelled', cancelled_at: new Date() }
       });
       if (claimed.count !== 1) {
         throw new ValidationError('Đơn hàng vừa được xử lý ở một yêu cầu khác. Hãy tải lại trạng thái đơn.');
@@ -709,7 +854,7 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
           status: 'pending',
           payment_status: 'pending'
         },
-        data: { status: 'cancelled' }
+        data: { status: 'cancelled', cancelled_at: new Date() }
       });
 
       if (claimed.count !== 1) {
@@ -1024,7 +1169,7 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
         : { phone: changeType === 'phone' ? order.customer_phone : order.recipient_phone };
       const targetShippingFee = changeType === 'address' ? Number(deliveryQuote?.fee) : order.shipping_fee;
       if (changeType === 'address' && (!deliveryQuote || !deliveryQuote.serviceable || !Number.isSafeInteger(targetShippingFee))) {
-        throw new ValidationError('Địa chỉ mới chưa có báo giá tuyến hợp lệ');
+        throw new ValidationError('Địa chỉ mới chưa có mức phí theo phường hợp lệ');
       }
       const newTotal = order.total_amount + targetShippingFee - order.shipping_fee;
       if (newTotal <= 0) throw new ValidationError('Địa chỉ mới tạo tổng đơn không hợp lệ');
@@ -1143,7 +1288,7 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
         throw new ValidationError('Tổng các khoản vật liệu/chi phí phải là số nguyên dương và khớp đúng số tiền khấu trừ');
       }
       if (order.delivery_attempts?.length) throw new ValidationError('Đơn đã có lần giao; hãy xử lý theo chính sách giao thất bại');
-      const cancelled = await tx.orders.updateMany({ where: { id: order.id, status: order.status }, data: { status: 'cancelled' } });
+      const cancelled = await tx.orders.updateMany({ where: { id: order.id, status: order.status }, data: { status: 'cancelled', cancelled_at: new Date() } });
       if (cancelled.count !== 1) throw new ValidationError('Đơn vừa được xử lý ở một yêu cầu khác');
       await tx.payment_intents.updateMany({ where: { order_id: order.id, status: 'pending' }, data: { status: 'cancelled' } });
       for (const item of order.order_items) await tx.products.update({ where: { id: item.product_id }, data: { stock: { increment: item.quantity } } });
@@ -1257,22 +1402,6 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
       });
     }
 
-    // Giữ phí giao lịch sử để đối soát, xóa quãng đường do Google sau 30 ngày.
-    const routeDataExpiry = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    await this.prisma.orders.updateMany({
-      where: { delivery_distance_meters: { not: null }, delivery_quote_at: { lte: routeDataExpiry } },
-      data: { delivery_distance_meters: null, delivery_quote_at: null }
-    });
-    // Xóa ghim vị trí sau 30 ngày khi đơn đã kết thúc; giữ vùng và phí để đối soát lịch sử.
-    await this.prisma.orders.updateMany({
-      where: {
-        delivery_latitude: { not: null },
-        status: { in: ['completed', 'cancelled'] },
-        delivery_quote_at: { lte: routeDataExpiry }
-      },
-      data: { delivery_latitude: null, delivery_longitude: null }
-    });
-
     const reminderEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const reminders = await this.prisma.delivery_attempts.findMany({
       where: { status: 'failed', attempt_number: 1, reminder_sent_at: null, reschedule_deadline: { gt: now, lte: reminderEnd } },
@@ -1298,7 +1427,7 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
     for (const attempt of expired) {
       await this.prisma.$transaction(async tx => {
         const order = attempt.orders;
-        const closed = await tx.orders.updateMany({ where: { id: order.id, status: 'shipping' }, data: { status: 'cancelled' } });
+        const closed = await tx.orders.updateMany({ where: { id: order.id, status: 'shipping' }, data: { status: 'cancelled', cancelled_at: now } });
         if (closed.count !== 1) return;
         await tx.payment_intents.updateMany({ where: { order_id: order.id, status: 'pending' }, data: { status: 'cancelled' } });
         const receivedFromLedger = calculateRefundableReceived(order.payment_entries || []);
@@ -1549,6 +1678,10 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
       deliveryLatitude: order.delivery_latitude ?? null,
       deliveryLongitude: order.delivery_longitude ?? null,
       deliveryDistanceMeters: order.delivery_distance_meters ?? null,
+      deliverySnapOffsetMeters: order.delivery_snap_offset_meters ?? null,
+      deliveryRouteProvider: order.delivery_route_provider || '',
+      deliveryRateVersion: order.delivery_rate_version || '',
+      deliveryQuoteRequestId: order.delivery_quote_request_id || null,
       deliveryDistanceKm: order.delivery_distance_meters == null ? null : Number((order.delivery_distance_meters / 1000).toFixed(2)),
       deliveryQuoteAt: order.delivery_quote_at || null,
       shippingFee: order.shipping_fee,

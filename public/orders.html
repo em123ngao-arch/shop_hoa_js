@@ -18,13 +18,13 @@
   <!-- CSS STYLESHEETS (Vanilla CSS thuần) -->
   <link rel="icon" type="image/png" href="./images/favicon-flower.webp">
   <link rel="apple-touch-icon" href="./images/favicon-flower.webp">
+  <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="./css/reset.css?v=20261114_orders_v3">
   <link rel="stylesheet" href="./css/variables.css?v=20261114_orders_v3">
-  <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="./css/style.css?v=20261114_delivery_zones_v1">
+  <link rel="stylesheet" href="./css/style.css?v=20261115_google_maps_v2">
   <link rel="stylesheet" href="./css/orders.css?v=20261114_orders_v3">
   <link rel="stylesheet" href="./css/chatbot.css?v=20261114_orders_v3">
-  <link rel="stylesheet" href="./css/responsive.css?v=20261114_delivery_zones_v1">
+  <link rel="stylesheet" href="./css/responsive.css?v=20261115_google_maps_v2">
 
   <!-- jsPDF & AutoTable (Nạp nội bộ từ public/vendor/) -->
   <script src="./vendor/jspdf.umd.min.js"></script>
@@ -118,20 +118,29 @@
           <!-- Card Thông Tin Khách -->
           <div class="orders-sidebar-card orders-profile-card">
             <div class="profile-avatar-row">
-              <div class="profile-avatar-wrap-box" style="position: relative;">
+              <div class="profile-avatar-wrap-box" id="avatarDropzoneWrap" title="Kéo thả ảnh hoặc click để đổi avatar">
                 <div class="profile-avatar-circle" id="profileAvatarInitial">K</div>
+                <div class="avatar-drop-overlay" id="avatarDropOverlay">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  <span>Thả ảnh</span>
+                </div>
                 <button type="button" class="btn-upload-avatar-trigger" id="btnUploadAvatarTrigger" title="Tải ảnh đại diện mới" aria-label="Đổi ảnh đại diện">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                     <circle cx="12" cy="13" r="4"></circle>
                   </svg>
                 </button>
-                <input type="file" id="userAvatarFileInput" accept="image/*" style="display: none;">
+                <input type="file" id="userAvatarFileInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
               </div>
               <div class="profile-details">
                 <h3 id="profileFullName">Khách Hàng</h3>
                 <p id="profilePhoneOrEmail">Chưa đăng nhập</p>
                 <span class="profile-badge-vip" id="profileBadgeRole">Khách Tra Cứu</span>
+                <span class="avatar-drag-hint" id="avatarDragHint">Kéo thả ảnh vào avatar để đổi</span>
               </div>
             </div>
 
@@ -332,15 +341,15 @@
           style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 12px; text-align: left; font-size: 13px; margin-bottom: 14px;">
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <span style="color: #64748B;">Ngân hàng:</span>
-            <strong id="modalSepayBank">Sacombank</strong>
+            <strong id="modalSepayBank">Đang tải…</strong>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <span style="color: #64748B;">Số tài khoản:</span>
-            <strong id="modalSepayAccount">70207003455</strong>
+            <strong id="modalSepayAccount">—</strong>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <span style="color: #64748B;">Chủ tài khoản:</span>
-            <strong id="modalSepayHolder">NGUYEN DUY BAO</strong>
+            <strong id="modalSepayHolder">—</strong>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <span style="color: #64748B;">Số tiền:</span>
@@ -424,8 +433,7 @@
   </footer>
 
   <!-- SCRIPT LOGIC TRANG ĐƠN HÀNG & CHATBOT NỔI ĐA KÊNH -->
-  <script src="./vendor/leaflet/leaflet.js"></script>
-  <script type="module" src="./js/orders.js?v=20261114_delivery_zones_v1"></script>
+  <script type="module" src="./js/orders.js?v=20261115_manual_quotes_v1"></script>
   <script type="module" src="./js/chatbot.js?v=20261114_orders_v3"></script>
 
 </body>

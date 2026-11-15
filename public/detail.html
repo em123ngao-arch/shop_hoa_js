@@ -20,12 +20,12 @@
   <!-- CSS STYLESHEETS -->
   <link rel="icon" type="image/png" href="./images/favicon-flower.webp">
   <link rel="apple-touch-icon" href="./images/favicon-flower.webp">
+  <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="./css/reset.css">
   <link rel="stylesheet" href="./css/variables.css">
-  <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="./css/style.css?v=20261114_delivery_zones_v1">
+  <link rel="stylesheet" href="./css/style.css?v=20261115_google_maps_v2">
   <link rel="stylesheet" href="./css/detail.css">
-  <link rel="stylesheet" href="./css/responsive.css?v=20261114_delivery_zones_v1">
+  <link rel="stylesheet" href="./css/responsive.css?v=20261115_google_maps_v2">
   <link rel="stylesheet" href="./css/chatbot.css?v=20261114_hoahandmade_v5">
 
   <!-- IMPORTMAP (Nạp Axios nội bộ từ public/vendor/) -->
@@ -293,11 +293,18 @@
                 <span class="field-hint">Hiện tiệm chỉ nhận giao tại TP.HCM.</span>
               </div>
               <div class="form-group">
-                <label for="checkoutDeliveryArea">Phường/xã <span class="required">*</span></label>
-                <select id="checkoutDeliveryArea" required>
-                  <option value="">Chọn phường/xã</option>
+                <label for="checkoutDeliveryRegion">Quận/khu vực quen thuộc</label>
+                <select id="checkoutDeliveryRegion">
+                  <option value="">Chọn quận/khu vực trước</option>
                 </select>
-                <span class="field-hint">Chọn phường hiện hành. Phí giao cố định theo khu vực, không theo số km.</span>
+                <span class="field-hint">Các quận đã đổi tên sau sắp xếp; chọn quận cũ để lọc nhanh phường hiện hành.</span>
+              </div>
+              <div class="form-group">
+                <label for="checkoutDeliveryArea">Phường/xã hiện hành <span class="required">*</span></label>
+                <select id="checkoutDeliveryArea" required disabled>
+                  <option value="">Chọn khu vực trước</option>
+                </select>
+                <span class="field-hint">Phí cố định được tra sẵn theo phường. Ghim bản đồ chỉ giúp tiệm tìm đúng điểm giao.</span>
               </div>
 
               <div class="form-group">
@@ -310,13 +317,33 @@
                   autocomplete="address-line2" maxlength="255">
                 <span class="field-error hidden" id="errorAddress">Vui lòng nhập địa chỉ giao hàng</span>
                 <label for="checkoutDeliveryMap" style="margin-top:12px;">Ghim vị trí nhận hoa trên bản đồ <span class="required">*</span></label>
-                <span class="field-hint">Bấm đúng vị trí nhà/cổng nhận hoặc kéo ghim. Ghim hỗ trợ tìm đường, không xác minh số nhà hay ranh giới phường.</span>
+                <span class="field-hint">Bấm đúng vị trí nhà/cổng nhận hoặc kéo ghim. Ghim chỉ giúp tiệm giao đúng nơi, không làm thay đổi phí.</span>
+                <div class="delivery-map-quick-toolbar">
+                  <button type="button" class="btn-map-quick-action" id="btnMapCurrentGps" title="Lấy vị trí GPS hiện tại của thiết bị">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
+                    <span>Vị trí hiện tại (GPS 1 chạm)</span>
+                  </button>
+                  <button type="button" class="btn-map-quick-action" id="btnMapFocusWard" title="Lướt nhanh về trung tâm phường đang chọn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <span>Về tâm phường</span>
+                  </button>
+                </div>
                 <div id="checkoutDeliveryMap" class="delivery-pin-map" role="application" aria-label="Bản đồ chọn vị trí giao hoa"></div>
-                <span id="checkoutMapPinHint" class="field-hint" aria-live="polite">Chọn phường rồi ghim điểm nhận hàng.</span>
-                <span class="field-hint" id="deliveryQuoteHint" aria-live="polite">Chọn phường để xem phí giao theo khu vực.</span>
+                <span id="checkoutMapPinHint" class="field-hint" aria-live="polite">Bấm bản đồ hoặc kéo ghim để định vị chính xác vị trí nhận hoa.</span>
+                <span class="field-hint" id="deliveryQuoteHint" aria-live="polite">Chọn phường để hiện phí giao cố định.</span>
+              </div>
+
+              <div class="delivery-policy-banner" style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 9px 12px; font-size: 12px; color: #166534; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                <span>🌸</span>
+                <span><strong>Chính sách giao hoa:</strong> Tiệm nhận lịch hẹn giao trong vòng <strong>7 ngày tới</strong> để đảm bảo hoa kẽm nhung được uốn mới chỉn chu nhất. Đơn sau 18:00 xếp lịch từ ngày mai.</span>
               </div>
 
               <div class="form-row-2">
+                <div class="form-group">
+                  <label for="checkoutDeliveryDate">Ngày hẹn giao hoa (trong 7 ngày tới) <span class="required">*</span></label>
+                  <input type="date" id="checkoutDeliveryDate" required>
+                  <span class="field-hint" id="deliveryDateHint" style="font-size: 11px; color: var(--color-primary); margin-top: 3px; display: block;"></span>
+                </div>
                 <div class="form-group">
                   <label for="checkoutDeliverySlot">Khung giờ giao hoa</label>
                   <select id="checkoutDeliverySlot">
@@ -326,10 +353,11 @@
                     <option value="Hỏa tốc trong 2h">Hỏa tốc trong 2 giờ</option>
                   </select>
                 </div>
-                <div class="form-group">
-                  <label for="checkoutEmail">Email nhận biên nhận điện tử</label>
-                  <input type="email" id="checkoutEmail" placeholder="email@gmail.com">
-                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="checkoutEmail">Email nhận biên nhận & cập nhật đơn hàng</label>
+                <input type="email" id="checkoutEmail" placeholder="email@gmail.com">
               </div>
 
               <!-- Lời nhắn thiệp mừng -->
@@ -439,6 +467,20 @@
         </form>
       </div>
 
+      <div class="checkout-step-content hidden" id="checkoutStepManualQuote">
+        <div class="checkout-header" style="text-align:center;">
+          <div class="checkout-step-badge">Báo Giá Giao Hàng</div>
+          <h3 class="checkout-title">Đã gửi yêu cầu đến tiệm</h3>
+          <p class="checkout-subtitle">Chưa tạo đơn, chưa thu tiền và chưa giữ khung giờ. Tiệm sẽ kiểm tra thông tin và lịch giao rồi gửi phản hồi cho bạn.</p>
+        </div>
+        <div class="order-success-details-box">
+          <div class="detail-row"><span>Mã yêu cầu:</span><strong id="manualQuoteRequestCode"></strong></div>
+          <div class="detail-row"><span>Tra cứu / xác nhận:</span><a id="manualQuoteCustomerLink" href="./delivery-quote.html">Mở báo giá</a></div>
+        </div>
+        <p style="text-align:center;font-size:13px;color:var(--text-secondary);">Bạn có thể gửi mã này cho tiệm qua điện thoại/Zalo nếu cần hỗ trợ.</p>
+        <button type="button" class="btn-primary" id="manualQuoteDoneBtn">Đóng</button>
+      </div>
+
       <!-- BƯỚC 2: MÀN HÌNH CHUYỂN KHOẢN VIETQR QUA SEPAY (Khi chọn SePay) -->
       <div class="checkout-step-content hidden" id="checkoutStepSepay">
         <div class="checkout-header" style="text-align: center;">
@@ -459,6 +501,9 @@
                 <img id="sepayQrImage" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Mã QR thanh toán SePay" class="sepay-qr-img">
                 <div class="qr-loading-spinner" id="sepayQrSpinner">
                   <div class="spinner-ring"></div>
+                </div>
+                <div id="sepayQrLocalPlaceholder" class="hidden" style="padding:24px;color:#92400E;text-align:center;font-weight:700;">
+                  LOCAL MOCK<br><span style="font-size:12px;font-weight:400;">Không có QR thật. Không chuyển tiền trong môi trường local.</span>
                 </div>
               </div>
               <div class="sepay-countdown-box">
@@ -482,14 +527,14 @@
           <div class="sepay-info-column">
             <div class="bank-card-preview">
               <div class="bank-brand-header">
-                <span class="bank-name-badge" id="sepayBankName">Sacombank</span>
+                <span class="bank-name-badge" id="sepayBankName">Đang tải…</span>
                 <span class="bank-sub">Ngân hàng TMCP Sài Gòn Thương Tín</span>
               </div>
 
               <div class="copy-field-row">
                 <div class="copy-field-meta">
                   <span class="field-label">Số tài khoản:</span>
-                  <strong class="field-value" id="sepayAccountNumber">70207003455</strong>
+                  <strong class="field-value" id="sepayAccountNumber">—</strong>
                 </div>
                 <button type="button" class="btn-copy-field" data-target="sepayAccountNumber" title="Sao chép">
                   Sao chép
@@ -499,7 +544,7 @@
               <div class="copy-field-row">
                 <div class="copy-field-meta">
                   <span class="field-label">Chủ tài khoản:</span>
-                  <strong class="field-value" id="sepayAccountHolder">NGUYEN DUY BAO</strong>
+                  <strong class="field-value" id="sepayAccountHolder">—</strong>
                 </div>
                 <button type="button" class="btn-copy-field" data-target="sepayAccountHolder" title="Sao chép">
                   Sao chép
@@ -631,8 +676,7 @@
 
 
   <!-- SCRIPT DETAIL ES6 MODULE -->
-  <script src="./vendor/leaflet/leaflet.js"></script>
-  <script type="module" src="./js/detail.js"></script>
+  <script type="module" src="./js/detail.js?v=20261115_google_area_rates_v1"></script>
   <script type="module" src="./js/chatbot.js?v=20261114_hoahandmade_v5"></script>
 
 </body>

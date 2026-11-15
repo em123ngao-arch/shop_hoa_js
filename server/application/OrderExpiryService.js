@@ -28,6 +28,22 @@ export class OrderExpiryService {
     const cancelledOrders = [];
 
     try {
+      if (typeof this.orderRepo.expireDeliveryQuoteRequests === 'function') {
+        try {
+          const expiredQuotes = await this.orderRepo.expireDeliveryQuoteRequests(new Date());
+          if (expiredQuotes > 0) console.log(`[OrderExpiryService] Đã đóng ${expiredQuotes} yêu cầu báo giá giao hàng hết hạn.`);
+        } catch (quoteErr) {
+          console.error('[OrderExpiryService] Lỗi đóng báo giá giao hết hạn:', quoteErr.message);
+        }
+      }
+      if (typeof this.orderRepo.purgeExpiredDeliveryCoordinates === 'function') {
+        try {
+          const purgedCoordinates = await this.orderRepo.purgeExpiredDeliveryCoordinates(new Date());
+          if (purgedCoordinates > 0) console.log(`[OrderExpiryService] Đã xóa tọa độ giao quá hạn của ${purgedCoordinates} đơn.`);
+        } catch (privacyErr) {
+          console.error('[OrderExpiryService] Lỗi xóa tọa độ giao quá hạn:', privacyErr.message);
+        }
+      }
       const cutoffDate = new Date(Date.now() - this.ttlMinutes * 60 * 1000);
       const expiredList = await this.orderRepo.findExpiredPendingSepayOrders(cutoffDate);
 

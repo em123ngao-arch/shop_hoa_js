@@ -37,7 +37,8 @@ import {
   getDayMonthYearSummary,
   getTodayVsYesterdaySummary,
   aggregateProductDeliveryAndRevenue,
-  calculateCategoryRevenueBreakdown
+  calculateCategoryRevenueBreakdown,
+  calculateOrdersCost
 } from './business-rules.js';
 import {
   initExcelPdf,
@@ -46,6 +47,11 @@ import {
   exportRevenueStatisticsPdf,
   exportRevenueStatisticsExcel
 } from './excel-pdf.js';
+import { DELIVERY_AREA_GROUPS, DELIVERY_AREAS, DELIVERY_AREA_RATES } from './delivery-areas.js';
+
+let openOrderDetailModalRef = null;
+let currentLogisticsFilter = 'all';
+let currentLogisticsSubtab = 'orders';
 
 function safeAdminMediaUrl(value, fallback = './images/300.webp') {
   const candidate = String(value || '').trim();
@@ -164,20 +170,26 @@ async function initAuthGate() {
       banners: document.querySelector('.nav-item[data-tab="banners"]'),
       vouchers: document.querySelector('.nav-item[data-tab="vouchers"]'),
       orders: document.querySelector('.nav-item[data-tab="orders"]'),
+      'delivery-quotes': document.querySelector('#navItemDeliveryQuotes'),
       refunds: document.querySelector('#navItemRefunds'),
       statistics: document.querySelector('#navItemStatistics'),
       users: document.querySelector('#navItemUsers'),
       reviews: document.querySelector('#navItemReviews')
     };
     const todoStrip = document.querySelector('#alertTodoStrip');
+    const groupTitles = document.querySelectorAll('.nav-group-title');
     if (role === 'staff') {
       for (const [key, item] of Object.entries(nav)) {
-        if (item) item.style.display = (key === 'orders' || key === 'refunds') ? 'flex' : 'none';
+        if (item) item.style.display = (key === 'orders' || key === 'refunds' || key === 'delivery-quotes') ? 'flex' : 'none';
       }
+      groupTitles.forEach((gt, idx) => {
+        gt.style.display = idx === 0 ? 'block' : 'none';
+      });
       if (todoStrip) todoStrip.style.display = 'none';
       setTimeout(() => nav.orders?.click(), 50);
     } else {
       Object.values(nav).forEach(item => { if (item) item.style.display = 'flex'; });
+      groupTitles.forEach(gt => { gt.style.display = 'block'; });
       if (todoStrip) todoStrip.style.display = 'flex';
     }
   };
@@ -237,11 +249,13 @@ function initNavigation() {
   const breadcrumb = document.querySelector('#currentBreadcrumb');
 
   const tabTitles = {
-    dashboard: 'Tổng Quan & KPI',
+    dashboard: 'Tổng Quan & Doanh Thu',
     products: 'Quản Lý Mẫu Hoa',
     banners: 'Banner & Chủ Đề',
     vouchers: 'Mã Giảm Giá Voucher',
     orders: 'Quản Lý Đơn Hàng',
+    'delivery-quotes': 'Điều Phối Giao Hoa & Chi Phí Ship',
+    'shipping-logistics': 'Điều Phối Giao Hoa & Chi Phí Ship',
     refunds: 'Quản Lý & Duyệt Hoàn Tiền (Thu Ngân → Admin)',
     statistics: 'Báo Cáo Doanh Số, Doanh Thu & Mặt Hàng',
     users: 'Quản Lý Tài Khoản & Phân Quyền',
@@ -281,7 +295,8 @@ function initNavigation() {
       btn.classList.add('active');
 
       panels.forEach(p => p.classList.remove('active'));
-      const activePanel = document.querySelector(`#panel-${tab}`);
+      const activePanel = document.querySelector(`#panel-${tab}`) ||
+        ((tab === 'shipping-logistics' || tab === 'delivery-quotes') ? document.querySelector('#panel-shipping-logistics') : null);
       if (activePanel) activePanel.classList.add('active');
 
       if (breadcrumb) breadcrumb.textContent = tabTitles[tab] || 'Quản Trị';
@@ -295,6 +310,7 @@ function initNavigation() {
       else if (tab === 'banners') renderBannersTable();
       else if (tab === 'vouchers') renderVouchersTable();
       else if (tab === 'orders') renderOrdersTable();
+      else if (tab === 'delivery-quotes' || tab === 'shipping-logistics') renderShippingLogisticsTab();
       else if (tab === 'refunds') renderRefundsTab();
       else if (tab === 'statistics') renderStatistics();
       else if (tab === 'users') renderUsersTable();
@@ -305,7 +321,8 @@ function initNavigation() {
   // Tự động chuyển tab nếu có query param ?tab=
   const initialTab = new URLSearchParams(window.location.search).get('tab');
   if (initialTab) {
-    const targetNavBtn = document.querySelector(`.nav-item[data-tab="${initialTab}"]`);
+    const targetNavBtn = document.querySelector(`.nav-item[data-tab="${initialTab}"]`) ||
+      ((initialTab === 'delivery-quotes' || initialTab === 'shipping-logistics') ? document.querySelector('#navItemDeliveryQuotes') : null);
     if (targetNavBtn) targetNavBtn.click();
   }
 }
@@ -454,7 +471,8 @@ function renderPeriodBarChartHtml(statsData, { heightPx = 155, showGmv = true, s
     const revH = Math.max(Math.round((Number(r.revenue || 0) / maxVal) * heightPx), 3);
     const profH = Math.max(Math.round((Number(r.profit || 0) / maxVal) * heightPx), 3);
     const shortLabel = r.shortLabel || (r.label.includes('Tháng') ? `T${r.label.match(/\d+/)?.[0] || ''}` : r.label.split(' ')[0]);
-    const tooltip = `${r.label}\n• Doanh số (GMV): ${formatPrice(r.gmv || 0)} (${r.gmvOrderCount ?? r.orderCount ?? 0} đơn)\n• Doanh thu thực: ${formatPrice(r.revenue || 0)} (${r.orderCount || 0} đơn)\n• Lợi nhuận: ${formatPrice(r.profit || 0)}`;
+    const shipTooltip = r.shippingFee ? `\n• Phí vận chuyển (thu hộ): ${formatPrice(r.shippingFee)}` : '';
+    const tooltip = `${r.label}\n• Doanh thu: ${formatPrice(r.revenue || 0)} (${r.orderCount || 0} đơn)${shipTooltip}\n• Lợi nhuận thực: ${formatPrice(r.profit || 0)}`;
 
     return `
       <div title="${escapeHTML(tooltip)}" style="flex: 1; min-width: ${minColWidth}px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; cursor: pointer;">
@@ -469,324 +487,471 @@ function renderPeriodBarChartHtml(statsData, { heightPx = 155, showGmv = true, s
   }).join('');
 }
 
+// ==========================================================================
+// 5. TỔNG QUAN DOANH THU & HIỆU QUẢ BÁN HÀNG (DASHBOARD GỌN GÀNG, CHUẨN IFRS 15)
+// ==========================================================================
+let currentDashboardPeriod = 'today'; // 'today' | 'month' | 'year' | 'custom'
+let customDashboardDate = '';
+let knownOrderIds = new Set();
+let allDeliveryQuoteRequests = [];
+let adminPollTimer = null;
+
 function updateNavRefundBadge() {
   const badge = document.querySelector('#navRefundBadge');
-  if (!badge) return;
-  const pendingApproval = allRefunds.filter(r => r.status === 'pending_approval').length;
-  const unrequested = allOrders.filter(orderNeedsRefund).filter(o => {
-    const hasOpen = Array.isArray(o.refundRequests) && o.refundRequests.some(r => r.status === 'pending_approval');
-    return !hasOpen;
-  }).length;
-  const totalAlert = pendingApproval + unrequested;
-  badge.textContent = totalAlert;
-  badge.style.display = totalAlert > 0 ? 'inline-flex' : 'none';
+  if (badge) {
+    const pendingApproval = allRefunds.filter(r => r.status === 'pending_approval').length;
+    const unrequested = allOrders.filter(orderNeedsRefund).filter(o => {
+      const hasOpen = Array.isArray(o.refundRequests) && o.refundRequests.some(r => r.status === 'pending_approval');
+      return !hasOpen;
+    }).length;
+    const totalAlert = pendingApproval + unrequested;
+    badge.textContent = totalAlert;
+    badge.style.display = totalAlert > 0 ? 'inline-flex' : 'none';
+  }
+  updateSidebarBadges();
+}
+
+function updateSidebarBadges() {
+  // 1. Badge số đỏ cho Quản Lý Đơn Hàng (đơn vừa lập / chờ duyệt / chờ xử lý)
+  const navOrdersBadge = document.querySelector('#navOrdersBadge');
+  if (navOrdersBadge) {
+    const pendingOrders = allOrders.filter(o => o.status === 'pending');
+    const count = pendingOrders.length;
+    if (count > 0) {
+      navOrdersBadge.textContent = count > 99 ? '99+' : count;
+      navOrdersBadge.classList.remove('hidden');
+      navOrdersBadge.classList.add('badge-pulse');
+    } else {
+      navOrdersBadge.textContent = '0';
+      navOrdersBadge.classList.add('hidden');
+      navOrdersBadge.classList.remove('badge-pulse');
+    }
+  }
+
+  // 2. Badge số đỏ cho Báo Giá Giao Hàng & Logistics
+  const navQuotesBadge = document.querySelector('#navDeliveryQuotesBadge');
+  const logisticsQuotesBadge = document.querySelector('#logisticsQuotesBadge');
+  if (navQuotesBadge) {
+    const pendingQuotes = (allDeliveryQuoteRequests || []).filter(q => q.status === 'pending' || q.status === 'requested' || q.status === 'reviewing');
+    const qCount = pendingQuotes.length;
+    if (qCount > 0) {
+      navQuotesBadge.textContent = qCount > 99 ? '99+' : qCount;
+      navQuotesBadge.classList.remove('hidden');
+      if (logisticsQuotesBadge) {
+        logisticsQuotesBadge.textContent = qCount > 99 ? '99+' : qCount;
+        logisticsQuotesBadge.classList.remove('hidden');
+      }
+    } else {
+      navQuotesBadge.textContent = '0';
+      navQuotesBadge.classList.add('hidden');
+      if (logisticsQuotesBadge) {
+        logisticsQuotesBadge.textContent = '0';
+        logisticsQuotesBadge.classList.add('hidden');
+      }
+    }
+  }
+
+  // 3. Badge số cho Đánh Giá & Phản Hồi
+  const navReviewsBadge = document.querySelector('#navReviewsBadge');
+  if (navReviewsBadge) {
+    const unrepliedCount = (allAdminReviews || []).filter(r => !r.isHidden && (!r.comments || r.comments.length === 0)).length;
+    if (unrepliedCount > 0) {
+      navReviewsBadge.textContent = unrepliedCount > 99 ? '99+' : unrepliedCount;
+      navReviewsBadge.classList.remove('hidden');
+    } else {
+      navReviewsBadge.textContent = '0';
+      navReviewsBadge.classList.add('hidden');
+    }
+  }
+}
+
+function buildDashboardStatsPayload() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const todayKey = toLocalDateKey(now);
+
+  let periodType = 'day';
+  let fromDate = todayKey;
+  let toDate = todayKey;
+  let periodTitle = `Hôm nay (${todayKey})`;
+  let monthIndex = null;
+
+  if (currentDashboardPeriod === 'month') {
+    periodType = 'month';
+    const firstDay = toLocalDateKey(new Date(currentYear, currentMonth, 1));
+    const lastDay = toLocalDateKey(new Date(currentYear, currentMonth + 1, 0));
+    fromDate = firstDay;
+    toDate = lastDay;
+    monthIndex = currentMonth + 1;
+    periodTitle = `Tháng ${currentMonth + 1}/${currentYear}`;
+  } else if (currentDashboardPeriod === 'year') {
+    periodType = 'year';
+    fromDate = `${currentYear}-01-01`;
+    toDate = `${currentYear}-12-31`;
+    periodTitle = `Năm ${currentYear}`;
+  } else if (currentDashboardPeriod === 'custom' && customDashboardDate) {
+    periodType = 'day';
+    fromDate = customDashboardDate;
+    toDate = customDashboardDate;
+    periodTitle = `Ngày ${customDashboardDate}`;
+  }
+
+  const statsData = calculateRevenueStats(allOrders, periodType, currentYear, {
+    fromDate,
+    toDate,
+    monthIndex,
+    products: allProducts
+  });
+
+  const productStats = aggregateProductDeliveryAndRevenue(allOrders, allProducts, allCategories, {
+    fromDate,
+    toDate
+  });
+
+  const ordersInRange = filterOrdersByDateRange(allOrders, fromDate, toDate);
+  const dayMonthYearSummary = getDayMonthYearSummary(allOrders);
+
+  return {
+    statsData,
+    productStats,
+    ordersInRange,
+    periodType,
+    fromDate,
+    toDate,
+    periodTitle,
+    dayMonthYearSummary
+  };
+}
+
+function bindDashboardControls() {
+  const periodGroup = document.querySelector('#dashboardPeriodGroup');
+  if (periodGroup && !periodGroup.dataset.bound) {
+    periodGroup.dataset.bound = 'true';
+    periodGroup.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-period-toggle');
+      if (!btn) return;
+      currentDashboardPeriod = btn.dataset.period;
+      customDashboardDate = '';
+      const dateInput = document.querySelector('#dashCustomDateInput');
+      if (dateInput) dateInput.value = '';
+      renderDashboard();
+    });
+  }
+
+  const customDateInput = document.querySelector('#dashCustomDateInput');
+  if (customDateInput && !customDateInput.dataset.bound) {
+    customDateInput.dataset.bound = 'true';
+    customDateInput.addEventListener('change', (e) => {
+      if (e.target.value) {
+        currentDashboardPeriod = 'custom';
+        customDashboardDate = e.target.value;
+        renderDashboard();
+      }
+    });
+  }
+
+  const btnExportPdf = document.querySelector('#btnDashExportPdf');
+  if (btnExportPdf && !btnExportPdf.dataset.bound) {
+    btnExportPdf.dataset.bound = 'true';
+    btnExportPdf.addEventListener('click', async () => {
+      try {
+        const payload = buildDashboardStatsPayload();
+        await exportRevenueStatisticsPdf(payload);
+        showToast('Đã xuất báo cáo PDF thành công!', 'success');
+      } catch (err) {
+        console.error('Lỗi xuất PDF:', err);
+        showToast('Lỗi khi xuất PDF: ' + (err.message || 'Thất bại'), 'error');
+      }
+    });
+  }
+
+  const btnExportExcel = document.querySelector('#btnDashExportExcel');
+  if (btnExportExcel && !btnExportExcel.dataset.bound) {
+    btnExportExcel.dataset.bound = 'true';
+    btnExportExcel.addEventListener('click', async () => {
+      try {
+        const payload = buildDashboardStatsPayload();
+        await exportRevenueStatisticsExcel(payload);
+        showToast('Đã xuất báo cáo Excel thành công!', 'success');
+      } catch (err) {
+        console.error('Lỗi xuất Excel:', err);
+        showToast('Lỗi khi xuất Excel: ' + (err.message || 'Thất bại'), 'error');
+      }
+    });
+  }
+
+  const cardAction = document.querySelector('#dashCardPendingOrdersAction');
+  if (cardAction && !cardAction.dataset.bound) {
+    cardAction.dataset.bound = 'true';
+    cardAction.addEventListener('click', () => {
+      selectedOrderSegment = 'pending';
+      ordersPagination.currentPage = 1;
+      const ordersNav = document.querySelector('.nav-item[data-tab="orders"]');
+      if (ordersNav) ordersNav.click();
+    });
+  }
+
+  const btnViewAllProducts = document.querySelector('#btnViewAllProductsFromDash');
+  if (btnViewAllProducts && !btnViewAllProducts.dataset.bound) {
+    btnViewAllProducts.dataset.bound = 'true';
+    btnViewAllProducts.addEventListener('click', () => {
+      const prodNav = document.querySelector('.nav-item[data-tab="products"]');
+      if (prodNav) prodNav.click();
+    });
+  }
 }
 
 function renderDashboard() {
-  const totalProductsEl = document.querySelector('#kpiTotalProducts');
-  const totalOrdersEl = document.querySelector('#kpiTotalOrders');
-  const totalRevenueEl = document.querySelector('#kpiTotalRevenue');
-  const recentOrdersTbody = document.querySelector('#dashboardRecentOrders');
-  const categoryBreakdown = document.querySelector('#dashboardCategoryBreakdown');
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const todayKey = toLocalDateKey(now);
 
-  updateNavRefundBadge();
-
-  if (totalProductsEl) totalProductsEl.textContent = allProducts.length;
-  if (totalOrdersEl) totalOrdersEl.textContent = allOrders.length;
-
-  // 1. Chỉ số tài chính chuẩn IFRS 15 (loại trừ đơn đã hoàn tiền)
-  const completedOrders = allOrders.filter(isRevenueRecognizedOrder);
-  const recognizedRevenue = completedOrders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
-
-  const paidOrders = allOrders.filter(order => {
-    if (order.status === 'cancelled') return false;
-    const st = String(order.paymentStatus || '').toLowerCase();
-    return st === 'paid' || st === 'partially_refunded';
+  // 1. Cập nhật trạng thái bộ lọc kỳ trên thanh Toolbar
+  const periodBtns = document.querySelectorAll('#dashboardPeriodGroup .btn-period-toggle');
+  periodBtns.forEach(b => {
+    b.classList.toggle('active', b.dataset.period === currentDashboardPeriod);
   });
-  const cashCollected = paidOrders.reduce((sum, order) => {
-    const total = Number(order.totalAmount || 0);
-    const refunds = Array.isArray(order.refundRequests) ? order.refundRequests : [];
+  const dateInput = document.querySelector('#dashCustomDateInput');
+  if (dateInput && currentDashboardPeriod === 'custom') {
+    dateInput.value = customDashboardDate;
+  } else if (dateInput && currentDashboardPeriod !== 'custom') {
+    dateInput.value = '';
+  }
+
+  // 2. Xác định phạm vi ngày lọc theo kỳ được chọn
+  let fromDate = todayKey;
+  let toDate = todayKey;
+  let periodLabelText = 'Hôm nay';
+  let chartStatsData = [];
+
+  if (currentDashboardPeriod === 'today') {
+    fromDate = todayKey;
+    toDate = todayKey;
+    periodLabelText = 'Hôm nay';
+    const range7 = getDefaultDateRange(6);
+    chartStatsData = calculateRevenueStats(allOrders, 'day', currentYear, {
+      fromDate: range7.fromDate,
+      toDate: range7.toDate,
+      products: allProducts
+    });
+  } else if (currentDashboardPeriod === 'month') {
+    fromDate = toLocalDateKey(new Date(currentYear, currentMonth, 1));
+    toDate = toLocalDateKey(new Date(currentYear, currentMonth + 1, 0));
+    periodLabelText = `Tháng ${currentMonth + 1}/${currentYear}`;
+    chartStatsData = calculateRevenueStats(allOrders, 'month', currentYear, {
+      monthIndex: currentMonth + 1,
+      products: allProducts
+    });
+  } else if (currentDashboardPeriod === 'year') {
+    fromDate = `${currentYear}-01-01`;
+    toDate = `${currentYear}-12-31`;
+    periodLabelText = `Năm ${currentYear}`;
+    chartStatsData = calculateRevenueStats(allOrders, 'month', currentYear, {
+      products: allProducts
+    });
+  } else if (currentDashboardPeriod === 'custom' && customDashboardDate) {
+    fromDate = customDashboardDate;
+    toDate = customDashboardDate;
+    periodLabelText = customDashboardDate;
+    const [y, m, d] = customDashboardDate.split('-');
+    const customObj = new Date(Number(y), Number(m) - 1, Number(d));
+    const rangeCustom = new Date(customObj);
+    rangeCustom.setDate(rangeCustom.getDate() - 6);
+    const rangeFromKey = toLocalDateKey(rangeCustom);
+    chartStatsData = calculateRevenueStats(allOrders, 'day', currentYear, {
+      fromDate: rangeFromKey,
+      toDate: customDashboardDate,
+      products: allProducts
+    });
+  }
+
+  // 3. Lọc danh sách đơn trong kỳ
+  const periodOrders = filterOrdersByDateRange(allOrders, fromDate, toDate);
+  const periodCompletedOrders = periodOrders.filter(isRevenueRecognizedOrder);
+
+  // Thẻ KPI 1: Doanh Thu Thực Tế (IFRS 15 - loại trừ đơn hoàn tiền)
+  const recognizedRevenue = periodCompletedOrders.reduce((sum, o) => {
+    const rawTotal = Number(o.totalAmount || o.total_amount || 0);
+    const refunds = Array.isArray(o.refundRequests) ? o.refundRequests : [];
     const approvedRefund = refunds.filter(r => r.status === 'approved').reduce((s, r) => s + Number(r.amount || 0), 0);
-    return sum + Math.max(0, total - approvedRefund);
+    return sum + Math.max(0, rawTotal - approvedRefund);
   }, 0);
 
-  const validOrders = allOrders.filter(isGmvOrder);
-  const gmv = validOrders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
+  // Chi phí vận chuyển (thu hộ trả shipper) trong kỳ
+  const periodShippingFee = periodCompletedOrders.reduce((sum, o) => {
+    return sum + Number(o.shippingFee ?? o.shipping_fee ?? 0);
+  }, 0);
 
-  if (totalRevenueEl) {
-    totalRevenueEl.textContent = formatPrice(recognizedRevenue);
-    const subEl = totalRevenueEl.nextElementSibling;
-    if (subEl && subEl.classList.contains('kpi-sub')) {
-      subEl.innerHTML = `Đã thu: <strong>${formatPrice(cashCollected)}</strong> | GMV: ${formatPrice(gmv)}`;
-    }
+  // Doanh thu hoa & phụ kiện thuần (đã tách riêng phí ship)
+  const netFlowerRevenue = Math.max(0, recognizedRevenue - periodShippingFee);
+
+  // Thẻ KPI 2: Lợi Nhuận Thực Nhận & Tỷ Suất Lãi
+  const cost = calculateOrdersCost(periodCompletedOrders, allProducts);
+  const profit = Math.max(0, netFlowerRevenue - cost);
+  const margin = netFlowerRevenue > 0 ? Math.round((profit / netFlowerRevenue) * 100) : 0;
+
+  // Thẻ KPI 3: Số Đơn Hoàn Tất & Số Đơn Mới Tạo
+  const completedCount = periodCompletedOrders.length;
+  const createdCount = periodOrders.length;
+
+  // Thẻ KPI 4: Đơn Cần Xử Lý Ngay (đồng bộ 100% với Badge cột trái)
+  const allPendingOrders = allOrders.filter(o => o.status === 'pending').length;
+  const pendingReadyOrders = allOrders.filter(o => o.status === 'pending' && !isUnpaidSepayOrder(o)).length;
+  const pendingUnpaidSepay = allOrders.filter(o => o.status === 'pending' && isUnpaidSepayOrder(o)).length;
+
+  // Cập nhật DOM các thẻ KPI
+  const kpiPeriodLabel = document.querySelector('#dashKpiPeriodLabel');
+  const kpiRevenue = document.querySelector('#dashKpiRevenue');
+  const kpiRevenueSub = document.querySelector('#dashKpiRevenueSub');
+  const kpiFlowerNetRev = document.querySelector('#dashKpiFlowerNetRev');
+  const kpiShippingFee = document.querySelector('#dashKpiShippingFee');
+  const kpiCostPrice = document.querySelector('#dashKpiCostPrice');
+  const kpiProfit = document.querySelector('#dashKpiProfit');
+  const kpiMarginBadge = document.querySelector('#dashKpiMarginBadge');
+  const kpiOrders = document.querySelector('#dashKpiOrders');
+  const kpiCreatedBadge = document.querySelector('#dashKpiCreatedBadge');
+  const kpiOrdersSub = document.querySelector('#dashKpiOrdersSub');
+  const kpiPendingAction = document.querySelector('#dashKpiPendingAction');
+  const kpiPendingActionSub = document.querySelector('#dashKpiPendingActionSub');
+
+  if (kpiPeriodLabel) kpiPeriodLabel.textContent = periodLabelText;
+  if (kpiRevenue) kpiRevenue.textContent = formatPrice(recognizedRevenue);
+  if (kpiFlowerNetRev) kpiFlowerNetRev.textContent = formatPrice(netFlowerRevenue);
+  if (kpiShippingFee) kpiShippingFee.textContent = formatPrice(periodShippingFee);
+  if (kpiCostPrice) kpiCostPrice.textContent = formatPrice(cost);
+
+  if (kpiRevenueSub) {
+    kpiRevenueSub.textContent = currentDashboardPeriod === 'today'
+      ? 'Đơn hoàn tất hôm nay (IFRS 15)'
+      : (currentDashboardPeriod === 'month' ? `Lũy kế tháng ${currentMonth + 1}/${currentYear}` : `Lũy kế năm ${currentYear}`);
   }
 
-  const aov = validOrders.length > 0 ? Math.round(gmv / validOrders.length) : 0;
-  const kpiAovEl = document.querySelector('#kpiAovValue');
-  if (kpiAovEl) kpiAovEl.textContent = formatPrice(aov);
-
-  // 2. Nhịp đập hôm nay & Dải trạng thái 1-chạm
-  const pulse = getTodayVsYesterdaySummary(allOrders);
-  const pulseOrdersEl = document.querySelector('#pulseTodayOrders');
-  const pulseOrdersSubEl = document.querySelector('#pulseTodayOrdersSub');
-  const pulseRevEl = document.querySelector('#pulseTodayRevenue');
-  const pulseRevGrowthEl = document.querySelector('#pulseTodayRevenueGrowth');
-  const pulseGmvEl = document.querySelector('#pulseTodayGmv');
-  const pulseGmvSubEl = document.querySelector('#pulseTodayGmvSub');
-  const pulseSepayEl = document.querySelector('#pulseSepayRefundVal');
-  const pulseSepaySubEl = document.querySelector('#pulseSepayRefundSub');
-
-  if (pulseOrdersEl) pulseOrdersEl.textContent = `${pulse.today.gmvOrderCount} đơn`;
-  if (pulseOrdersSubEl) pulseOrdersSubEl.textContent = `${pulse.today.orderCount} đơn hoàn tất hôm nay`;
-  if (pulseRevEl) pulseRevEl.textContent = formatPrice(pulse.today.revenue);
-  if (pulseRevGrowthEl) {
-    if (pulse.revenueGrowthPercent === null) {
-      pulseRevGrowthEl.textContent = `Hôm qua: ${formatPrice(pulse.yesterday.revenue)}`;
-    } else {
-      const sign = pulse.revenueGrowthPercent >= 0 ? '+' : '';
-      pulseRevGrowthEl.innerHTML = `So với hôm qua: <strong style="color: ${pulse.revenueGrowthPercent >= 0 ? '#108474' : '#DC2626'};">${sign}${pulse.revenueGrowthPercent}%</strong>`;
-    }
-  }
-  if (pulseGmvEl) pulseGmvEl.textContent = formatPrice(pulse.today.gmv);
-  if (pulseGmvSubEl) pulseGmvSubEl.textContent = `Doanh số hôm qua: ${formatPrice(pulse.yesterday.gmv)}`;
-
-  const pendingRefundTickets = allRefunds.filter(r => r.status === 'pending_approval').length;
-  const refundOrderNeedCount = allOrders.filter(orderNeedsRefund).length;
-  if (pulseSepayEl) pulseSepayEl.textContent = `${pulse.statusCounts.unpaidSepayCount + Math.max(pendingRefundTickets, refundOrderNeedCount)} đơn`;
-  if (pulseSepaySubEl) pulseSepaySubEl.textContent = `${pulse.statusCounts.unpaidSepayCount} chờ VietQR • ${Math.max(pendingRefundTickets, refundOrderNeedCount)} cần hoàn tiền`;
-
-  const statusStrip = document.querySelector('#dashboardStatusStrip');
-  if (statusStrip) {
-    const chips = [
-      { seg: 'pending', label: 'Chờ duyệt ngay', count: pulse.statusCounts.pendingReadyCount },
-      { seg: 'unpaid_sepay', label: 'Chờ TT SePay', count: pulse.statusCounts.unpaidSepayCount },
-      { seg: 'confirmed', label: 'Đã xác nhận', count: pulse.statusCounts.confirmedCount },
-      { seg: 'shipping', label: 'Đang giao', count: pulse.statusCounts.shippingCount },
-      { seg: 'completed', label: 'Đã giao hoàn tất', count: pulse.statusCounts.completedCount },
-      { seg: 'needs_refund', label: 'Cần hoàn tiền', count: refundOrderNeedCount }
-    ];
-    statusStrip.innerHTML = chips.map(c => `
-      <button type="button" class="status-quick-chip" data-order-segment="${c.seg}">
-        <span>${c.label}</span>
-        <span class="chip-count">${c.count}</span>
-      </button>
-    `).join('');
-
-    if (!statusStrip.dataset.bound) {
-      statusStrip.dataset.bound = 'true';
-      statusStrip.addEventListener('click', (e) => {
-        const chip = e.target.closest('.status-quick-chip');
-        if (!chip) return;
-        selectedOrderSegment = chip.dataset.orderSegment || 'all';
-        ordersPagination.currentPage = 1;
-        const ordersNav = document.querySelector('.nav-item[data-tab="orders"]');
-        if (ordersNav) ordersNav.click();
-      });
-    }
+  if (kpiProfit) kpiProfit.textContent = formatPrice(profit);
+  if (kpiMarginBadge) {
+    kpiMarginBadge.textContent = netFlowerRevenue > 0 ? `Tỷ suất lãi: ${margin}%` : 'Tỷ suất lãi: --%';
   }
 
-  // 3. Thanh cảnh báo Seller To-Do Strip (ẩn từng pill khi count === 0)
-  const pendingOrders = allOrders.filter(o => o.status === 'pending' && !isUnpaidSepayOrder(o));
-  const lowStockProducts = allProducts.filter(p => Number(p.stock || 0) <= 10);
-  const refundAlertCount = Math.max(pendingRefundTickets, refundOrderNeedCount);
-
-  const todoPendingPill = document.querySelector('#todoPendingOrders');
-  const todoLowStockPill = document.querySelector('#todoLowStock');
-  const todoRefundPill = document.querySelector('#todoRefundPending');
-  const todoPendingCount = document.querySelector('#todoPendingCount');
-  const todoLowStockCount = document.querySelector('#todoLowStockCount');
-  const todoRefundCount = document.querySelector('#todoRefundCount');
-
-  if (todoPendingCount) todoPendingCount.textContent = pendingOrders.length;
-  if (todoLowStockCount) todoLowStockCount.textContent = lowStockProducts.length;
-  if (todoRefundCount) todoRefundCount.textContent = refundAlertCount;
-
-  if (todoPendingPill) todoPendingPill.style.display = pendingOrders.length > 0 ? 'flex' : 'none';
-  if (todoLowStockPill) todoLowStockPill.style.display = lowStockProducts.length > 0 ? 'flex' : 'none';
-  if (todoRefundPill) todoRefundPill.style.display = refundAlertCount > 0 ? 'flex' : 'none';
-
-  const alertTodoStrip = document.querySelector('#alertTodoStrip');
-  if (alertTodoStrip) {
-    alertTodoStrip.style.display = (pendingOrders.length > 0 || lowStockProducts.length > 0 || refundAlertCount > 0)
-      ? 'flex'
-      : 'none';
+  if (kpiOrders) kpiOrders.textContent = `${completedCount} đơn`;
+  if (kpiCreatedBadge) kpiCreatedBadge.textContent = `${createdCount} đơn mới`;
+  if (kpiOrdersSub) {
+    kpiOrdersSub.textContent = currentDashboardPeriod === 'today'
+      ? 'Giao thành công hôm nay'
+      : (currentDashboardPeriod === 'month' ? 'Giao thành công trong tháng' : 'Giao thành công trong kỳ');
   }
 
-  const todoQuickApproveBtn = document.querySelector('#todoQuickApproveBtn');
-  if (todoQuickApproveBtn && !todoQuickApproveBtn.dataset.bound) {
-    todoQuickApproveBtn.dataset.bound = 'true';
-    todoQuickApproveBtn.addEventListener('click', () => {
-      selectedOrderSegment = 'pending';
-      document.querySelector('.nav-item[data-tab="orders"]')?.click();
+  // Khớp 100% số đơn với Badge bên trái
+  if (kpiPendingAction) kpiPendingAction.textContent = `${allPendingOrders} đơn`;
+  if (kpiPendingActionSub) {
+    kpiPendingActionSub.textContent = `${pendingReadyOrders} chờ duyệt giao • ${pendingUnpaidSepay} chờ VietQR`;
+  }
+
+  // Cập nhật Dải Bóc Tách Minh Bạch Dòng Tiền (Financial Streamline Bar)
+  const finTotal = document.querySelector('#finStepTotalCollected');
+  const finShip = document.querySelector('#finStepShipping');
+  const finFlower = document.querySelector('#finStepFlowerRev');
+  const finCost = document.querySelector('#finStepCost');
+  const finProfit = document.querySelector('#finStepProfit');
+  const finMargin = document.querySelector('#finStepMargin');
+
+  if (finTotal) finTotal.textContent = formatPrice(recognizedRevenue);
+  if (finShip) finShip.textContent = formatPrice(periodShippingFee);
+  if (finFlower) finFlower.textContent = formatPrice(netFlowerRevenue);
+  if (finCost) finCost.textContent = formatPrice(cost);
+  if (finProfit) finProfit.textContent = formatPrice(profit);
+  if (finMargin) {
+    finMargin.textContent = netFlowerRevenue > 0 ? `Tỷ suất lãi: ${margin}% trên tiền hoa` : 'Tỷ suất: --%';
+  }
+
+  // 4. Sơ đồ cột trực quan
+  const chartContainer = document.querySelector('#dashBarChartContainer');
+  if (chartContainer) {
+    chartContainer.innerHTML = renderPeriodBarChartHtml(chartStatsData, {
+      heightPx: 180,
+      showGmv: false,
+      showRevenue: true,
+      showProfit: true,
+      compact: false
     });
   }
 
-  const todoQuickRestockBtn = document.querySelector('#todoQuickRestockBtn');
-  if (todoQuickRestockBtn && !todoQuickRestockBtn.dataset.bound) {
-    todoQuickRestockBtn.dataset.bound = 'true';
-    todoQuickRestockBtn.addEventListener('click', () => {
-      selectedProductSegment = 'low-stock';
-      document.querySelector('.nav-item[data-tab="products"]')?.click();
-    });
-  }
-
-  const todoQuickRefundBtn = document.querySelector('#todoQuickRefundBtn');
-  if (todoQuickRefundBtn && !todoQuickRefundBtn.dataset.bound) {
-    todoQuickRefundBtn.dataset.bound = 'true';
-    todoQuickRefundBtn.addEventListener('click', () => {
-      document.querySelector('#navItemRefunds')?.click();
-    });
-  }
-
-  // 4. Top 5 Mẫu Hoa Bán Chạy Nhất tính trực tiếp từ đơn hàng thực tế (fix 0 lượt bán)
+  // 5. Top 5 Mẫu hoa bán chạy
   const topListEl = document.querySelector('#dashboardTopProductsList');
   if (topListEl) {
     const productStats = aggregateProductDeliveryAndRevenue(allOrders, allProducts, allCategories);
     const top5 = productStats.slice(0, 5);
     if (top5.length === 0) {
-      topListEl.innerHTML = `<p style="font-size: 13px; color: var(--text-muted); margin: 0;">Chưa có dữ liệu sản phẩm</p>`;
+      topListEl.innerHTML = `<p style="font-size: 13px; color: var(--text-muted); margin: 0; padding: 12px 0;">Chưa có dữ liệu bán hàng</p>`;
     } else {
       topListEl.innerHTML = top5.map((p, idx) => `
-        <div class="top-seller-row">
-          <span class="top-seller-rank ${idx === 0 ? 'rank-1' : ''}">${idx + 1}</span>
-          <img src="${safeAdminMediaUrl(p.image)}" alt="${escapeHTML(p.name)}" class="top-seller-thumb" onerror="this.src='./images/300.webp'">
-          <div class="top-seller-info">
-            <div class="top-seller-name">${escapeHTML(p.name)}</div>
-            <div class="top-seller-meta">Đã giao: <strong>${p.deliveredQty}</strong> • Đang/Chưa giao: ${p.shippingQty + p.undeliveredQty}</div>
+        <div class="top-seller-row" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-light);">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span class="top-seller-rank ${idx === 0 ? 'rank-1' : ''}" style="width: 22px; height: 22px; border-radius: 50%; background: ${idx === 0 ? '#108474' : '#E2E8F0'}; color: ${idx === 0 ? '#fff' : '#475569'}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">${idx + 1}</span>
+            <img src="${safeAdminMediaUrl(p.image)}" alt="${escapeHTML(p.name)}" class="top-seller-thumb" style="width: 36px; height: 36px; border-radius: 6px; object-fit: cover;" onerror="this.src='./images/300.webp'">
+            <div class="top-seller-info">
+              <div class="top-seller-name" style="font-size: 13px; font-weight: 600; color: #1E293B;">${escapeHTML(p.name)}</div>
+              <div class="top-seller-meta" style="font-size: 11.5px; color: #64748B;">Đã giao: <strong>${p.deliveredQty}</strong> bó • Đang giao: ${p.shippingQty}</div>
+            </div>
           </div>
-          <div class="top-seller-rev">${formatPrice(p.deliveredRevenue)}</div>
+          <div class="top-seller-rev" style="font-size: 13px; font-weight: 700; color: #108474;">${formatPrice(p.deliveredRevenue)}</div>
         </div>
       `).join('');
     }
   }
 
-  const viewMatrixQuickBtn = document.querySelector('#viewProductMatrixQuickBtn');
-  if (viewMatrixQuickBtn && !viewMatrixQuickBtn.dataset.bound) {
-    viewMatrixQuickBtn.dataset.bound = 'true';
-    viewMatrixQuickBtn.addEventListener('click', () => {
-      document.querySelector('#navItemStatistics')?.click();
-      setTimeout(() => {
-        document.querySelector('#statsProductMatrixSection')?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    });
-  }
+  // 6. Gắn sự kiện các nút điều khiển Dashboard
+  bindDashboardControls();
 
-  // 4.1. Biểu đồ Dashboard (14 ngày gần nhất hoặc 12 tháng)
-  const chartModeGroup = document.querySelector('#dashboardChartModeGroup');
-  if (chartModeGroup && !chartModeGroup.dataset.bound) {
-    chartModeGroup.dataset.bound = 'true';
-    chartModeGroup.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-dash-chart]');
-      if (!btn) return;
-      dashboardChartMode = btn.dataset.dashChart;
-      chartModeGroup.querySelectorAll('[data-dash-chart]').forEach(b => b.classList.toggle('active', b === btn));
-      renderDashboardRevenueChart();
-    });
-  }
-  renderDashboardRevenueChart();
-
-  // 5. Đơn hàng gần đây ưu tiên đơn cần xử lý + bấm mở thẳng Modal chi tiết
-  if (recentOrdersTbody) {
-    const priorityScore = (o) => {
-      if (orderNeedsRefund(o)) return 0;
-      if (o.status === 'pending' && !isUnpaidSepayOrder(o)) return 1;
-      if (o.status === 'confirmed') return 2;
-      if (o.status === 'shipping') return 3;
-      if (o.status === 'pending') return 4;
-      return 5;
-    };
-    const recents = [...allOrders]
-      .sort((a, b) => {
-        const pDiff = priorityScore(a) - priorityScore(b);
-        if (pDiff !== 0) return pDiff;
-        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-      })
-      .slice(0, 5);
-
-    if (recents.length === 0) {
-      recentOrdersTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 24px;">Chưa có đơn hàng nào</td></tr>`;
-    } else {
-      recentOrdersTbody.innerHTML = recents.map(order => {
-        let badgeClass = 'badge-emerald';
-        let statusText = 'Hoàn thành';
-        if (orderNeedsRefund(order)) {
-          badgeClass = 'badge-rose';
-          statusText = 'Cần hoàn tiền';
-        } else if (order.status === 'pending') {
-          badgeClass = 'badge-amber';
-          statusText = isUnpaidSepayOrder(order) ? 'Chờ TT SePay' : 'Chờ xử lý';
-        } else if (order.status === 'confirmed') { badgeClass = 'badge-blue'; statusText = 'Đã xác nhận'; }
-        else if (order.status === 'shipping') { badgeClass = 'badge-blue'; statusText = 'Đang giao'; }
-        else if (order.status === 'cancelled') { badgeClass = 'badge-rose'; statusText = order.paymentStatus === 'refunded' ? 'Đã hoàn tiền' : 'Đã hủy'; }
-
-        return `
-          <tr class="dashboard-recent-row" data-order-id="${escapeHTML(order.id)}" title="Nhấn để xem chi tiết & xử lý đơn ngay">
-            <td><strong style="white-space: nowrap;">#${escapeHTML(order.orderCode || order.id)}</strong></td>
-            <td>${escapeHTML(order.customerName || 'Khách Vãng Lai')}</td>
-            <td style="font-weight: 700; color: var(--color-primary);">${formatPrice(order.totalAmount)}</td>
-            <td><span class="badge-pill ${badgeClass}">${statusText}</span></td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    if (!recentOrdersTbody.dataset.bound) {
-      recentOrdersTbody.dataset.bound = 'true';
-      recentOrdersTbody.addEventListener('click', (e) => {
-        const row = e.target.closest('tr[data-order-id]');
-        if (!row) return;
-        const found = allOrders.find(o => String(o.id) === String(row.dataset.orderId));
-        if (found && typeof openOrderDetailHandler === 'function') {
-          openOrderDetailHandler(found);
-        }
-      });
-    }
-  }
-
-  // 6. Phân bổ doanh thu theo danh mục (đơn hoàn tất)
-  if (categoryBreakdown) {
-    const catList = calculateCategoryRevenueBreakdown(allOrders, allProducts, allCategories);
-    categoryBreakdown.innerHTML = catList.map(cat => `
-      <div style="margin-bottom: 14px;">
-        <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 4px;">
-          <span>${escapeHTML(cat.categoryName)}</span>
-          <span style="color: var(--text-muted);">${formatPrice(cat.revenue)} (${cat.percent}%)</span>
-        </div>
-        <div style="height: 6px; background-color: var(--border-light); border-radius: 4px; overflow: hidden;">
-          <div style="width: ${cat.percent}%; height: 100%; background-color: var(--color-primary); border-radius: 4px;"></div>
-        </div>
-      </div>
-    `).join('');
-  }
+  // 7. Đồng bộ badge thông báo thanh sidebar
+  updateSidebarBadges();
 }
 
-function renderDashboardRevenueChart() {
-  const chartWrap = document.querySelector('#dashboardBarChartWrap');
-  const subtitleEl = document.querySelector('#dashboardChartSubtitle');
-  if (!chartWrap) return;
+function setupAdminLivePolling() {
+  if (adminPollTimer) clearInterval(adminPollTimer);
 
-  const currentYear = new Date().getFullYear();
-  let statsData;
-  if (dashboardChartMode === '12months') {
-    statsData = calculateRevenueStats(allOrders, 'month', currentYear, { products: allProducts });
-    if (subtitleEl) subtitleEl.textContent = `Tổng hợp Doanh số, Doanh thu & Lợi nhuận 12 tháng năm ${currentYear}`;
-  } else {
-    const range14 = getDefaultDateRange(13);
-    statsData = calculateRevenueStats(allOrders, 'day', currentYear, {
-      fromDate: range14.fromDate,
-      toDate: range14.toDate,
-      products: allProducts
-    });
-    if (subtitleEl) subtitleEl.textContent = `Biến động từng ngày trong 14 ngày gần nhất (${range14.fromDate} → ${range14.toDate})`;
-  }
+  // Khởi tạo tập hợp mã đơn đã biết
+  allOrders.forEach(o => knownOrderIds.add(String(o.id)));
+  updateSidebarBadges();
 
-  chartWrap.innerHTML = renderPeriodBarChartHtml(statsData, {
-    heightPx: 130,
-    showGmv: true,
-    showRevenue: true,
-    showProfit: true,
-    compact: true
-  });
+  adminPollTimer = setInterval(async () => {
+    try {
+      // 1. Kiểm tra đơn hàng mới ngầm
+      const freshOrders = await fetchOrders();
+      if (Array.isArray(freshOrders)) {
+        const newlyArrived = freshOrders.filter(o => !knownOrderIds.has(String(o.id)));
+        if (newlyArrived.length > 0) {
+          const first = newlyArrived[0];
+          showToast(`🌸 Có ${newlyArrived.length} đơn hàng mới! #${first.orderCode || first.id} - ${formatPrice(first.totalAmount)}`, 'info');
+          newlyArrived.forEach(o => knownOrderIds.add(String(o.id)));
+          allOrders = freshOrders;
+          updateSidebarBadges();
+
+          // Tự động làm mới dữ liệu tab đang active
+          if (currentTab === 'dashboard') {
+            renderDashboard();
+          } else if (currentTab === 'orders') {
+            renderOrderSegmentedTabs();
+            renderOrdersTable();
+          }
+        } else {
+          allOrders = freshOrders;
+          updateSidebarBadges();
+        }
+      }
+
+      // 2. Kiểm tra yêu cầu báo giá giao hàng ngầm
+      try {
+        const dqRes = await api.get('/api/admin/delivery-quote-requests');
+        allDeliveryQuoteRequests = dqRes.data || [];
+        updateSidebarBadges();
+      } catch (e) {
+        // Bỏ qua lỗi mạng nền
+      }
+    } catch (err) {
+      console.warn('Lỗi polling đơn hàng admin:', err);
+    }
+  }, 15000); // Chu kỳ polling mỗi 15 giây
 }
 
 // ==========================================================================
@@ -2324,7 +2489,9 @@ function renderOrdersTable() {
       quickActionBtn = `<button type="button" class="btn-inline-action btn-quick-approve" data-id="${safeOrderId}" data-action="complete" title="1-Click Xác nhận khách đã nhận">✓ Hoàn tất</button>`;
     }
 
-    const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleDateString('vi-VN') : '--';
+    const createdAtDate = o.createdAt ? new Date(o.createdAt) : null;
+    const dateStr = createdAtDate ? createdAtDate.toLocaleDateString('vi-VN') : '--';
+    const timeStr = createdAtDate ? createdAtDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
     const itemCount = (o.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
 
     const paymentBadge = isRefunded
@@ -2357,10 +2524,10 @@ function renderOrdersTable() {
         <td><strong>${escapeHTML(o.customerName || 'Khách Vãng Lai')}</strong>${customerBadge}</td>
         <td>${escapeHTML(o.phone || '--')}</td>
         <td>
-          <div>${dateStr}</div>
+          <div style="font-weight: 600; color: var(--text-main); font-size: 13px;">${dateStr} <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">${timeStr}</span></div>
           ${(o.deliveryDate || o.delivery_date) ? `
-            <div style="font-size: 11px; color: #0D9488; font-weight: 600; margin-top: 2px;" title="Ngày hẹn giao hoa: ${escapeHTML(o.deliveryDate || o.delivery_date)}">
-              📅 ${escapeHTML(o.deliveryDate || o.delivery_date)}
+            <div style="font-size: 11px; color: #0D9488; font-weight: 600; margin-top: 2px;" title="Ngày hẹn giao hoa: ${escapeHTML(o.deliveryDate || o.delivery_date)}${(o.deliverySlot || o.delivery_slot) ? ` (${escapeHTML(o.deliverySlot || o.delivery_slot)})` : ''}">
+              🚚 ${escapeHTML(o.deliveryDate || o.delivery_date)}${(o.deliverySlot || o.delivery_slot) ? ` • ${escapeHTML(o.deliverySlot || o.delivery_slot)}` : ''}
             </div>
           ` : `
             <div style="font-size: 10.5px; color: #94A3B8; margin-top: 2px;">Giao ngay</div>
@@ -2430,6 +2597,7 @@ function initOrderManagement() {
 
   function openOrderDetail(order) {
     if (!modal || !order) return;
+    openOrderDetailModalRef = openOrderDetail;
     currentDetailOrderId = order.id;
     if (titleEl) titleEl.textContent = `Chi Tiết Đơn Hàng #${order.orderCode || order.id}`;
 
@@ -2606,7 +2774,13 @@ function initOrderManagement() {
             ${Number.isFinite(Number(order.deliveryLatitude)) && Number.isFinite(Number(order.deliveryLongitude))
               && order.deliveryLatitude !== null && order.deliveryLongitude !== null
               ? `<div><strong>Phí khu vực:</strong> ${escapeHTML(order.deliveryZone || order.deliveryArea || 'Đã lưu theo đơn')} — ${Number(order.shippingFee || 0) === 0 ? 'Miễn phí' : formatPrice(order.shippingFee)}</div>
-                 <a href="https://www.google.com/maps/dir/?api=1&amp;destination=${encodeURIComponent(`${order.deliveryLatitude},${order.deliveryLongitude}`)}&amp;travelmode=driving" target="_blank" rel="noopener noreferrer" style="display:inline-flex;margin:6px 0;color:var(--color-primary,#108474);font-weight:700;">Mở ghim giao hàng trong Google Maps</a>`
+                 <div style="margin-top: 4px;"><strong>Tọa độ ghim:</strong> <span style="font-family: monospace; color: #108474; font-weight: 600;">${order.deliveryLatitude}, ${order.deliveryLongitude}</span></div>
+                 <div style="margin: 6px 0;">
+                   <a href="https://www.google.com/maps/dir/?api=1&amp;destination=${encodeURIComponent(`${order.deliveryLatitude},${order.deliveryLongitude}`)}&amp;travelmode=driving" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#E6F4F1;color:#108474;border:1px solid #A7F3D0;border-radius:6px;font-weight:700;text-decoration:none;">
+                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                     Mở ghim chỉ đường Google Maps
+                   </a>
+                 </div>`
               : `<div><strong>Phí khu vực:</strong> ${escapeHTML(order.deliveryZone || order.deliveryArea || 'Chưa lưu vùng')} — ${Number(order.shippingFee || 0) === 0 ? 'Miễn phí' : formatPrice(order.shippingFee)}</div>`}
             <div class="field-hint">Ghim do khách chọn để hỗ trợ điều hướng; xác nhận lại địa chỉ chữ và phường với khách trước khi xuất phát.</div>
             <div><strong>Hình thức thanh toán:</strong> ${paymentMethodText} &mdash; ${paymentStatusHtml}</div>
@@ -2718,7 +2892,23 @@ function initOrderManagement() {
             const alreadyPaid = intent.status === 'paid';
             const qrUrl = config.simulationOnly ? '' : `https://qr.sepay.vn/img?acc=${encodeURIComponent(config.accountNumber)}&bank=${encodeURIComponent(config.bankCode)}&amount=${Number(intent.amount)}&des=${encodeURIComponent(intent.reference_code || intent.referenceCode)}&template=compact`;
             const qrMarkup = qrUrl ? `<img src="${qrUrl}" alt="Mã QR phí giao lại" width="180" height="180" style="display:block;width:180px;height:180px;object-fit:contain;margin:10px auto;background:#fff;">` : '';
-            info.innerHTML = `<div style="padding:10px;background:#FFFBEB;border-radius:6px;">Phí giao lại: <strong>${formatPrice(intent.amount)}</strong><br>Mã chuyển khoản: <code>${escapeHTML(intent.reference_code || intent.referenceCode)}</code>${qrMarkup}<br>${alreadyPaid ? 'Đã ghi nhận phí cho chuyến này; không thu lần hai.' : 'Khách quét QR hoặc chuyển đúng số tiền và nội dung mã này trước khi bạn xuất phát.'}</div>`;
+            const simulationButton = config.simulationOnly && !alreadyPaid
+              ? '<button type="button" class="btn-secondary" id="btnSimulateRedeliveryLocal" style="margin-top:10px;">Mô phỏng đã trả phí (local)</button>' : '';
+            info.innerHTML = `<div style="padding:10px;background:#FFFBEB;border-radius:6px;">Phí giao lại: <strong>${formatPrice(intent.amount)}</strong><br>Mã thanh toán: <code>${escapeHTML(intent.reference_code || intent.referenceCode)}</code>${qrMarkup}<br>${config.simulationOnly ? 'LOCAL MOCK — không có QR thật, không chuyển tiền.' : 'Khách quét QR hoặc chuyển đúng số tiền và nội dung mã này trước khi bạn xuất phát.'}${alreadyPaid ? '<br>Đã ghi nhận phí cho chuyến này; không thu lần hai.' : simulationButton}</div>`;
+            const simulateButton = info.querySelector('#btnSimulateRedeliveryLocal');
+            if (simulateButton) simulateButton.addEventListener('click', async () => {
+              simulateButton.disabled = true;
+              try {
+                await api.post(`/api/sepay/simulate-payment/${encodeURIComponent(order.id)}`, {
+                  phone: order.customerPhone || order.phone || '', intentId: intent.id
+                });
+                await refreshOrderDetail();
+                showToast('Đã ghi nhận mô phỏng phí giao lại local; không có tiền thật được chuyển.', 'success');
+              } catch (error) {
+                showToast(error.response?.data?.error?.message || error.message, 'error');
+                simulateButton.disabled = false;
+              }
+            });
           }
         } catch (error) { showToast(error.response?.data?.error?.message || error.message, 'error'); }
       });
@@ -4029,6 +4219,479 @@ function initUserManagement() {
   if (roleFilter) roleFilter.addEventListener('change', renderUsersTable);
 }
 
+// ===========================================================================
+// 12B. BÁO GIÁ GIAO THỦ CÔNG (KHÔNG GIỮ SLOT / TỒN KHO TRƯỚC KHI KHÁCH ĐỒNG Ý)
+// ===========================================================================
+async function renderDeliveryQuoteRequests() {
+  const container = document.querySelector('#adminDeliveryQuoteRequests');
+  if (!container) return;
+  container.innerHTML = '<p class="field-hint">Đang tải yêu cầu báo giá…</p>';
+  try {
+    const response = await api.get('/api/admin/delivery-quote-requests');
+    const requests = response.data || [];
+    allDeliveryQuoteRequests = requests;
+    updateSidebarBadges();
+    if (!requests.length) {
+      container.innerHTML = '<div class="admin-empty-state">Hiện không có yêu cầu báo giá đang mở.</div>';
+      return;
+    }
+    container.innerHTML = requests.map(request => {
+      const payload = request.payload || {};
+      const items = Array.isArray(payload.items) ? payload.items.map(item => {
+        const product = allProducts.find(row => String(row.id) === String(item.productId));
+        return `${escapeHTML(product?.name || item.productId)} × ${Number(item.quantity) || 0}`;
+      }).join(', ') : 'Không có chi tiết giỏ hàng';
+      const mapLink = Number.isFinite(Number(request.latitude)) && Number.isFinite(Number(request.longitude))
+        ? `https://www.google.com/maps/dir/?api=1&destination=${Number(request.latitude)},${Number(request.longitude)}` : '';
+      const requestUrl = `${window.location.origin}/delivery-quote.html?code=${encodeURIComponent(request.requestCode)}`;
+      const statusText = { requested: 'Chờ shop xem', reviewing: 'Đang kiểm tra', quoted: 'Đã báo giá, chờ khách' }[request.status] || request.status;
+      const chosenDate = request.quotedDeliveryDate || request.deliveryDate || '';
+      const chosenSlot = request.quotedDeliverySlot || request.deliverySlot || '';
+      const detail = `
+        <div><strong>Địa chỉ:</strong> ${escapeHTML(request.shippingAddress)}, ${escapeHTML(request.deliveryArea)}</div>
+        <div><strong>Giỏ:</strong> ${items}</div>
+        <div style="font-size:13px;color:var(--text-secondary);">
+          <strong>Khách muốn:</strong> ${escapeHTML(request.deliveryDate || 'Chưa chọn ngày')} · ${escapeHTML(request.deliverySlot || 'Chưa chọn khung')}
+          ${request.distanceMeters != null ? ` · Tuyến ${(Number(request.distanceMeters) / 1000).toFixed(2)} km` : ''}
+          ${request.snapOffsetMeters != null ? ` · Ghim lệch đường ${Number(request.snapOffsetMeters)} m` : ''}
+          · Nguồn: ${escapeHTML(request.routeProvider || 'chưa tính được')}
+        </div>`;
+      const actions = request.status === 'quoted' ? `
+        <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:12px;">
+          <strong>Phí đã báo: ${formatPrice(Number(request.shippingFee) || 0)}</strong>
+          <div>Ngày/khung shop chốt: ${escapeHTML(chosenDate || 'chưa chọn')} · ${escapeHTML(chosenSlot || 'chưa chọn')}</div>
+          <div>${escapeHTML(request.shopNote || '')}</div>
+          <div>Hạn xác nhận: ${request.expiresAt ? new Date(request.expiresAt).toLocaleString('vi-VN') : '—'}</div>
+          <div style="font-size:12px;word-break:break-all;margin-top:5px;">${escapeHTML(requestUrl)}</div>
+          <button type="button" class="btn-secondary" data-dq-action="copy" data-link="${escapeHTML(requestUrl)}">Sao chép liên kết cho khách</button>
+        </div>` : `
+        <form class="delivery-quote-admin-form" data-id="${escapeHTML(request.id)}" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+          <label>Phí giao (₫)<input name="shippingFee" class="admin-input" type="number" min="0" max="500000" step="1000" placeholder="Nhập phí sau khi kiểm tra" required></label>
+          <label>Ngày shop xác nhận<input name="deliveryDate" class="admin-input" type="date" value="${escapeHTML(request.deliveryDate || '')}" required></label>
+          <label>Khung giờ shop xác nhận<select name="deliverySlot" class="admin-select" style="width:100%;">
+            <option value="">Chọn khung giờ đã kiểm tra</option>
+            ${['Sáng (08:00 - 12:00)','Chiều (13:00 - 17:00)','Tối (18:00 - 21:00)','Hỏa tốc trong 2h'].map(slot => `<option value="${escapeHTML(slot)}" ${slot === chosenSlot ? 'selected' : ''}>${escapeHTML(slot)}</option>`).join('')}
+          </select></label>
+          <label style="grid-column:1/-1;">Ghi chú báo cho khách<textarea name="shopNote" class="admin-textarea" rows="2" maxlength="1000" placeholder="Ghi rõ tuyến/hẻm và điều kiện giao"></textarea></label>
+          <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn-primary" data-dq-action="quote" data-id="${escapeHTML(request.id)}">Gửi báo giá cho khách</button>
+            <button type="button" class="btn-secondary" data-dq-action="reviewing" data-id="${escapeHTML(request.id)}">Đánh dấu đang kiểm tra</button>
+            <button type="button" class="btn-secondary" data-dq-action="declined" data-id="${escapeHTML(request.id)}">Từ chối yêu cầu</button>
+          </div>
+        </form>`;
+      return `<article class="admin-card" style="background:#fff;border:1px solid var(--border-light);border-radius:12px;padding:16px;display:grid;gap:12px;">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+          <div><strong>${escapeHTML(request.requestCode)}</strong><span style="margin-left:10px;color:var(--color-warning);font-weight:700;">${escapeHTML(statusText)}</span>
+            <div style="margin-top:4px;color:var(--text-secondary);">${escapeHTML(request.customerName)} · <a href="tel:${escapeHTML(request.customerPhone)}">${escapeHTML(request.customerPhone)}</a></div></div>
+          ${mapLink ? `<a class="btn-secondary" href="${mapLink}" target="_blank" rel="noopener noreferrer">Mở tuyến bản đồ</a>` : ''}
+        </div>
+        ${detail}${actions}
+        <p style="font-size:12px;color:var(--text-muted);margin:0;">Khung giờ chưa được hệ thống giữ chỗ. Kiểm tra lịch đơn hàng trước khi báo giá.</p>
+      </article>`;
+    }).join('');
+  } catch (error) {
+    container.innerHTML = `<p class="field-error">${escapeHTML(error.response?.data?.error?.message || 'Không tải được yêu cầu báo giá.')}</p>`;
+  }
+}
+
+function initDeliveryQuoteManagement() {
+  const container = document.querySelector('#adminDeliveryQuoteRequests');
+  const refresh = document.querySelector('#refreshDeliveryQuotesBtn');
+  if (refresh) refresh.addEventListener('click', renderDeliveryQuoteRequests);
+  if (!container || container.dataset.bound === 'true') return;
+  container.dataset.bound = 'true';
+  container.addEventListener('click', async event => {
+    const button = event.target.closest('[data-dq-action]');
+    if (!button) return;
+    if (button.dataset.dqAction === 'copy') {
+      try { await navigator.clipboard.writeText(button.dataset.link); showToast('Đã sao chép liên kết báo giá.', 'success'); }
+      catch { showToast(button.dataset.link, 'info'); }
+      return;
+    }
+    const requestId = button.dataset.id;
+    let payload = { action: button.dataset.dqAction };
+    if (payload.action === 'quote') {
+      const form = button.closest('.delivery-quote-admin-form');
+      payload = { action: 'quoted', shippingFee: Number(form?.elements.shippingFee.value),
+        deliveryDate: form?.elements.deliveryDate.value || '', deliverySlot: form?.elements.deliverySlot.value || '',
+        shopNote: form?.elements.shopNote.value.trim() || '' };
+      if (!form?.reportValidity()) return;
+      if (!Number.isSafeInteger(payload.shippingFee) || payload.shippingFee < 0) {
+        showToast('Nhập phí giao hợp lệ trước khi báo giá.', 'warning'); return;
+      }
+    }
+    if (payload.action === 'declined' && !window.confirm('Từ chối yêu cầu báo giá này?')) return;
+    button.disabled = true;
+    try {
+      await api.patch(`/api/admin/delivery-quote-requests/${encodeURIComponent(requestId)}`, payload);
+      showToast(payload.action === 'quoted' ? 'Đã tạo báo giá. Gửi liên kết cho khách qua điện thoại/Zalo.' : 'Đã cập nhật yêu cầu.', 'success');
+      await renderDeliveryQuoteRequests();
+    } catch (error) {
+      showToast(error.response?.data?.error?.message || 'Không cập nhật được báo giá.', 'error');
+      button.disabled = false;
+    }
+  });
+}
+
+// ==========================================================================
+// 12C. ĐIỀU PHỐI GIAO HOA & CHI PHÍ SHIP (SHIPPING & LOGISTICS MANAGEMENT)
+// ==========================================================================
+async function renderShippingLogisticsTab() {
+  // 1. Tính toán 4 chỉ số KPI giao vận
+  const validOrders = allOrders.filter(o => o.status !== 'cancelled');
+
+  // Tổng tiền ship thu của khách từ các đơn hợp lệ
+  const totalShippingFee = validOrders.reduce((sum, o) => {
+    return sum + Number(o.shippingFee ?? o.shipping_fee ?? 0);
+  }, 0);
+
+  // Chi phí đối tác shipper ước tính (đối soát 1:1 dòng tiền thu hộ)
+  const carrierCost = totalShippingFee;
+
+  // Số chuyến đang giao trên đường
+  const shippingCount = allOrders.filter(o => o.status === 'shipping').length;
+
+  // Số đơn đã giao thành công
+  const completedCount = allOrders.filter(o => o.status === 'completed').length;
+
+  // Cập nhật DOM KPI
+  const feeEl = document.querySelector('#logisticsTotalShippingFee');
+  const carrierEl = document.querySelector('#logisticsCarrierCost');
+  const shippingEl = document.querySelector('#logisticsShippingOrdersCount');
+  const completedEl = document.querySelector('#logisticsCompletedOrdersCount');
+
+  if (feeEl) feeEl.textContent = formatPrice(totalShippingFee);
+  if (carrierEl) carrierEl.textContent = formatPrice(carrierCost);
+  if (shippingEl) shippingEl.textContent = `${shippingCount} chuyến`;
+  if (completedEl) completedEl.textContent = `${completedCount} đơn`;
+
+  // 2. Cập nhật số đếm trên các filter pills
+  const confirmedCount = allOrders.filter(o => o.status === 'confirmed').length;
+  const deliveryOrders = allOrders.filter(o => ['shipping', 'confirmed', 'completed', 'pending'].includes(o.status));
+
+  const countAll = document.querySelector('#countLogisticsAll');
+  const countShip = document.querySelector('#countLogisticsShipping');
+  const countConf = document.querySelector('#countLogisticsConfirmed');
+  const countComp = document.querySelector('#countLogisticsCompleted');
+
+  if (countAll) countAll.textContent = deliveryOrders.length;
+  if (countShip) countShip.textContent = shippingCount;
+  if (countConf) countConf.textContent = confirmedCount;
+  if (countComp) countComp.textContent = completedCount;
+
+  // 3. Render danh sách đơn theo filter
+  renderLogisticsOrdersTable(deliveryOrders);
+
+  // 4. Đồng thời nạp dữ liệu cho 2 subtab còn lại
+  renderDeliveryQuoteRequests();
+  renderDeliveryZoneRatesTable();
+}
+
+function renderLogisticsOrdersTable(orders = []) {
+  const tbody = document.querySelector('#logisticsOrdersTableBody');
+  if (!tbody) return;
+
+  let filtered = [...orders];
+  if (currentLogisticsFilter === 'shipping') {
+    filtered = filtered.filter(o => o.status === 'shipping');
+  } else if (currentLogisticsFilter === 'confirmed') {
+    filtered = filtered.filter(o => o.status === 'confirmed');
+  } else if (currentLogisticsFilter === 'completed') {
+    filtered = filtered.filter(o => o.status === 'completed');
+  }
+
+  // Sắp xếp: đơn 'shipping' lên trước, rồi tới 'confirmed', rồi theo ngày mới nhất
+  const statusPriority = { shipping: 1, confirmed: 2, pending: 3, completed: 4, cancelled: 5 };
+  filtered.sort((a, b) => {
+    const pA = statusPriority[a.status] || 99;
+    const pB = statusPriority[b.status] || 99;
+    if (pA !== pB) return pA - pB;
+    return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align: center; padding: 36px 16px; color: var(--text-muted);">
+          Không có chuyến giao hoa nào trong mục này.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(order => {
+    const isGift = Boolean(order.isGift && order.recipientName);
+    const shipFee = Number(order.shippingFee ?? order.shipping_fee ?? 0);
+    const total = Number(order.totalAmount ?? order.total_amount ?? 0);
+
+    let statusBadge = '';
+    if (order.status === 'shipping') {
+      statusBadge = '<span class="status-badge" style="background:#FEF3C7; color:#D97706; font-weight:700;">🚚 Đang Giao</span>';
+    } else if (order.status === 'confirmed') {
+      statusBadge = '<span class="status-badge" style="background:#E0F2FE; color:#0284C7; font-weight:700;">📦 Đã Duyệt Chờ Giao</span>';
+    } else if (order.status === 'completed') {
+      statusBadge = '<span class="status-badge" style="background:#DCFCE7; color:#16A34A; font-weight:700;">✅ Đã Giao Xong</span>';
+    } else if (order.status === 'pending') {
+      statusBadge = '<span class="status-badge" style="background:#F1F5F9; color:#475569; font-weight:600;">⏳ Chờ Xử Lý</span>';
+    } else {
+      statusBadge = `<span class="status-badge">${escapeHTML(order.status)}</span>`;
+    }
+
+    const hasCoords = Number.isFinite(Number(order.deliveryLatitude)) && Number.isFinite(Number(order.deliveryLongitude));
+    const mapLink = hasCoords
+      ? `https://www.google.com/maps/dir/?api=1&destination=${order.deliveryLatitude},${order.deliveryLongitude}`
+      : '';
+
+    return `
+      <tr>
+        <td>
+          <div style="font-weight: 700; color: var(--text-main);">#${escapeHTML(order.orderCode || order.id)}</div>
+          <div style="font-size: 12.5px; color: var(--text-secondary); margin-top: 3px;">
+            👤 ${escapeHTML(order.customerName || 'Khách vãng lai')} · <a href="tel:${escapeHTML(order.customerPhone || '')}" style="color:var(--text-secondary); text-decoration:none;">📞 ${escapeHTML(order.customerPhone || '---')}</a>
+          </div>
+          ${isGift ? `
+            <div style="font-size: 11.5px; color: #D9536F; font-weight: 600; margin-top: 3px; display:inline-flex; align-items:center; gap:3px;">
+              🎁 Tặng: ${escapeHTML(order.recipientName)} ${order.recipientPhone ? `(${escapeHTML(order.recipientPhone)})` : ''}
+            </div>
+          ` : ''}
+        </td>
+        <td>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">
+            📍 ${escapeHTML(order.shippingAddress || 'Nhận tại cửa hàng')}
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+            ${escapeHTML(order.deliveryZone || order.deliveryArea || 'TP.HCM')}
+          </div>
+          ${mapLink ? `
+            <a href="${mapLink}" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:4px; font-size: 11.5px; color: #108474; font-weight: 600; text-decoration:none; margin-top: 4px;">
+              🗺️ Chỉ đường Map (${Number(order.deliveryLatitude).toFixed(3)}, ${Number(order.deliveryLongitude).toFixed(3)}) ↗
+            </a>
+          ` : ''}
+        </td>
+        <td>
+          <div style="font-size: 13px; font-weight: 700; color: #0D9488;">
+            📅 ${escapeHTML(order.deliveryDate || 'Trong ngày')}
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+            ⏰ ${escapeHTML(order.deliverySlot || 'Khung giờ chuẩn')}
+          </div>
+        </td>
+        <td>
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-main);">
+            Phí ship: <span style="color: #0284C7;">${shipFee > 0 ? formatPrice(shipFee) : 'Miễn phí'}</span>
+          </div>
+          <div style="font-size: 12px; margin-top: 2px;">
+            ${order.paymentMethod === 'cod'
+              ? `Thu COD: <strong style="color: #D92D20;">${formatPrice(total)}</strong>`
+              : `<span style="color: #16A34A; font-weight: 600;">✓ SePay Đã Thu</span>`}
+          </div>
+        </td>
+        <td>
+          ${statusBadge}
+        </td>
+        <td style="text-align: right;">
+          <div style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+            <button type="button" class="btn-secondary btn-print-gift-slip" data-id="${order.id}" title="Xuất phiếu giao hoa quà tặng PDF cho tài xế" style="padding: 6px 10px; font-size: 12px; font-weight: 600; color: #108474; border-color: #108474;">
+              📄 Phiếu Giao Quà
+            </button>
+            <button type="button" class="btn-secondary btn-view-logistics-order" data-id="${order.id}" title="Xem chi tiết đơn" style="padding: 6px 10px; font-size: 12px;">
+              👁️ Chi Tiết
+            </button>
+            ${order.status === 'confirmed' ? `
+              <button type="button" class="btn-primary btn-logistics-advance-ship" data-id="${order.id}" style="padding: 6px 10px; font-size: 12px; background: #F59E0B; border-color: #F59E0B;">
+                🚚 Giao Hàng
+              </button>
+            ` : ''}
+            ${order.status === 'shipping' ? `
+              <button type="button" class="btn-primary btn-logistics-advance-complete" data-id="${order.id}" style="padding: 6px 10px; font-size: 12px; background: #16A34A; border-color: #16A34A;">
+                ✅ Đã Giao Xong
+              </button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderDeliveryZoneRatesTable(filterKeyword = '') {
+  const container = document.querySelector('#deliveryZoneTableContainer');
+  if (!container) return;
+
+  const keyword = filterKeyword.toLowerCase().trim();
+  const rows = [];
+
+  (DELIVERY_AREA_GROUPS || []).forEach(group => {
+    (group.areas || []).forEach(area => {
+      if (!keyword || area.toLowerCase().includes(keyword) || group.label.toLowerCase().includes(keyword)) {
+        const rate = (DELIVERY_AREA_RATES && DELIVERY_AREA_RATES[area]) || { zoneName: group.label, fee: 35000 };
+        rows.push({
+          area,
+          group: group.label,
+          zoneName: rate.zoneName || group.label,
+          fee: rate.fee
+        });
+      }
+    });
+  });
+
+  if (rows.length === 0) {
+    container.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted);">Không tìm thấy phường/xã nào khớp với từ khóa tìm kiếm.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <table class="admin-table" style="font-size: 13px;">
+      <thead>
+        <tr>
+          <th>Tên Phường/Xã Hiện Hành</th>
+          <th>Quận / Khu Vực Cũ</th>
+          <th>Vùng Giao Hàng</th>
+          <th style="text-align: right;">Cước Phí Vận Chuyển Cố Định</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr>
+            <td style="font-weight: 600; color: var(--text-main);">📍 ${escapeHTML(r.area)}</td>
+            <td style="color: var(--text-secondary);">${escapeHTML(r.group)}</td>
+            <td><span class="status-badge" style="background:#F1F5F9; color:#334155;">${escapeHTML(r.zoneName)}</span></td>
+            <td style="text-align: right; font-weight: 700; color: ${r.fee === 0 ? '#16A34A' : '#108474'};">
+              ${r.fee === 0 ? 'Miễn Phí (Nội bộ tiệm)' : formatPrice(r.fee)}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function initShippingLogistics() {
+  const refreshBtn = document.querySelector('#refreshShippingLogisticsBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      try {
+        allOrders = await fetchOrders();
+        await renderShippingLogisticsTab();
+        showToast('Đã làm mới dữ liệu vận hành & chi phí ship!', 'success');
+      } catch (err) {
+        showToast('Không thể làm mới dữ liệu!', 'error');
+      } finally {
+        refreshBtn.disabled = false;
+      }
+    });
+  }
+
+  // Chuyển đổi Sub-tabs nội bộ
+  const subtabBtns = document.querySelectorAll('.logistics-subtab-btn');
+  const subpanels = document.querySelectorAll('.logistics-subpanel');
+
+  subtabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetSubtab = btn.dataset.subtab;
+      currentLogisticsSubtab = targetSubtab;
+
+      subtabBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      subpanels.forEach(p => p.classList.remove('active'));
+      const activePanel = document.querySelector(`#subpanel-logistics-${targetSubtab}`);
+      if (activePanel) activePanel.classList.add('active');
+
+      if (targetSubtab === 'quotes') {
+        renderDeliveryQuoteRequests();
+      } else if (targetSubtab === 'rates') {
+        renderDeliveryZoneRatesTable();
+      }
+    });
+  });
+
+  // Lọc Filter Pills
+  const filterPills = document.querySelectorAll('.logistics-filter-pill');
+  filterPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      filterPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      currentLogisticsFilter = pill.dataset.filter || 'all';
+
+      const deliveryOrders = allOrders.filter(o => ['shipping', 'confirmed', 'completed', 'pending'].includes(o.status));
+      renderLogisticsOrdersTable(deliveryOrders);
+    });
+  });
+
+  // Ô tìm kiếm 78 phường
+  const zoneSearchInput = document.querySelector('#searchDeliveryZoneInput');
+  if (zoneSearchInput) {
+    zoneSearchInput.addEventListener('input', e => {
+      renderDeliveryZoneRatesTable(e.target.value);
+    });
+  }
+
+  // Ủy quyền sự kiện bảng điều phối chuyến giao
+  const tbody = document.querySelector('#logisticsOrdersTableBody');
+  if (tbody) {
+    tbody.addEventListener('click', async (e) => {
+      const printBtn = e.target.closest('.btn-print-gift-slip');
+      if (printBtn) {
+        const orderId = printBtn.dataset.id;
+        const order = allOrders.find(o => String(o.id) === String(orderId));
+        if (order) {
+          try {
+            await exportGiftDeliverySlipPdf(order, { autoDownload: true });
+            showToast(`Đã xuất phiếu giao quà tặng cho đơn #${order.orderCode || order.id}!`, 'success');
+          } catch (err) {
+            console.error('Lỗi xuất phiếu giao:', err);
+            showToast('Không thể xuất file PDF phiếu giao quà!', 'error');
+          }
+        }
+        return;
+      }
+
+      const viewBtn = e.target.closest('.btn-view-logistics-order');
+      if (viewBtn) {
+        const orderId = viewBtn.dataset.id;
+        const order = allOrders.find(o => String(o.id) === String(orderId));
+        if (order && typeof openOrderDetailModalRef === 'function') {
+          openOrderDetailModalRef(order);
+        }
+        return;
+      }
+
+      const shipBtn = e.target.closest('.btn-logistics-advance-ship');
+      if (shipBtn) {
+        const orderId = shipBtn.dataset.id;
+        try {
+          await updateOrderStatus(orderId, 'shipping');
+          showToast(`Đơn hàng #${orderId} đã chuyển sang trạng thái: Đang Giao Hoa 🚚`, 'success');
+          allOrders = await fetchOrders();
+          updateSidebarBadges();
+          renderShippingLogisticsTab();
+        } catch (err) {
+          showToast('Lỗi cập nhật trạng thái đơn hàng!', 'error');
+        }
+        return;
+      }
+
+      const completeBtn = e.target.closest('.btn-logistics-advance-complete');
+      if (completeBtn) {
+        const orderId = completeBtn.dataset.id;
+        try {
+          await updateOrderStatus(orderId, 'completed');
+          showToast(`Đơn hàng #${orderId} đã giao thành công và hoàn tất! ✅`, 'success');
+          allOrders = await fetchOrders();
+          updateSidebarBadges();
+          renderShippingLogisticsTab();
+        } catch (err) {
+          showToast('Lỗi cập nhật trạng thái đơn hàng!', 'error');
+        }
+        return;
+      }
+    });
+  }
+}
+
 // ==========================================================================
 // 13. KHỞI TẠO TỔNG THỂ DỮ LIỆU BAN ĐẦU
 // ==========================================================================
@@ -4083,13 +4746,16 @@ async function loadAllData() {
     initBannerCrud();
     initVoucherCrud();
     initOrderManagement();
+    initDeliveryQuoteManagement();
+    initShippingLogistics();
     initRefundManagement();
     initStatistics();
     initUserManagement();
     initConfirmModal();
 
-    // Render tab ban đầu (Dashboard)
+    // Render tab ban đầu (Dashboard) & Kích hoạt polling cập nhật live badge
     renderDashboard();
+    setupAdminLivePolling();
   } catch (error) {
     console.error('Lỗi khởi tạo dữ liệu trang Admin:', error);
     showToast('Lỗi nạp dữ liệu quản trị, vui lòng kiểm tra kết nối!', 'error');

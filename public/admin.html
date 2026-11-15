@@ -79,43 +79,19 @@
         </div>
 
         <nav class="admin-nav" id="adminNav">
+          <!-- NHÓM 1: VẬN HÀNH BÁN HÀNG -->
+          <div class="nav-group-title">VẬN HÀNH BÁN HÀNG</div>
+
           <button class="nav-item active" data-tab="dashboard">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
             </svg>
-            <span>Tổng Quan & KPI</span>
+            <span>Tổng Quan &amp; Doanh Thu</span>
           </button>
 
-          <button class="nav-item" data-tab="products">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <path d="M16 10a4 4 0 0 1-8 0"></path>
-            </svg>
-            <span>Quản Lý Mẫu Hoa</span>
-          </button>
-
-          <button class="nav-item" data-tab="banners">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <circle cx="8.5" cy="8.5" r="1.5"></circle>
-              <polyline points="21 15 16 10 5 21"></polyline>
-            </svg>
-            <span>Banner & Chủ Đề</span>
-          </button>
-
-          <button class="nav-item" data-tab="vouchers">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-              <line x1="7" y1="7" x2="7.01" y2="7"></line>
-            </svg>
-            <span>Mã Giảm Giá Voucher</span>
-          </button>
-
-          <button class="nav-item" data-tab="orders">
+          <button class="nav-item" data-tab="orders" id="navItemOrders">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14 2 14 8 20 8"></polyline>
@@ -124,25 +100,60 @@
               <polyline points="10 9 9 9 8 9"></polyline>
             </svg>
             <span>Quản Lý Đơn Hàng</span>
+            <span class="nav-badge-count hidden" id="navOrdersBadge">0</span>
           </button>
 
-          <button class="nav-item" data-tab="refunds" id="navItemRefunds">
+          <button class="nav-item" data-tab="shipping-logistics" id="navItemDeliveryQuotes">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <polyline points="1 4 1 10 7 10"></polyline>
-              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+              <rect x="1" y="3" width="15" height="13"></rect>
+              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+              <circle cx="5.5" cy="18.5" r="2.5"></circle>
+              <circle cx="18.5" cy="18.5" r="2.5"></circle>
             </svg>
-            <span>Duyệt Hoàn Tiền</span>
-            <span class="tab-count" id="navRefundBadge" style="margin-left: auto; background: rgba(217, 45, 32, 0.2); color: #FCA5A5; display: none;">0</span>
+            <span>Vận Hành Giao Hàng &amp; Ship</span>
+            <span class="nav-badge-count hidden" id="navDeliveryQuotesBadge">0</span>
           </button>
 
-          <button class="nav-item" data-tab="statistics" id="navItemStatistics">
+          <!-- NHÓM 2: SẢN PHẨM & NỘI DUNG -->
+          <div class="nav-group-title">SẢN PHẨM &amp; NỘI DUNG</div>
+
+          <button class="nav-item" data-tab="products" id="navItemProducts">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <line x1="18" y1="20" x2="18" y2="10"></line>
-              <line x1="12" y1="20" x2="12" y2="4"></line>
-              <line x1="6" y1="20" x2="6" y2="14"></line>
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
             </svg>
-            <span>Thống Kê Doanh Thu</span>
+            <span>Quản Lý Mẫu Hoa</span>
           </button>
+
+          <button class="nav-item" data-tab="reviews" id="navItemReviews">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z">
+              </path>
+            </svg>
+            <span>Đánh Giá &amp; Phản Hồi</span>
+            <span class="nav-badge-count hidden" id="navReviewsBadge">0</span>
+          </button>
+
+          <button class="nav-item" data-tab="vouchers" id="navItemVouchers">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+              <line x1="7" y1="7" x2="7.01" y2="7"></line>
+            </svg>
+            <span>Mã Giảm Giá Voucher</span>
+          </button>
+
+          <button class="nav-item" data-tab="banners" id="navItemBanners">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <span>Banner &amp; Chủ Đề</span>
+          </button>
+
+          <!-- NHÓM 3: THIẾT LẬP HỆ THỐNG -->
+          <div class="nav-group-title">THIẾT LẬP HỆ THỐNG</div>
 
           <button class="nav-item" data-tab="users" id="navItemUsers">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -152,14 +163,6 @@
               <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
             </svg>
             <span>Quản Lý Tài Khoản</span>
-          </button>
-
-          <button class="nav-item" data-tab="reviews" id="navItemReviews">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z">
-              </path>
-            </svg>
-            <span>Đánh Giá & Phản Hồi</span>
           </button>
         </nav>
       </div>
@@ -202,7 +205,7 @@
           <div class="breadcrumb-wrap">
             <span class="breadcrumb-root">Hệ Thống</span>
             <span class="breadcrumb-sep">/</span>
-            <span class="breadcrumb-current" id="currentBreadcrumb">Tổng Quan & KPI</span>
+            <span class="breadcrumb-current" id="currentBreadcrumb">Tổng Quan &amp; Doanh Thu</span>
           </div>
         </div>
 
@@ -223,207 +226,313 @@
       <div class="admin-content">
 
         <!-- ====================================================================
-             TAB 1: TỔNG QUAN & THỐNG KÊ KPI (DASHBOARD)
+             TAB 1: TỔNG QUAN & DOANH THU (EXECUTIVE DASHBOARD)
              ==================================================================== -->
         <section class="tab-panel active" id="panel-dashboard">
+          <div class="panel-header dashboard-top-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 20px;">
+            <div class="panel-header-title">
+              <h2 style="font-size: 20px; font-weight: 700; margin: 0 0 4px 0;">Tổng Quan Doanh Thu &amp; Hiệu Quả Bán Hàng</h2>
+              <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Nắm bắt doanh thu, lợi nhuận và số lượng đơn hàng tức thì theo ngày, tháng, năm</p>
+            </div>
+
+            <!-- BỘ LỌC THỜI GIAN NHANH 1 CHẠM & XUẤT BÁO CÁO -->
+            <div class="dashboard-controls-wrap" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <div class="period-toggle-group" id="dashboardPeriodGroup">
+                <button type="button" class="btn-period-toggle active" data-period="today">Hôm Nay</button>
+                <button type="button" class="btn-period-toggle" data-period="month">Tháng Này</button>
+                <button type="button" class="btn-period-toggle" data-period="year">Năm Nay</button>
+              </div>
+
+              <input type="date" id="dashCustomDateInput" class="dash-date-picker" title="Chọn ngày cụ thể để xem thống kê">
+
+              <div class="dash-export-btn-group" style="display: flex; gap: 8px;">
+                <button type="button" class="btn-dash-export btn-export-pdf" id="btnDashExportPdf" title="Xuất báo cáo PDF theo kỳ đã chọn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  <span>Xuất PDF</span>
+                </button>
+                <button type="button" class="btn-dash-export btn-export-excel" id="btnDashExportExcel" title="Xuất báo cáo Excel theo kỳ đã chọn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span>Xuất Excel</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4 THẺ CHỈ SỐ VÀNG CỐT LÕI (DOANH THU - LỢI NHUẬN - ĐƠN HÀNG - ĐƠN CẦN XỬ LÝ) -->
+          <div class="dash-kpi-grid">
+            <!-- Thẻ 1: Doanh Thu -->
+            <div class="dash-kpi-card card-revenue">
+              <div class="dash-kpi-header">
+                <span class="dash-kpi-label">TỔNG TIỀN THỰC THU</span>
+                <span class="dash-kpi-badge badge-green" id="dashKpiPeriodLabel">Hôm nay</span>
+              </div>
+              <div class="dash-kpi-amount text-emerald" id="dashKpiRevenue">0 ₫</div>
+              <div class="dash-kpi-note" id="dashKpiRevenueSub">Khách thanh toán (IFRS 15)</div>
+              <div class="dash-kpi-sub-split" style="margin-top: 8px; padding-top: 6px; border-top: 1px dashed #E2E8F0; display: flex; justify-content: space-between; font-size: 11.5px; color: #64748B;">
+                <span>Tiền hoa: <strong style="color: #108474;" id="dashKpiFlowerNetRev">0 ₫</strong></span>
+                <span>Phí ship: <strong style="color: #0284C7;" id="dashKpiShippingFee">0 ₫</strong></span>
+              </div>
+            </div>
+
+            <!-- Thẻ 2: Lợi Nhuận Ước Tính -->
+            <div class="dash-kpi-card card-profit">
+              <div class="dash-kpi-header">
+                <span class="dash-kpi-label">LỢI NHUẬN THỰC BỎ TÚI</span>
+                <span class="dash-kpi-badge badge-amber" id="dashKpiMarginBadge">Tỷ suất lãi: --%</span>
+              </div>
+              <div class="dash-kpi-amount text-amber" id="dashKpiProfit">0 ₫</div>
+              <div class="dash-kpi-note" id="dashKpiProfitSub">Doanh thu hoa trừ Giá vốn</div>
+              <div class="dash-kpi-sub-split" style="margin-top: 8px; padding-top: 6px; border-top: 1px dashed #E2E8F0; display: flex; justify-content: space-between; font-size: 11.5px; color: #64748B;">
+                <span>Vốn nguyên liệu hoa:</span>
+                <strong style="color: #475569;" id="dashKpiCostPrice">0 ₫</strong>
+              </div>
+            </div>
+
+            <!-- Thẻ 3: Số Lượng Đơn Hàng -->
+            <div class="dash-kpi-card card-orders">
+              <div class="dash-kpi-header">
+                <span class="dash-kpi-label">SỐ ĐƠN HOÀN TẤT</span>
+                <span class="dash-kpi-badge badge-blue" id="dashKpiCreatedBadge">0 đơn mới</span>
+              </div>
+              <div class="dash-kpi-amount text-blue" id="dashKpiOrders">0 đơn</div>
+              <div class="dash-kpi-note" id="dashKpiOrdersSub">Giao thành công trong kỳ</div>
+            </div>
+
+            <!-- Thẻ 4: Đơn Cần Xử Lý Ngay (Bấm để nhảy sang tab Quản Lý Đơn Hàng) -->
+            <div class="dash-kpi-card card-action" id="dashCardPendingOrdersAction" style="cursor: pointer;" title="Bấm để xem và xử lý các đơn này ngay">
+              <div class="dash-kpi-header">
+                <span class="dash-kpi-label">ĐƠN CẦN XỬ LÝ NGAY</span>
+                <span class="dash-kpi-action-pill">Xử lý ngay →</span>
+              </div>
+              <div class="dash-kpi-amount text-red" id="dashKpiPendingAction">0 đơn</div>
+              <div class="dash-kpi-note" id="dashKpiPendingActionSub">0 đơn mới chờ duyệt • 0 đơn SePay chờ giao</div>
+            </div>
+          </div>
+
+          <!-- BẢNG BÓC TÁCH MINH BẠCH DÒNG TIỀN (FINANCIAL STREAMLINE BAR) -->
+          <div class="dash-financial-streamline-bar" style="margin-top: 16px;">
+            <div class="fin-step-card">
+              <span class="fin-step-tag tag-emerald">1. Tổng Thực Thu</span>
+              <div class="fin-step-value text-emerald" id="finStepTotalCollected">0 ₫</div>
+              <span class="fin-step-desc">Khách trả (đã trừ voucher)</span>
+            </div>
+
+            <div class="fin-step-operator">−</div>
+
+            <div class="fin-step-card">
+              <span class="fin-step-tag tag-blue">2. Phí Ship (Thu Hộ)</span>
+              <div class="fin-step-value text-blue" id="finStepShipping">0 ₫</div>
+              <span class="fin-step-desc">Trả đối tác giao hàng/shipper</span>
+            </div>
+
+            <div class="fin-step-operator">=</div>
+
+            <div class="fin-step-card">
+              <span class="fin-step-tag tag-teal">3. Tiền Bán Hoa</span>
+              <div class="fin-step-value text-teal" id="finStepFlowerRev">0 ₫</div>
+              <span class="fin-step-desc">Doanh thu sản phẩm thuần túy</span>
+            </div>
+
+            <div class="fin-step-operator">−</div>
+
+            <div class="fin-step-card">
+              <span class="fin-step-tag tag-slate">4. Giá Vốn Hoa (COGS)</span>
+              <div class="fin-step-value text-slate" id="finStepCost">0 ₫</div>
+              <span class="fin-step-desc">Vốn kẽm nhung, que, phụ kiện</span>
+            </div>
+
+            <div class="fin-step-operator">=</div>
+
+            <div class="fin-step-card fin-step-profit">
+              <span class="fin-step-tag tag-amber">5. LỢI NHUẬN THỰC NHẬN</span>
+              <div class="fin-step-value text-amber" id="finStepProfit">0 ₫</div>
+              <span class="fin-step-desc" id="finStepMargin">Tỷ suất lãi: --%</span>
+            </div>
+          </div>
+
+          <!-- KHỐI PHÂN TÍCH: SƠ ĐỒ CỘT DOANH THU & LỢI NHUẬN + TOP 5 MẪU HOA BÁN CHẠY -->
+          <div class="dashboard-analytics-grid" style="margin-top: 18px;">
+            <!-- SƠ ĐỒ CỘT SVG HIỆN ĐẠI -->
+            <div class="admin-table-wrap dashboard-chart-card">
+              <div class="admin-table-heading" style="padding: 16px 20px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                  <h3 id="dashChartTitle" style="font-size: 15px; font-weight: 700; margin: 0;">Sơ Đồ Doanh Thu &amp; Lợi Nhuận</h3>
+                  <p id="dashChartSubtitle" style="font-size: 12px; color: var(--text-muted); margin: 3px 0 0 0;">Theo dõi trực quan cột Doanh thu (Xanh) và Lợi nhuận (Cam)</p>
+                </div>
+                <div class="chart-legend" style="display: flex; gap: 14px; font-size: 12px; font-weight: 600;">
+                  <span style="display: flex; align-items: center; gap: 5px;"><span style="width: 10px; height: 10px; background: #108474; border-radius: 2px;"></span> Doanh Thu</span>
+                  <span style="display: flex; align-items: center; gap: 5px;"><span style="width: 10px; height: 10px; background: #D97706; border-radius: 2px;"></span> Lợi Nhuận</span>
+                </div>
+              </div>
+              <div style="padding: 18px 20px;">
+                <div id="dashBarChartContainer" class="dash-bar-chart-container" style="min-height: 250px; width: 100%;">
+                  <!-- Sơ đồ cột render bằng Vanilla JS SVG -->
+                </div>
+              </div>
+            </div>
+
+            <!-- TOP 5 MẪU HOA BÁN CHẠY NHẤT -->
+            <div class="admin-table-wrap dashboard-top-products-card">
+              <div class="admin-table-heading" style="padding: 16px 18px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="font-size: 15px; font-weight: 700; margin: 0;">Top 5 Mẫu Hoa Bán Chạy</h3>
+                <button type="button" class="btn-text-link" id="btnViewAllProductsFromDash" style="font-size: 12px; color: #108474; font-weight: 600; cursor: pointer; background: none; border: none;">Xem tất cả hoa →</button>
+              </div>
+              <div style="padding: 8px 16px;" class="top-sellers-list" id="dashboardTopProductsList">
+                <!-- Đổ danh sách 5 mẫu hoa bằng JS -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ====================================================================
+             TAB: VẬN HÀNH GIAO HÀNG & CHI PHÍ SHIP (SHIPPING & LOGISTICS)
+             ==================================================================== -->
+        <section class="tab-panel" id="panel-shipping-logistics">
           <div class="panel-header">
             <div class="panel-header-title">
-              <h2>Thống Kê Hoạt Động & Doanh Thu</h2>
-              <p>Tình hình kinh doanh và những việc cần ưu tiên xử lý hôm nay</p>
+              <h2>Điều Phối Giao Hoa &amp; Chi Phí Ship</h2>
+              <p>Quản lý hành trình giao hoa kẽm nhung, cước vận chuyển thu hộ, vị trí ghim bản đồ và tiếp nhận báo giá ngoại tuyến.</p>
             </div>
-          </div>
-
-          <!-- THANH NHẮC VIỆC KHẨN CẤP (ALERT TO-DO STRIP) - CHỈ HIỆN KHI CÓ VIỆC -->
-          <div class="alert-todo-strip" id="alertTodoStrip" style="display: none;">
-            <div class="alert-todo-items">
-              <div class="todo-pill" id="todoPendingOrders">
-                <span class="todo-counter" id="todoPendingCount">0</span>
-                <span>Đơn hàng mới đang chờ xử lý</span>
-                <button type="button" class="todo-quick-btn" id="todoQuickApproveBtn">Duyệt Nhanh</button>
-              </div>
-              <div class="todo-pill" id="todoLowStock">
-                <span class="todo-counter todo-counter-warning" id="todoLowStockCount">0</span>
-                <span>Mẫu hoa kẽm nhung sắp cạn kho (≤ 10 bó)</span>
-                <button type="button" class="todo-quick-btn" id="todoQuickRestockBtn" style="background: #D97706;">Kiểm
-                  Kho</button>
-              </div>
-              <div class="todo-pill" id="todoRefundPending" style="display: none;">
-                <span class="todo-counter" id="todoRefundCount" style="background: #DC2626;">0</span>
-                <span>Yêu cầu / đơn cần xử lý hoàn tiền</span>
-                <button type="button" class="todo-quick-btn" id="todoQuickRefundBtn" style="background: #DC2626;">Xem Hoàn Tiền</button>
-              </div>
-            </div>
-            <span class="todo-strip-label">Việc cần xử lý</span>
-          </div>
-
-          <!-- NHỊP ĐẬP HÔM NAY (TODAY PULSE) -->
-          <div class="dashboard-pulse-grid" id="dashboardTodayPulse">
-            <div class="pulse-mini-card">
-              <span class="pulse-mini-label">Đơn Đặt Hôm Nay</span>
-              <span class="pulse-mini-val" id="pulseTodayOrders">0 đơn</span>
-              <span class="pulse-mini-sub" id="pulseTodayOrdersSub">0 đơn hoàn tất hôm nay</span>
-            </div>
-            <div class="pulse-mini-card" style="border-left: 3px solid #108474;">
-              <span class="pulse-mini-label">Doanh Thu Hôm Nay</span>
-              <span class="pulse-mini-val" id="pulseTodayRevenue" style="color: #108474;">0 ₫</span>
-              <span class="pulse-mini-sub" id="pulseTodayRevenueGrowth">So với hôm qua: --</span>
-            </div>
-            <div class="pulse-mini-card" style="border-left: 3px solid #0284C7;">
-              <span class="pulse-mini-label">Doanh Số Đặt Hôm Nay</span>
-              <span class="pulse-mini-val" id="pulseTodayGmv" style="color: #0284C7;">0 ₫</span>
-              <span class="pulse-mini-sub" id="pulseTodayGmvSub">Tổng giá trị đơn hợp lệ hôm nay</span>
-            </div>
-            <div class="pulse-mini-card" style="border-left: 3px solid #D97706;">
-              <span class="pulse-mini-label">Cần Lưu Ý Thanh Toán</span>
-              <span class="pulse-mini-val" id="pulseSepayRefundVal">0 đơn</span>
-              <span class="pulse-mini-sub" id="pulseSepayRefundSub">0 chờ VietQR • 0 cần hoàn tiền</span>
-            </div>
-          </div>
-
-          <!-- DẢI CHIP TRẠNG THÁI VẬN HÀNH 1-CHẠM -->
-          <div class="dashboard-status-strip" id="dashboardStatusStrip"></div>
-
-          <!-- 4 THẺ CHỈ SỐ KPI CHUẨN ĐỐI XỨNG -->
-          <div class="kpi-grid">
-            <div class="kpi-card">
-              <div class="kpi-icon-box kpi-icon-emerald">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <path d="M12 2a4 4 0 0 1 4 4c0 3-4 6-4 6s-4-3-4-6a4 4 0 0 1 4-4z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
+            <div class="panel-header-actions" style="display: flex; align-items: center; gap: 8px;">
+              <button type="button" class="btn-secondary" id="refreshShippingLogisticsBtn">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 4v6h-6"></path>
+                  <path d="M1 20v-6h6"></path>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                 </svg>
-              </div>
-              <div class="kpi-meta">
-                <h4>Tổng Mẫu Hoa</h4>
-                <div class="kpi-value" id="kpiTotalProducts">0</div>
-                <div class="kpi-sub">Mẫu hoa kẽm nhung trên kệ</div>
-              </div>
-            </div>
-
-            <div class="kpi-card">
-              <div class="kpi-icon-box kpi-icon-blue">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line>
-                  <path
-                    d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
-                  </path>
-                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                </svg>
-              </div>
-              <div class="kpi-meta">
-                <h4>Tổng Đơn Hàng</h4>
-                <div class="kpi-value" id="kpiTotalOrders">0</div>
-                <div class="kpi-sub">Đơn đặt từ khách hàng</div>
-              </div>
-            </div>
-
-            <div class="kpi-card">
-              <div class="kpi-icon-box kpi-icon-amber">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <line x1="12" y1="1" x2="12" y2="23"></line>
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                </svg>
-              </div>
-              <div class="kpi-meta">
-                <h4>Doanh Thu Ghi Nhận</h4>
-                <div class="kpi-value" id="kpiTotalRevenue">0 ₫</div>
-                <div class="kpi-sub">Đơn đã giao hoàn tất (IFRS 15)</div>
-              </div>
-            </div>
-
-            <div class="kpi-card">
-              <div class="kpi-icon-box" style="background: rgba(16, 132, 116, 0.12); color: #108474;">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path>
-                  <line x1="12" y1="6" x2="12" y2="8"></line>
-                  <line x1="12" y1="16" x2="12" y2="18"></line>
-                </svg>
-              </div>
-              <div class="kpi-meta">
-                <h4>Giá Trị TB Đơn (AOV)</h4>
-                <div class="kpi-value" id="kpiAovValue">0 ₫</div>
-                <div class="kpi-sub">Doanh số GMV ÷ Đơn hợp lệ</div>
-              </div>
+                <span>Tải lại dữ liệu</span>
+              </button>
             </div>
           </div>
 
-          <!-- KHỐI PHÂN TÍCH DOANH THU & SẢN PHẨM BÁN CHẠY -->
-          <div class="dashboard-analytics-grid">
-            <!-- CỘT TRÁI: BIỂU ĐỒ XU HƯỚNG DOANH SỐ & DOANH THU -->
-            <div class="admin-table-wrap dashboard-chart-card">
-              <div class="admin-table-heading"
-                style="padding: 16px 20px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                <div>
-                  <h3 style="font-size: 15px; font-weight: 700; margin: 0;">Biểu Đồ Xu Hướng Doanh Số &amp; Doanh Thu</h3>
-                  <p id="dashboardChartSubtitle" style="font-size: 12px; color: var(--text-muted); margin: 3px 0 0 0;">Theo dõi từng ngày (14 ngày gần nhất) hoặc cả năm</p>
-                </div>
-                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                  <div style="display: inline-flex; background: #F1F5F9; padding: 3px; border-radius: 8px; gap: 3px;" id="dashboardChartModeGroup">
-                    <button type="button" class="stats-preset-btn active" data-dash-chart="14days" style="border: none; padding: 4px 10px;">14 Ngày</button>
-                    <button type="button" class="stats-preset-btn" data-dash-chart="12months" style="border: none; padding: 4px 10px;">12 Tháng</button>
-                  </div>
-                  <div style="display: flex; gap: 10px; font-size: 11.5px; font-weight: 600;">
-                    <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 9px; height: 9px; background: #0284C7; border-radius: 2px;"></span> Doanh số</span>
-                    <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 9px; height: 9px; background: #108474; border-radius: 2px;"></span> Doanh thu</span>
-                    <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 9px; height: 9px; background: #D97706; border-radius: 2px;"></span> Lợi nhuận</span>
-                  </div>
-                </div>
+          <!-- 4 THẺ KPI CHI PHÍ & TIẾN ĐỘ GIAO VẬN -->
+          <div class="logistics-kpi-grid">
+            <div class="logistics-kpi-card" style="border-left: 4px solid #108474;">
+              <div class="logistics-kpi-header">
+                <span class="logistics-kpi-title">Tổng Cước Ship Thu Khách</span>
+                <div class="logistics-kpi-icon" style="background: rgba(16, 132, 116, 0.1); color: #108474;">🚚</div>
               </div>
-              <div style="padding: 20px;">
-                <div id="dashboardBarChartWrap"
-                  style="display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; height: 175px; border-bottom: 1px solid var(--border-light); padding-bottom: 6px; overflow-x: auto;">
-                  <!-- Đổ động bằng JS -->
-                </div>
-              </div>
+              <div class="logistics-kpi-val" id="logisticsTotalShippingFee">0 ₫</div>
+              <div class="logistics-kpi-sub">Khoản cước khách trả theo tuyến phường</div>
             </div>
 
-            <!-- CỘT PHẢI: TOP 5 BÁN CHẠY + PHÂN BỔ DANH MỤC -->
-            <div style="display: flex; flex-direction: column; gap: 18px;">
-              <div class="admin-table-wrap" style="padding: 16px 18px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                  <h3 style="font-size: 14.5px; font-weight: 700; margin: 0;">Top 5 Mẫu Hoa Bán Chạy Nhất</h3>
-                  <button type="button" class="btn-action" id="viewProductMatrixQuickBtn" style="font-size: 11.5px; padding: 4px 8px;">Chi tiết →</button>
-                </div>
-                <div class="top-sellers-list" id="dashboardTopProductsList">
-                  <!-- Đổ động bằng JS từ đơn hàng thực tế -->
-                </div>
+            <div class="logistics-kpi-card" style="border-left: 4px solid #0284C7;">
+              <div class="logistics-kpi-header">
+                <span class="logistics-kpi-title">Chi Phí Trả Đối Tác Ship</span>
+                <div class="logistics-kpi-icon" style="background: rgba(2, 132, 199, 0.1); color: #0284C7;">💳</div>
               </div>
+              <div class="logistics-kpi-val" id="logisticsCarrierCost">0 ₫</div>
+              <div class="logistics-kpi-sub">Dòng tiền thu hộ đối soát shipper/Ahamove</div>
+            </div>
 
-              <div class="admin-table-wrap">
-                <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
-                  <h3 style="font-size: 14.5px; font-weight: 700; margin: 0;">Doanh Thu Theo Danh Mục</h3>
-                  <span style="font-size: 11.5px; color: var(--text-muted);">Đơn hoàn tất</span>
-                </div>
-                <div class="dashboard-category-breakdown" id="dashboardCategoryBreakdown" style="padding: 16px 18px;">
-                  <!-- Đổ động tiến độ danh mục bằng JS -->
-                </div>
+            <div class="logistics-kpi-card" style="border-left: 4px solid #F59E0B;">
+              <div class="logistics-kpi-header">
+                <span class="logistics-kpi-title">Đơn Đang Giao Trên Đường</span>
+                <div class="logistics-kpi-icon" style="background: rgba(245, 158, 11, 0.1); color: #F59E0B;">📍</div>
               </div>
+              <div class="logistics-kpi-val" id="logisticsShippingOrdersCount">0 chuyến</div>
+              <div class="logistics-kpi-sub">Đang giao, cần kiểm soát đúng khung giờ</div>
+            </div>
+
+            <div class="logistics-kpi-card" style="border-left: 4px solid #16A34A;">
+              <div class="logistics-kpi-header">
+                <span class="logistics-kpi-title">Đơn Đã Giao Thành Công</span>
+                <div class="logistics-kpi-icon" style="background: rgba(22, 163, 74, 0.1); color: #16A34A;">✅</div>
+              </div>
+              <div class="logistics-kpi-val" id="logisticsCompletedOrdersCount">0 đơn</div>
+              <div class="logistics-kpi-sub">Khách đã nhận hoa nguyên vẹn</div>
             </div>
           </div>
 
-          <!-- BẢNG ĐƠN HÀNG GẦN ĐÂY CẦN XỬ LÝ -->
-          <div class="admin-table-wrap">
-            <div class="admin-table-heading"
-              style="padding: 16px 20px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between;">
-              <h3 style="font-size: 15px; font-weight: 700; margin: 0;">Đơn Hàng Gần Đây Cần Xử Lý</h3>
-              <button type="button" class="btn-action" id="viewAllOrdersQuickBtn"
-                style="font-weight: 600; color: var(--color-primary);">Xem tất cả đơn →</button>
+          <!-- THANH SUB-TABS ĐIỀU HƯỚNG NỘI BỘ -->
+          <div class="logistics-subtabs-nav">
+            <button type="button" class="logistics-subtab-btn active" data-subtab="orders">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="1" y="3" width="15" height="13"></rect>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                <circle cx="18.5" cy="18.5" r="2.5"></circle>
+              </svg>
+              <span>Chuyến Giao Hoa &amp; Điều Phối</span>
+            </button>
+            <button type="button" class="logistics-subtab-btn" data-subtab="quotes">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span>Yêu Cầu Báo Giá Ngoại Tuyến</span>
+              <span class="subtab-badge hidden" id="logisticsQuotesBadge">0</span>
+            </button>
+            <button type="button" class="logistics-subtab-btn" data-subtab="rates">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+              <span>Biểu Phí 78 Phường Cố Định</span>
+            </button>
+          </div>
+
+          <!-- SUBPANEL 1: DANH SÁCH CHUYẾN GIAO HOA & ĐIỀU PHỐI -->
+          <div class="logistics-subpanel active" id="subpanel-logistics-orders">
+            <div class="logistics-filter-bar">
+              <div class="logistics-filter-pills">
+                <button type="button" class="logistics-filter-pill active" data-filter="all">Tất Cả Chuyến Giao (<span id="countLogisticsAll">0</span>)</button>
+                <button type="button" class="logistics-filter-pill" data-filter="shipping">🚚 Đang Giao (<span id="countLogisticsShipping">0</span>)</button>
+                <button type="button" class="logistics-filter-pill" data-filter="confirmed">📦 Đã Duyệt Chờ Giao (<span id="countLogisticsConfirmed">0</span>)</button>
+                <button type="button" class="logistics-filter-pill" data-filter="completed">✅ Đã Giao Xong (<span id="countLogisticsCompleted">0</span>)</button>
+              </div>
+              <div style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                <span>💡 Bấm <strong>«In Phiếu Giao Quà»</strong> để xuất PDF cho shipper cầm đi, bảo mật giá bán.</span>
+              </div>
             </div>
-            <div class="admin-table-responsive">
+
+            <div class="table-container">
               <table class="admin-table">
                 <thead>
                   <tr>
-                    <th>Mã Đơn</th>
-                    <th>Khách Hàng</th>
-                    <th>Tổng Tiền</th>
+                    <th>Mã Đơn &amp; Khách Hàng</th>
+                    <th>Điểm Giao &amp; Ghim Bản Đồ</th>
+                    <th>Lịch &amp; Khung Giờ</th>
+                    <th>Cước Ship &amp; Thu Hộ</th>
                     <th>Trạng Thái</th>
+                    <th style="text-align: right;">Thao Tác Điều Phối</th>
                   </tr>
                 </thead>
-                <tbody id="dashboardRecentOrders">
-                  <!-- Đổ động bằng JS -->
+                <tbody id="logisticsOrdersTableBody">
+                  <tr>
+                    <td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">Đang nạp danh sách chuyến giao hoa...</td>
+                  </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- SUBPANEL 2: YÊU CẦU BÁO GIÁ NGOẠI TUYẾN (BẢO TOÀN 100% CODE CŨ) -->
+          <div class="logistics-subpanel" id="subpanel-logistics-quotes">
+            <div style="background: #F8FAFC; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: var(--text-main);">Tiếp Nhận &amp; Báo Giá Đơn Ngoại Tuyến</h4>
+                <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">Dành cho khách hàng có địa chỉ nhận hoa ngoài 78 phường cố định của TP.HCM. Kiểm tra quãng đường, nhập mức phí và gửi link thanh toán cho khách.</p>
+              </div>
+              <button type="button" class="btn-secondary" id="refreshDeliveryQuotesBtn">Tải lại danh sách</button>
+            </div>
+            <!-- BẢO TOÀN 100% CONTAINER CHO JS RENDER -->
+            <div id="adminDeliveryQuoteRequests" style="display:grid; gap:14px;"></div>
+          </div>
+
+          <!-- SUBPANEL 3: TRA CỨU BIỂU PHÍ 78 PHƯỜNG CỐ ĐỊNH -->
+          <div class="logistics-subpanel" id="subpanel-logistics-rates">
+            <div style="background: #FFFFFF; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 18px; margin-bottom: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                <div>
+                  <h4 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 700; color: var(--text-main);">Biểu Phí Giao Hoa Kẽm Nhung TP.HCM (78 Phường/Xã)</h4>
+                  <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">Bảng cước đồng giá theo khu vực được cấu hình tự động khi khách hàng chọn địa chỉ lúc thanh toán.</p>
+                </div>
+                <input type="text" id="searchDeliveryZoneInput" placeholder="🔍 Gõ tên phường để tra cước..." style="padding: 8px 14px; border: 1px solid var(--border-light); border-radius: 8px; font-size: 13px; width: 260px;">
+              </div>
+              <div id="deliveryZoneTableContainer" class="table-container">
+                <!-- Đổ danh sách 78 phường bằng JS -->
+              </div>
             </div>
           </div>
         </section>
@@ -2036,7 +2145,7 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <!-- ES6 MODULE QUẢN TRỊ CHÍNH -->
-  <script type="module" src="./js/admin.js?v=20261114_delivery_zones_v1"></script>
+  <script type="module" src="./js/admin.js?v=20261115_manual_quotes_v1"></script>
 
 </body>
 

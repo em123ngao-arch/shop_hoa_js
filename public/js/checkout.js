@@ -6,8 +6,8 @@ import {
   getDirectBuySummary
 } from './storage.js';
 import { formatPrice, showToast, updateCartBadge } from './utils.js';
-import { DELIVERY_AREA_GROUPS } from './delivery-areas.js';
-import { createDeliveryPinMap } from './delivery-map.js?v=20261114_delivery_zones_v1';
+import { DELIVERY_AREA_GROUPS } from './delivery-areas.js?v=20261115_area_rates_v2';
+import { createDeliveryPinMap } from './delivery-map.js?v=20261115_google_maps_v2';
 
 /**
  * checkout.js - Universal Checkout & SePay VietQR Payment Workflow
@@ -105,36 +105,23 @@ function getDeliveryAddressInput() {
 }
 
 function getDeliveryInputSignature(input = getDeliveryAddressInput()) {
-  return JSON.stringify({ area: input.area, latitude: input.latitude, longitude: input.longitude });
+  return JSON.stringify({ area: input.area });
 }
 
 /** Xóa ghim cũ khi khách sửa thông tin mô tả điểm giao để tránh giữ tọa độ lỗi thời. */
 function invalidateCheckoutDeliveryPin(message = 'Địa chỉ vừa thay đổi. Hãy ghim lại đúng vị trí nhận hoa.') {
-  const previousQuote = currentDeliveryQuote;
   checkoutDeliveryPin = null;
   checkoutDeliveryMap?.clearPin(false);
-  currentDeliveryQuote = null;
   const hint = document.querySelector('#checkoutMapPinHint');
   if (hint) {
     hint.classList.remove('delivery-pin-hint-error');
     hint.textContent = message;
   }
-  const quoteHint = document.querySelector('#deliveryQuoteHint');
-  if (quoteHint && previousQuote?.area === document.querySelector('#checkoutDeliveryArea')?.value) {
-    quoteHint.textContent = `${previousQuote.zoneName}: ${previousQuote.fee === 0 ? 'miễn phí' : formatPrice(previousQuote.fee)}. Phí không đổi theo địa chỉ chi tiết; ${message.toLowerCase()}`;
-  }
 }
 
-function clearDeliveryQuote(message = 'Chọn phường để xem phí giao theo khu vực.', cancelPendingRequest = true) {
+function clearDeliveryQuote(message = 'Chọn phường để hiện phí giao cố định.', cancelPendingRequest = true) {
   currentDeliveryQuote = null;
-  if (cancelPendingRequest) {
-    deliveryQuoteRequestId += 1;
-    const quoteButton = document.querySelector('#btnQuoteDelivery');
-    if (quoteButton) {
-      quoteButton.disabled = false;
-      quoteButton.textContent = 'Xem phí giao';
-    }
-  }
+  if (cancelPendingRequest) deliveryQuoteRequestId += 1;
   const fee = document.querySelector('#checkoutShippingFee');
   if (fee) fee.textContent = 'Chưa báo giá';
   const hint = document.querySelector('#deliveryQuoteHint');
@@ -142,7 +129,7 @@ function clearDeliveryQuote(message = 'Chọn phường để xem phí giao theo
   const total = document.querySelector('#checkoutTotal');
   if (total) {
     const summary = getActiveCheckoutSummary();
-    total.textContent = `${formatPrice(summary.totalPrice)} + phí giao theo khu vực`;
+    total.textContent = `${formatPrice(summary.totalPrice)} + phí theo phường`;
   }
 }
 
@@ -157,14 +144,8 @@ async function requestDeliveryQuote() {
   const inputSignature = getDeliveryInputSignature(input);
   currentDeliveryQuote = null;
   const fee = document.querySelector('#checkoutShippingFee');
-  if (fee) fee.textContent = 'Đang tra phí…';
-  if (hint) hint.textContent = 'Đang tra mức phí cố định theo khu vực…';
-  const quoteButton = document.querySelector('#btnQuoteDelivery');
-  const originalButtonText = quoteButton?.textContent || '';
-  if (quoteButton) {
-    quoteButton.disabled = true;
-    quoteButton.textContent = 'Đang tra phí…';
-  }
+  if (fee) fee.textContent = 'Đang lấy phí khu vực…';
+  if (hint) hint.textContent = 'Đang tra mức phí cố định của phường…';
   try {
     const response = await fetch('/api/delivery/quote', {
       method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
@@ -174,31 +155,31 @@ async function requestDeliveryQuote() {
     if (!response.ok) throw new Error(data.error?.message || 'Chưa tính được phí giao; vui lòng kiểm tra lại địa chỉ.');
     if (!data.serviceable) throw new Error(data.message || 'Vị trí ghim nằm ngoài phạm vi tự giao hiện tại.');
     if (requestId !== deliveryQuoteRequestId || inputSignature !== getDeliveryInputSignature()) {
-      throw new Error('Khu vực hoặc ghim vừa thay đổi. Đang cập nhật phí theo khu vực, vui lòng thử lại.');
+      throw new Error('Phường giao vừa thay đổi. Đang cập nhật phí khu vực, vui lòng thử lại.');
     }
     currentDeliveryQuote = { ...data, inputSignature };
-    if (fee) fee.textContent = data.fee === 0 ? 'Miễn phí' : formatPrice(data.fee);
-    const pinDistance = data.pinProvided && Number.isFinite(Number(data.pinDistanceKm))
-      ? ` • Ghim cách tiệm ${data.pinDistanceKm} km đường chim bay`
-      : '';
-    const reviewNotice = data.requiresShopConfirmation ? ' • Shop cần xác nhận vị trí trước khi nhận đơn.' : '';
-    if (hint) hint.textContent = `${data.zoneName || 'Phí theo khu vực'}: ${data.fee === 0 ? 'miễn phí' : formatPrice(data.fee)}. Phí không thay đổi theo ghim.${pinDistance}${reviewNotice}`;
+    const needsManualQuote = Boolean(data.manualQuoteRequired || data.requiresShopConfirmation);
+    if (fee) fee.textContent = needsManualQuote || !Number.isSafeInteger(Number(data.fee))
+      ? 'Shop sẽ báo sau khi kiểm tra' : data.fee === 0 ? 'Miễn phí' : formatPrice(data.fee);
+    if (hint) hint.textContent = needsManualQuote
+      ? `${data.message || 'Tiệm cần xác nhận khu vực trước khi báo phí.'} Chưa giữ khung giờ.`
+      : `${data.zoneName || 'Phí cố định theo phường'}: ${data.fee === 0 ? 'miễn phí' : formatPrice(data.fee)}. Phí không đổi khi ghim lại vị trí.`;
     const summary = getActiveCheckoutSummary();
     const total = document.querySelector('#checkoutTotal');
-    if (total) total.textContent = formatPrice(Math.max(0, summary.totalPrice) + data.fee);
+    if (total) total.textContent = needsManualQuote || !Number.isSafeInteger(Number(data.fee))
+      ? 'Sẽ chốt sau khi shop báo phí' : formatPrice(Math.max(0, summary.totalPrice) + data.fee);
+    const submitBtn = document.querySelector('#checkoutSubmitBtn');
+    if (submitBtn) submitBtn.textContent = needsManualQuote
+      ? 'Yêu Cầu Shop Báo Phí →'
+      : (document.querySelector('#labelPaymentDeposit input')?.checked ? 'Thanh Toán Trước 50% →' : 'Thanh Toán Đủ Qua SePay →');
     return data;
   } catch (error) {
     if (requestId === deliveryQuoteRequestId) clearDeliveryQuote(error.message, false);
     throw error;
-  } finally {
-    if (quoteButton && requestId === deliveryQuoteRequestId) {
-      quoteButton.disabled = false;
-      quoteButton.textContent = originalButtonText || 'Xem phí giao';
-    }
-  }
+  } finally { /* Không có nút bấm riêng; phí được tra ngay khi chọn phường. */ }
 }
 
-/** Mở Leaflet sau khi modal hiện để kích thước bản đồ được đo đúng. */
+/** Mở Google Maps sau khi modal hiện để căn đúng kích thước vùng bản đồ. */
 async function initializeCheckoutDeliveryMap() {
   const element = document.querySelector('#checkoutDeliveryMap');
   if (!element) return;
@@ -214,17 +195,8 @@ async function initializeCheckoutDeliveryMap() {
       if (hint) {
         hint.classList.remove('delivery-pin-hint-error');
         hint.textContent = pin
-          ? `Đã ghim ${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}. Phí vẫn tính theo phường đã chọn.`
+          ? `✓ Đã ghim vị trí nhận hoa (${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}). Kéo ghim để chỉnh số nhà nếu cần.`
           : 'Chưa ghim vị trí nhận hàng. Bấm bản đồ để đặt ghim.';
-      }
-      if (document.querySelector('#checkoutDeliveryArea')?.value) {
-        requestDeliveryQuote().catch(error => {
-          const pinHint = document.querySelector('#checkoutMapPinHint');
-          if (pinHint) {
-            pinHint.textContent = error.message;
-            pinHint.classList.add('delivery-pin-hint-error');
-          }
-        });
       }
     },
     onError: message => {
@@ -236,6 +208,11 @@ async function initializeCheckoutDeliveryMap() {
     }
   }).then(controller => {
     checkoutDeliveryMap = controller;
+    bindMapToolbarControls();
+    const currentArea = document.querySelector('#checkoutDeliveryArea')?.value;
+    if (currentArea && !checkoutDeliveryPin) {
+      controller.flyToArea(currentArea, true);
+    }
     requestAnimationFrame(() => controller.invalidateSize());
     return controller;
   }).catch(error => {
@@ -251,12 +228,50 @@ async function initializeCheckoutDeliveryMap() {
   return checkoutMapInitPromise;
 }
 
+/** Gắn sự kiện các nút tiện ích định vị trên thanh công cụ bản đồ. */
+function bindMapToolbarControls() {
+  const btnGps = document.querySelector('#btnMapCurrentGps');
+  if (btnGps && btnGps.dataset.bound !== 'true') {
+    btnGps.dataset.bound = 'true';
+    btnGps.addEventListener('click', async () => {
+      btnGps.classList.add('loading');
+      try {
+        await checkoutDeliveryMap?.locateUser?.();
+        showToast('Đã định vị vị trí hiện tại của bạn.', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btnGps.classList.remove('loading');
+      }
+    });
+  }
+
+  const btnFocusWard = document.querySelector('#btnMapFocusWard');
+  if (btnFocusWard && btnFocusWard.dataset.bound !== 'true') {
+    btnFocusWard.dataset.bound = 'true';
+    btnFocusWard.addEventListener('click', () => {
+      const area = document.querySelector('#checkoutDeliveryArea')?.value;
+      if (!area) {
+        showToast('Vui lòng chọn phường/xã trước.', 'warning');
+        return;
+      }
+      const ok = checkoutDeliveryMap?.flyToArea?.(area, true);
+      if (ok) {
+        showToast(`Đã bay về trung tâm ${area}`, 'success');
+      } else {
+        showToast('Không tìm thấy tọa độ của phường đã chọn.', 'error');
+      }
+    });
+  }
+}
+
 export function openCheckoutModal(options = {}) {
   window.openCheckoutModal = openCheckoutModal;
   const modal = document.querySelector('#checkoutModal');
   const stepForm = document.querySelector('#checkoutStepForm');
   const stepSepay = document.querySelector('#checkoutStepSepay');
   const stepSuccess = document.querySelector('#checkoutStepSuccess');
+  const stepManualQuote = document.querySelector('#checkoutStepManualQuote');
   const itemsContainer = document.querySelector('#checkoutItemsPreview');
   const subtotalEl = document.querySelector('#checkoutSubtotal');
   const discountLine = document.querySelector('#checkoutDiscountLine');
@@ -282,12 +297,18 @@ export function openCheckoutModal(options = {}) {
   currentDraftSignature = null;
   checkoutDeliveryPin = null;
   checkoutDeliveryMap?.clearPin(false);
+  const deliveryRegionInput = document.querySelector('#checkoutDeliveryRegion');
+  if (deliveryRegionInput) deliveryRegionInput.value = '';
   const mapPinHint = document.querySelector('#checkoutMapPinHint');
   if (mapPinHint) {
     mapPinHint.classList.remove('delivery-pin-hint-error');
     mapPinHint.textContent = 'Chọn phường rồi ghim điểm nhận hàng.';
   }
   const deliveryAreaInput = document.querySelector('#checkoutDeliveryArea');
+  if (deliveryAreaInput) {
+    deliveryAreaInput.replaceChildren(new Option('Chọn khu vực trước', ''));
+    deliveryAreaInput.disabled = true;
+  }
   const deliveryStreetInput = document.querySelector('#checkoutAddress');
   const deliveryDetailsInput = document.querySelector('#checkoutAddressDetails');
   if (deliveryAreaInput) deliveryAreaInput.value = '';
@@ -341,7 +362,7 @@ export function openCheckoutModal(options = {}) {
     shippingFeeEl.textContent = 'Chưa báo giá';
     shippingFeeEl.style.color = '';
   }
-  if (totalEl) totalEl.textContent = `${formatPrice(summary.totalPrice)} + phí giao theo khu vực`;
+  if (totalEl) totalEl.textContent = `${formatPrice(summary.totalPrice)} + phí theo phường`;
 
   // Tự động điền thông tin nếu khách hàng đã đăng nhập
   const currentUserJson = localStorage.getItem('user');
@@ -361,6 +382,7 @@ export function openCheckoutModal(options = {}) {
   if (stepForm) stepForm.classList.remove('hidden');
   if (stepSepay) stepSepay.classList.add('hidden');
   if (stepSuccess) stepSuccess.classList.add('hidden');
+  if (stepManualQuote) stepManualQuote.classList.add('hidden');
 
   // Mở modal
   modal.classList.remove('hidden');
@@ -393,6 +415,7 @@ export function initCheckoutWorkflow() {
   modal.dataset.checkoutInitialized = 'true';
 
   const closeBtn = document.querySelector('#checkoutModalClose');
+  const manualQuoteDoneBtn = document.querySelector('#manualQuoteDoneBtn');
   const form = document.querySelector('#checkoutForm');
   const isGiftCheck = document.querySelector('#checkoutIsGift');
   const giftFields = document.querySelector('#giftRecipientFields');
@@ -406,23 +429,43 @@ export function initCheckoutWorkflow() {
 
   const addressInput = document.querySelector('#checkoutAddress');
   const addressDetailsInput = document.querySelector('#checkoutAddressDetails');
+  const regionSelect = document.querySelector('#checkoutDeliveryRegion');
   const areaSelect = document.querySelector('#checkoutDeliveryArea');
-  const quoteButton = document.querySelector('#btnQuoteDelivery');
+  if (regionSelect) {
+    regionSelect.replaceChildren(new Option('Chọn khu vực để lọc phường', ''));
+    DELIVERY_AREA_GROUPS.forEach(group => regionSelect.append(new Option(group.label, group.label)));
+  }
   if (areaSelect) {
-    areaSelect.replaceChildren(new Option('Chọn phường/xã', ''));
-    DELIVERY_AREA_GROUPS.forEach(group => {
-      const optionGroup = document.createElement('optgroup');
-      optionGroup.label = group.label;
-      group.areas.forEach(area => optionGroup.append(new Option(area, area)));
-      areaSelect.append(optionGroup);
+    areaSelect.replaceChildren(new Option('Chọn khu vực trước', ''));
+    areaSelect.disabled = true;
+  }
+  if (regionSelect && regionSelect.dataset.deliveryBound !== 'true') {
+    regionSelect.dataset.deliveryBound = 'true';
+    regionSelect.addEventListener('change', () => {
+      const selectedGroup = DELIVERY_AREA_GROUPS.find(group => group.label === regionSelect.value);
+      areaSelect.replaceChildren(new Option(selectedGroup ? 'Chọn phường/xã' : 'Chọn khu vực trước', ''));
+      if (selectedGroup) selectedGroup.areas.forEach(area => areaSelect.append(new Option(area, area)));
+      areaSelect.disabled = !selectedGroup;
+      areaSelect.value = '';
+      invalidateCheckoutDeliveryPin('Chọn lại vị trí nhận hoa sau khi đổi khu vực.');
+      clearDeliveryQuote(selectedGroup ? 'Chọn phường để hiện phí giao cố định.' : 'Chọn khu vực để lọc phường.');
     });
   }
   if (areaSelect && areaSelect.dataset.deliveryBound !== 'true') {
     areaSelect.dataset.deliveryBound = 'true';
     areaSelect.addEventListener('change', () => {
-      invalidateCheckoutDeliveryPin('Phường vừa thay đổi. Hãy ghim lại đúng vị trí nhận hoa.');
-      if (areaSelect.value) requestDeliveryQuote().catch(error => clearDeliveryQuote(error.message, false));
-      else clearDeliveryQuote();
+      const selectedArea = areaSelect.value;
+      clearDeliveryQuote(selectedArea ? 'Đang lấy phí cố định theo phường…' : 'Chọn phường để hiện phí giao cố định.');
+
+      if (selectedArea) {
+        // Tự động bay về trung tâm phường và cắm ghim ngay lập tức!
+        if (checkoutDeliveryMap?.flyToArea) {
+          checkoutDeliveryMap.flyToArea(selectedArea, true);
+        }
+        requestDeliveryQuote().catch(error => showToast(error.message, 'error'));
+      } else {
+        invalidateCheckoutDeliveryPin('Chọn phường để hiện phí giao cố định và ghim vị trí.');
+      }
     });
   }
   [addressInput, addressDetailsInput].filter(Boolean).forEach(input => {
@@ -431,58 +474,70 @@ export function initCheckoutWorkflow() {
     input.addEventListener('input', () => {
       if (input.value.length > 255) input.setCustomValidity('Địa chỉ không được vượt quá 255 ký tự.');
       else input.setCustomValidity('');
-      if (checkoutDeliveryPin) invalidateCheckoutDeliveryPin();
+      // Giữ nguyên ghim đã chọn, không xóa ghim khi khách nhập số nhà/hẻm
     });
   });
-  if (quoteButton && !quoteButton.dataset.deliveryBound) {
-    quoteButton.dataset.deliveryBound = 'true';
-    quoteButton.addEventListener('click', async () => {
-      try { await requestDeliveryQuote(); showToast('Đã tra phí giao theo khu vực.', 'success'); }
-      catch (error) { showToast(error.message, 'error'); }
-    });
-  }
   const submitBtn = document.querySelector('#checkoutSubmitBtn');
 
   const dateInput = document.querySelector('#checkoutDeliveryDate');
   const dateHint = document.querySelector('#deliveryDateHint');
   const isAnonymousCheck = document.querySelector('#checkoutIsAnonymous');
 
-  // Khởi tạo ngày hẹn giao hoa (Delivery Date picker & cutoff time)
-  if (dateInput) {
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    dateInput.min = todayStr;
+  // Khởi tạo ngày hẹn giao hoa (Delivery Date picker & cutoff time chuẩn 7 ngày)
+  const getVnDateStr = (d) => {
+    const p = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(d);
+    return `${p.find(x => x.type === 'year')?.value}-${p.find(x => x.type === 'month')?.value}-${p.find(x => x.type === 'day')?.value}`;
+  };
 
-    // Nếu sau 18:00 (giờ cắt đơn trong ngày), mặc định ngày giao tiếp theo
-    if (now.getHours() >= 18) {
-      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      dateInput.value = tomorrow.toISOString().split('T')[0];
-      if (dateHint) dateHint.textContent = '🌙 Đã qua 18:00, lịch giao sớm nhất xếp từ ngày mai.';
+  const now = new Date();
+  const todayStr = getVnDateStr(now);
+  const isPastCutoff = now.getHours() >= 18;
+  const minDateObj = isPastCutoff ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : now;
+  const minDateStr = getVnDateStr(minDateObj);
+  // Ràng buộc thực tế: Tối đa 7 ngày kể từ ngày giao sớm nhất (tròn 1 tuần)
+  const maxDateObj = new Date(minDateObj.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const maxDateStr = getVnDateStr(maxDateObj);
+
+  if (dateInput) {
+    dateInput.min = minDateStr;
+    dateInput.max = maxDateStr;
+    dateInput.value = minDateStr;
+
+    if (isPastCutoff) {
+      if (dateHint) dateHint.textContent = '🌙 Đã qua 18:00, lịch giao sớm nhất xếp từ ngày mai (trong 7 ngày tới).';
     } else {
-      dateInput.value = todayStr;
-      if (dateHint) dateHint.textContent = '⚡ Hẹn giao trong ngày hôm nay.';
+      if (dateHint) dateHint.textContent = '⚡ Giao trong ngày hoặc đặt lịch hẹn trong 7 ngày tới.';
     }
 
     dateInput.addEventListener('change', () => {
       const selected = dateInput.value;
       if (!selected) return;
-      if (selected < todayStr) {
-        dateInput.value = todayStr;
+      if (selected < minDateStr) {
+        dateInput.value = minDateStr;
         showToast('Không thể chọn ngày hẹn giao trong quá khứ!', 'warning');
+        return;
+      }
+      if (selected > maxDateStr) {
+        dateInput.value = maxDateStr;
+        showToast('Tiệm chỉ nhận đặt lịch hẹn giao trong vòng 7 ngày tới để hoa được làm mới nhất!', 'warning');
         return;
       }
       const parts = selected.split('-');
       const monthDay = `${parts[1]}-${parts[2]}`;
-      if (monthDay === '02-14') {
+      if (monthDay === '11-20') {
+        if (dateHint) dateHint.textContent = '💐 Ngày Nhà Giáo 20/11: Tiệm ưu tiên uốn hoa kẽm nhung tỉ mỉ và giao đúng khung giờ hẹn!';
+      } else if (monthDay === '02-14') {
         if (dateHint) dateHint.textContent = '🌹 Dịp Lễ Valentine 14/02: Tiệm ưu tiên cắm hoa nghệ thuật và giao đúng giờ!';
       } else if (monthDay === '03-08') {
         if (dateHint) dateHint.textContent = '🌸 Quốc Tế Phụ Nữ 08/03: Tiệm chuẩn bị sẵn túi quà và thiệp chúc mừng!';
       } else if (monthDay === '10-20') {
         if (dateHint) dateHint.textContent = '💐 Ngày Phụ Nữ Việt Nam 20/10: Tiệm cam kết giao đúng khung giờ hẹn trước!';
       } else if (selected === todayStr) {
-        if (dateHint) dateHint.textContent = now.getHours() >= 18 ? '⚠️ Đã sau 18:00, đơn giao trong ngày có thể chuyển sang khung tối hoặc ngày mai.' : '⚡ Giao hỏa tốc hoặc trong ngày hôm nay.';
+        if (dateHint) dateHint.textContent = isPastCutoff ? '⚠️ Đã sau 18:00, đơn giao trong ngày có thể chuyển sang khung tối hoặc ngày mai.' : '⚡ Giao hỏa tốc hoặc trong ngày hôm nay.';
       } else {
-        if (dateHint) dateHint.textContent = `📅 Đã lên lịch giao hoa vào ngày ${parts[2]}/${parts[1]}/${parts[0]}.`;
+        if (dateHint) dateHint.textContent = `📅 Đã lên lịch giao hoa vào ngày ${parts[2]}/${parts[1]}/${parts[0]} (trong vòng 7 ngày).`;
       }
     });
   }
@@ -493,6 +548,7 @@ export function initCheckoutWorkflow() {
 
   // Đóng modal
   if (closeBtn) closeBtn.addEventListener('click', closeCheckoutModal);
+  if (manualQuoteDoneBtn) manualQuoteDoneBtn.addEventListener('click', closeCheckoutModal);
 
   // Bật/tắt trường gửi tặng người khác
   if (isGiftCheck && giftFields) {
@@ -533,11 +589,13 @@ export function initCheckoutWorkflow() {
     if (radioFull && radioFull.checked) {
       if (labelFull) labelFull.classList.add('selected');
       if (labelDeposit) labelDeposit.classList.remove('selected');
-      if (submitBtn) submitBtn.textContent = 'Thanh Toán Đủ Qua SePay →';
+      if (submitBtn) submitBtn.textContent = currentDeliveryQuote?.manualQuoteRequired || currentDeliveryQuote?.requiresShopConfirmation
+        ? 'Yêu Cầu Shop Báo Phí →' : 'Thanh Toán Đủ Qua SePay →';
     } else {
       if (labelFull) labelFull.classList.remove('selected');
       if (labelDeposit) labelDeposit.classList.add('selected');
-      if (submitBtn) submitBtn.textContent = 'Thanh Toán Trước 50% →';
+      if (submitBtn) submitBtn.textContent = currentDeliveryQuote?.manualQuoteRequired || currentDeliveryQuote?.requiresShopConfirmation
+        ? 'Yêu Cầu Shop Báo Phí →' : 'Thanh Toán Trước 50% →';
     }
   }
 
@@ -605,6 +663,16 @@ export function initCheckoutWorkflow() {
 
       if (fullDeliveryAddress.length > 255) {
         showCheckoutError('Địa chỉ quá dài; vui lòng rút gọn chỉ dẫn hoặc thông tin căn hộ.');
+        return;
+      }
+
+      if (!deliveryDate) {
+        showCheckoutError('Vui lòng chọn ngày hẹn giao hoa (trong vòng 7 ngày tới)!');
+        return;
+      }
+
+      if (deliveryDate < minDateStr || deliveryDate > maxDateStr) {
+        showCheckoutError('Tiệm chỉ nhận đặt lịch hẹn giao trong vòng 7 ngày tới (1 tuần)!');
         return;
       }
 
@@ -693,8 +761,33 @@ export function initCheckoutWorkflow() {
 
       try {
         const deliveryQuote = await requestDeliveryQuote();
-        if (deliveryQuote?.requiresShopConfirmation) {
-          showCheckoutError(deliveryQuote.message || 'Vị trí này cần shop xác nhận trước khi nhận đơn. Vui lòng liên hệ tiệm.');
+        if (deliveryQuote?.requiresShopConfirmation || deliveryQuote?.manualQuoteRequired) {
+          if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Đang gửi yêu cầu…'; }
+          try {
+            const response = await fetch('/api/delivery/quote-requests', {
+              method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(draftPayload)
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.error?.message || 'Không gửi được yêu cầu báo giá.');
+            const requestStep = document.querySelector('#checkoutStepManualQuote');
+            const requestCode = document.querySelector('#manualQuoteRequestCode');
+            const requestLink = document.querySelector('#manualQuoteCustomerLink');
+            const formStep = document.querySelector('#checkoutStepForm');
+            if (requestCode) requestCode.textContent = result.requestCode;
+            if (requestLink) requestLink.href = result.customerUrl;
+            if (formStep) formStep.classList.add('hidden');
+            if (requestStep) requestStep.classList.remove('hidden');
+            return;
+          } catch (requestError) {
+            showCheckoutError(requestError.message);
+            return;
+          } finally {
+            if (submitBtn) { submitBtn.disabled = false; updatePaymentMethodUi(); }
+          }
+        }
+        if (deliveryQuote?.fee == null) {
+          showCheckoutError('Chưa có phí giao hợp lệ. Vui lòng yêu cầu tiệm báo giá.');
           return;
         }
       } catch (quoteError) {
@@ -796,7 +889,7 @@ export function initCheckoutWorkflow() {
     btnConfirmTransfer.addEventListener('click', async () => {
       if (!currentDraftOrder) return;
       const statusPill = document.querySelector('#sepayStatusText');
-      const defaultHtml = `
+      const defaultHtml = currentSepayConfig?.simulationOnly ? '<span>Mô phỏng thanh toán (local)</span>' : `
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <polyline points="20 6 9 17 4 12"></polyline>
         </svg>
@@ -810,11 +903,25 @@ export function initCheckoutWorkflow() {
         </svg>
         <span>Đang kiểm tra với ngân hàng...</span>
       `;
-      if (statusPill) statusPill.innerHTML = '<span style="color: #0284C7; font-weight: 600;">⚡ Đang đối soát trực tiếp với SePay & Sacombank...</span>';
+      if (statusPill) statusPill.textContent = currentSepayConfig?.simulationOnly
+        ? 'Đang ghi nhận mô phỏng nội bộ. Không có giao dịch ngân hàng thật.'
+        : 'Đang đối soát giao dịch qua SePay...';
 
       try {
         const phone = currentDraftOrder.phone || currentDraftOrder.customerPhone || '';
         const intent = currentDraftOrder.paymentIntent || currentDraftOrder.paymentIntents?.find(item => item.status === 'pending');
+        if (currentSepayConfig?.simulationOnly) {
+          const response = await fetch(`/api/sepay/simulate-payment/${encodeURIComponent(currentDraftOrder.id)}`, {
+            method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, intentId: intent?.id || null })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.error?.message || 'Không thể mô phỏng thanh toán local.');
+          stopSepayPolling();
+          showToast('Đã ghi nhận thanh toán mô phỏng local; không có tiền thật được chuyển.', 'success');
+          completeOrderSuccess(result.order || currentDraftOrder);
+          return;
+        }
         const res = await fetch(`/api/sepay/check-payment/${encodeURIComponent(currentDraftOrder.id)}`, {
           method: 'POST',
           credentials: 'same-origin',
@@ -968,7 +1075,7 @@ async function showSepayQrStep(order) {
   }
 
   const amountDueNow = Number(intent.amount);
-  const qrUrl = `https://qr.sepay.vn/img?acc=${encodeURIComponent(config.accountNumber)}&bank=${encodeURIComponent(config.bankCode)}&amount=${amountDueNow}&des=${encodeURIComponent(intent.referenceCode)}&template=compact`;
+  const qrUrl = config.simulationOnly ? '' : `https://qr.sepay.vn/img?acc=${encodeURIComponent(config.accountNumber)}&bank=${encodeURIComponent(config.bankCode)}&amount=${amountDueNow}&des=${encodeURIComponent(intent.referenceCode)}&template=compact`;
 
   const bankNameEl = document.querySelector('#sepayBankName');
   const accountNumberEl = document.querySelector('#sepayAccountNumber');
@@ -977,16 +1084,23 @@ async function showSepayQrStep(order) {
   if (accountNumberEl) accountNumberEl.textContent = config.accountNumber;
   if (accountHolderEl) accountHolderEl.textContent = config.accountHolder;
   if (qrImg) {
-    qrImg.src = qrUrl;
-    qrImg.alt = 'Mã QR VietQR Napas 247 thanh toán SePay';
-    qrImg.classList.remove('hidden');
+    if (config.simulationOnly) {
+      qrImg.removeAttribute('src');
+      qrImg.classList.add('hidden');
+    } else {
+      qrImg.src = qrUrl;
+      qrImg.alt = 'Mã QR VietQR Napas 247 thanh toán SePay';
+      qrImg.classList.remove('hidden');
+    }
   }
   if (qrSpinner) qrSpinner.classList.add('hidden');
-  if (qrLocalPlaceholder) qrLocalPlaceholder.classList.add('hidden');
+  if (qrLocalPlaceholder) qrLocalPlaceholder.classList.toggle('hidden', !config.simulationOnly);
   if (transferAmountEl) transferAmountEl.textContent = formatPrice(amountDueNow);
   if (transferAmountRaw) transferAmountRaw.value = amountDueNow;
   if (transferContentEl) transferContentEl.textContent = intent.referenceCode;
-  if (statusPill) statusPill.textContent = `Đang chờ SePay xác nhận mã ${intent.referenceCode}... (Tự động nhận diện khi chuyển tiền)`;
+  if (statusPill) statusPill.textContent = config.simulationOnly
+    ? `LOCAL MOCK: khoản ${formatPrice(amountDueNow)}, mã ${intent.referenceCode}. Bấm nút mô phỏng bên dưới; không chuyển khoản thật.`
+    : `Đang chờ SePay xác nhận mã ${intent.referenceCode}... (Tự động nhận diện khi chuyển tiền)`;
   const amountLabel = document.querySelector('#sepayAmountLabel');
   if (amountLabel) {
     const purposeLabels = {
@@ -1001,7 +1115,7 @@ async function showSepayQrStep(order) {
   const btnConfirm = document.querySelector('#btnConfirmTransfer');
   if (btnConfirm) {
     btnConfirm.disabled = false;
-    btnConfirm.innerHTML = `
+    btnConfirm.innerHTML = config.simulationOnly ? '<span>Mô phỏng thanh toán (local)</span>' : `
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <polyline points="20 6 9 17 4 12"></polyline>
       </svg>

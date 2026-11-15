@@ -178,6 +178,18 @@ const deliverySuggestionLimiter = createRateLimiter({
   message: 'Bạn tìm địa chỉ quá nhanh. Vui lòng đợi một chút rồi thử lại.',
   keyGenerator: (req) => `delivery-suggest:${req.ip || req.socket?.remoteAddress || 'unknown'}`
 });
+const manualQuoteRequestLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 8,
+  message: 'Bạn gửi yêu cầu báo phí quá nhiều lần. Vui lòng thử lại sau ít phút.',
+  keyGenerator: (req) => `delivery-quote-request:${req.ip || req.socket?.remoteAddress || 'unknown'}`
+});
+const manualQuoteLookupLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  message: 'Bạn kiểm tra báo giá quá nhiều lần. Vui lòng thử lại sau ít phút.',
+  keyGenerator: (req) => `delivery-quote-lookup:${req.ip || req.socket?.remoteAddress || 'unknown'}`
+});
 const customerOrderActionLimiter = createRateLimiter({
   windowMs: 5 * 60 * 1000,
   max: 10,
@@ -188,6 +200,12 @@ const customerOrderActionLimiter = createRateLimiter({
 app.get('/api/delivery/map-config', deliveryQuoteLimiter, container.orderController.getDeliveryMapConfig);
 app.post('/api/delivery/quote', deliveryQuoteLimiter, container.orderController.quoteDelivery);
 app.get('/api/delivery/suggestions', deliverySuggestionLimiter, container.orderController.suggestDeliveryAddresses);
+app.post('/api/delivery/quote-requests', manualQuoteRequestLimiter, container.optionalAuthMiddleware, container.orderController.createDeliveryQuoteRequest);
+app.post('/api/delivery/quote-requests/:code/lookup', manualQuoteLookupLimiter, container.orderController.getDeliveryQuoteRequest);
+app.post('/api/delivery/quote-requests/:code/accept', manualQuoteLookupLimiter, container.optionalAuthMiddleware, container.orderController.acceptDeliveryQuoteRequest);
+app.post('/api/delivery/quote-requests/:code/decline', manualQuoteLookupLimiter, container.orderController.declineDeliveryQuoteRequest);
+app.get('/api/admin/delivery-quote-requests', container.authMiddleware, container.roleGuard('staff', 'admin'), container.orderController.listDeliveryQuoteRequests);
+app.patch('/api/admin/delivery-quote-requests/:id', container.authMiddleware, container.roleGuard('staff', 'admin'), container.orderController.updateDeliveryQuoteRequest);
 app.post(['/api/orders', '/orders'], container.optionalAuthMiddleware, container.orderController.createOrder);
 app.put(['/api/orders/:id/draft', '/orders/:id/draft'], container.optionalAuthMiddleware, container.orderController.updateDraftOrder);
 app.post('/api/orders/:id/cash-collection', container.authMiddleware, container.roleGuard('staff', 'admin'), container.orderController.recordCashCollection);
