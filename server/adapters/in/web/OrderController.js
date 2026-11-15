@@ -38,7 +38,7 @@ export class OrderController {
     const customerName = String(body.customerName || body.customer_name || '').trim();
     const phone = this._normalizePhone(body.customerPhone || body.customer_phone || body.phone || '');
     const address = String(body.shippingAddress || body.shipping_address || body.address || '').trim();
-    const deliveryArea = String(body.deliveryArea || body.delivery_area || (process.env.NODE_ENV !== 'production' ? 'Phường Tân Phú' : '')).trim();
+    const deliveryArea = String(body.deliveryArea || body.delivery_area || '').trim();
     const email = String(body.email || body.customerEmail || body.customer_email || '').trim();
     let paymentPlan = String(body.paymentPlan || body.payment_plan || '').trim().toLowerCase();
     if (!paymentPlan) {
@@ -121,8 +121,9 @@ export class OrderController {
       paymentPlan,
       deliveryArea: deliveryArea.slice(0, 100),
       deliveryPlaceId: '',
-      deliveryLatitude: body.deliveryLatitude ?? body.delivery_latitude ?? body.latitude ?? body.lat ?? (process.env.NODE_ENV !== 'production' ? 10.7744 : null),
-      deliveryLongitude: body.deliveryLongitude ?? body.delivery_longitude ?? body.longitude ?? body.lng ?? (process.env.NODE_ENV !== 'production' ? 106.63412 : null),
+      // Không tự thay tọa độ thiếu bằng vị trí tiệm; khách phải tự ghim điểm giao trên bản đồ.
+      deliveryLatitude: body.deliveryLatitude ?? body.delivery_latitude ?? body.latitude ?? body.lat ?? null,
+      deliveryLongitude: body.deliveryLongitude ?? body.delivery_longitude ?? body.longitude ?? body.lng ?? null,
       termsAccepted: true,
       termsVersion: 'payment-delivery-v1',
       voucherCode: voucherCode?.trim() || null,
@@ -175,6 +176,16 @@ export class OrderController {
       if (err.statusCode) return res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
       console.error('Loi quoteDelivery:', err);
       return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể tính phí giao hàng' } });
+    }
+  };
+
+  getDeliveryMapConfig = async (_req, res) => {
+    try {
+      res.set('Cache-Control', 'public, max-age=3600');
+      return res.status(200).json(this.orderService.getDeliveryMapConfig());
+    } catch (err) {
+      console.error('Loi getDeliveryMapConfig:', err);
+      return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Không thể tải cấu hình bản đồ giao hàng' } });
     }
   };
 

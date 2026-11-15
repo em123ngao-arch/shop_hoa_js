@@ -3,7 +3,7 @@ import { reviewApi } from './api.js';
 import { formatPrice, renderStars, showToast, updateCartBadge, renderHeaderAuth, escapeHTML, unescapeHTML, compressAspectImageToBase64, updateWishlistBadge } from './utils.js';
 import { matchesCategoryId, formatVoucherDisplay } from './business-rules.js';
 import { initUniversalCartDrawer, openCartDrawer } from './cart-drawer.js';
-import { initCheckoutWorkflow, openCheckoutModal } from './checkout.js';
+import { initCheckoutWorkflow, openCheckoutModal } from './checkout.js?v=20261114_delivery_zones_v1';
 import { initMobileBottomNav } from './bottom-nav.js';
 
 /**

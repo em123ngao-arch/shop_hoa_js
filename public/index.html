@@ -20,8 +20,9 @@
   <link rel="apple-touch-icon" href="./images/favicon-flower.webp">
   <link rel="stylesheet" href="./css/reset.css?v=20261114_hero_v7">
   <link rel="stylesheet" href="./css/variables.css?v=20261114_hero_v7">
-  <link rel="stylesheet" href="./css/style.css?v=20261114_hero_v7">
-  <link rel="stylesheet" href="./css/responsive.css?v=20261114_hero_v7">
+  <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="./css/style.css?v=20261114_delivery_zones_v1">
+  <link rel="stylesheet" href="./css/responsive.css?v=20261114_delivery_zones_v1">
   <link rel="stylesheet" href="./css/chatbot.css?v=20261114_hero_v7">
 
   <!-- IMPORTMAP (Nạp Axios nội bộ từ public/vendor/) -->
@@ -1078,7 +1079,7 @@
                 <select id="checkoutDeliveryArea" required>
                   <option value="">Chọn phường/xã</option>
                 </select>
-                <span class="field-hint">Chọn phường hiện hành nơi nhận hoa. Phí giao tính theo tuyến từ tiệm.</span>
+                <span class="field-hint">Chọn phường hiện hành. Phí giao cố định theo khu vực, không theo số km.</span>
               </div>
               <div class="form-group">
                 <label for="checkoutAddress">Số nhà, tên đường <span class="required">*</span></label>
@@ -1088,8 +1089,11 @@
                 <label for="checkoutAddressDetails" style="margin-top:10px;">Căn hộ, hẻm hoặc chỉ dẫn thêm</label>
                 <input type="text" id="checkoutAddressDetails" placeholder="Ví dụ: Hẻm 12, lầu 2, gọi trước khi đến"
                   autocomplete="address-line2" maxlength="255">
-                <button type="button" id="btnQuoteDelivery" class="btn-secondary" style="margin-top:8px;">Tính quãng đường và phí giao</button>
-                <span class="field-hint" id="deliveryQuoteHint" aria-live="polite">Chọn phường, nhập số nhà và tên đường, rồi bấm tính phí.</span>
+                <label for="checkoutDeliveryMap" style="margin-top:12px;">Ghim vị trí nhận hoa trên bản đồ <span class="required">*</span></label>
+                <span class="field-hint">Bấm đúng vị trí nhà/cổng nhận hoặc kéo ghim. Ghim hỗ trợ tìm đường, không xác minh số nhà hay ranh giới phường.</span>
+                <div id="checkoutDeliveryMap" class="delivery-pin-map" role="application" aria-label="Bản đồ chọn vị trí giao hoa"></div>
+                <span id="checkoutMapPinHint" class="field-hint" aria-live="polite">Chọn phường rồi ghim điểm nhận hàng.</span>
+                <span class="field-hint" id="deliveryQuoteHint" aria-live="polite">Chọn phường để xem phí giao theo khu vực.</span>
                 <span class="field-error hidden" id="errorAddress">Vui lòng nhập địa chỉ giao hàng</span>
               </div>
 
@@ -1180,9 +1184,9 @@
               <details style="margin:0 0 14px;padding:10px 12px;border:1px solid #E8E8E8;border-radius:8px;font-size:12px;line-height:1.65;">
                 <summary style="cursor:pointer;font-weight:700;">Xem chính sách áp dụng cho đơn này</summary>
                 <div style="padding-top:8px;">
-                  <p>Phí giao một chiều từ tiệm: 0–3 km miễn phí; trên 3–10 km là 25.000₫; trên 10–20 km là 40.000₫; trên 20 km tiệm chưa nhận giao. Quãng đường do máy chủ tính theo tuyến xe.</p>
+                  <p>Phí giao được tính cố định theo phường đã chọn: phường Tân Phú miễn phí; Tân Sơn Nhì, Phú Thọ Hòa, Phú Thạnh và Tây Thạnh là 35.000₫; các phường khác trong danh sách phục vụ là 50.000₫. Đây là mức thử nghiệm của tiệm, không phải cước tính theo số km.</p>
                   <p>Thanh toán đủ: chuyển 100% qua SePay trước khi tiệm xác nhận. Trả trước 50%: chuyển 50% tổng cuối qua SePay, phần còn lại thu tiền mặt khi giao; đây không phải COD.</p>
-                  <p>Nếu không gặp người nhận, người giao chờ tối đa 30 phút. Lần giao lại tự động tối đa một lần và thu trước phí chuyến mới: 15.000₫ trong 0–3 km, các vùng xa hơn áp dụng phí giao của vùng. Lần giao tiếp theo cần shop duyệt. Khoản tiền còn lại được giữ tối đa 7 ngày từ lần giao thất bại đầu tiên.</p>
+                  <p>Nếu không gặp người nhận, người giao chờ tối đa 30 phút. Lần giao thất bại đầu tiên không cấn phí ở phường Tân Phú; khu vực có phí sẽ cấn tối đa bằng phí giao đã báo và không vượt khoản tiệm đã nhận. Một lần giao lại tự động được phép: phí là 15.000₫ ở phường Tân Phú, còn khu vực khác bằng phí giao của phường và phải thanh toán trước. Lần giao tiếp theo cần shop duyệt. Khoản còn lại được giữ tối đa 7 ngày từ lần giao thất bại đầu tiên.</p>
                   <p>Khách có thể yêu cầu hủy. Trước khi shop chuẩn bị, khoản đã nhận được hoàn sau khi shop xác nhận; với hoa đặt riêng, shop có thể khấu trừ chi phí vật liệu không thể dùng lại hoặc chi phí thực tế đã phát sinh và cung cấp bản kê. Nếu shop không thể thực hiện đơn, shop hoàn đủ khoản đã nhận. Sau khi người giao đã xuất phát, áp dụng quy tắc giao thất bại.</p>
                 </div>
               </details>
@@ -1611,6 +1615,7 @@
   <div id="aiChatWidget"></div>
 
   <!-- SCRIPT ES6 MODULE CHÍNH -->
+  <script src="./vendor/leaflet/leaflet.js"></script>
   <script type="module" src="./js/main.js?v=20261114_filter_v7"></script>
   <script type="module" src="./js/chatbot.js?v=20261114_filter_v7"></script>
 

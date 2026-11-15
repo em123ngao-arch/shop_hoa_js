@@ -1,4 +1,4 @@
-import { initCheckoutWorkflow, openCheckoutModal, closeCheckoutModal } from './checkout.js';
+import { initCheckoutWorkflow, openCheckoutModal, closeCheckoutModal } from './checkout.js?v=20261114_delivery_zones_v1';
 import { exportOrderInvoicePdf } from './excel-pdf.js';
 import {
   fetchCategories,

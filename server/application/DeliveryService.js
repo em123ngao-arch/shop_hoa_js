@@ -24,7 +24,7 @@ export function calculateStraightLineDistanceMeters(origin, destination) {
   return Math.round(2 * earthRadiusMeters * Math.asin(Math.sqrt(haversine)));
 }
 
-/** Hàm tương thích tính phí theo cự ly khoảng cách (mét) */
+/** @deprecated Chỉ giữ tương thích mã cũ; báo giá hiện hành dùng phí cố định từ getDeliveryZone(). */
 export function getDeliveryFee(distanceMeters) {
   const d = Number(distanceMeters);
   if (!Number.isFinite(d) || d < 0) return null;
@@ -44,6 +44,11 @@ export class DeliveryService {
       throw new TypeError('Cấu hình tọa độ cửa hàng DELIVERY_STORE_LAT/LNG không hợp lệ');
     }
     this.origin = { latitude, longitude };
+  }
+
+  /** Trả điểm tiệm công khai để bản đồ checkout tập trung đúng vị trí xuất phát. */
+  getMapConfig() {
+    return { origin: { ...this.origin }, label: 'Tiệm hoa' };
   }
 
   /**

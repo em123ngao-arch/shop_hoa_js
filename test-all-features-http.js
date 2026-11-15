@@ -224,18 +224,86 @@ async function runTests() {
     assert(custCookie.startsWith('shophoa_session='), 'JWT phiên customer được nhận qua cookie HttpOnly');
     custId = custLogin.data.user.id;
 
+    // --- PHẦN 2.1: DELIVERY ZONE RULES & MAP CONFIG ---
+    console.log('\n--- 2.1. Testing Delivery Zone Rules & Map Config ---');
+    const mapConfigRes = await httpRequest('GET', '/api/delivery/map-config');
+    assert(mapConfigRes.status === 200, 'GET /api/delivery/map-config trả về 200 OK');
+    assert(mapConfigRes.data.origin?.latitude === 10.7744, 'Tọa độ tiệm hoa (lat: 10.7744) được nạp động từ cấu hình');
+    assert(mapConfigRes.headers['cache-control']?.includes('max-age'), 'map-config có header Cache-Control');
+
+    // 1. Phường Tân Phú (Khu vực gần tiệm): Miễn phí (0₫)
+    const quoteNear = await httpRequest('POST', '/api/delivery/quote', {
+      area: 'Phường Tân Phú',
+      latitude: 10.7744,
+      longitude: 106.63412
+    });
+    assert(quoteNear.status === 200, 'Báo giá Phường Tân Phú trả về 200 OK');
+    assert(quoteNear.data.fee === 0 && quoteNear.data.zoneId === 'near', 'Phường Tân Phú thuộc vùng near với phí 0₫ (Miễn phí)');
+
+    // 2. Phường Tân Sơn Nhì (Khu vực lân cận): 35.000₫
+    const quoteLocal = await httpRequest('POST', '/api/delivery/quote', {
+      area: 'Phường Tân Sơn Nhì',
+      latitude: 10.795,
+      longitude: 106.635
+    });
+    assert(quoteLocal.status === 200, 'Báo giá Phường Tân Sơn Nhì trả về 200 OK');
+    assert(quoteLocal.data.fee === 35000 && quoteLocal.data.zoneId === 'local', 'Phường Tân Sơn Nhì thuộc vùng local với phí 35.000₫');
+
+    // 3. Phường Bến Thành (Khu vực xa): 50.000₫
+    const quoteExtended = await httpRequest('POST', '/api/delivery/quote', {
+      area: 'Phường Bến Thành',
+      latitude: 10.772,
+      longitude: 106.698
+    });
+    assert(quoteExtended.status === 200, 'Báo giá Phường Bến Thành trả về 200 OK');
+    assert(quoteExtended.data.fee === 50000 && quoteExtended.data.zoneId === 'extended', 'Phường Bến Thành thuộc vùng extended với phí 50.000₫');
+
+    // 4. Ghim ngoài bán kính phục vụ (>15km đường chim bay): Báo lỗi 400
+    const quoteOutside = await httpRequest('POST', '/api/delivery/quote', {
+      area: 'Phường Tân Phú',
+      latitude: 10.95,
+      longitude: 106.90
+    });
+    assert(quoteOutside.status === 400, 'Ghim ngoài bán kính >15km bị từ chối với HTTP 400');
+
+    // 5. Đặt đơn thiếu phường hoặc thiếu ghim bị từ chối 400
+    const noAreaOrder = await httpRequest('POST', '/api/orders', {
+      customerName: 'Thiếu Phường',
+      customerPhone: '0901234567',
+      shippingAddress: '123 Đường Test',
+      items: [{ id: 'PROD-001', quantity: 1 }]
+    }, { 'Cookie': custCookie });
+    assert(noAreaOrder.status === 400, 'Tạo đơn thiếu phường giao bị từ chối 400 Bad Request');
+
+    const noPinOrder = await httpRequest('POST', '/api/orders', {
+      customerName: 'Thiếu Ghim',
+      customerPhone: '0901234567',
+      shippingAddress: '123 Đường Test',
+      deliveryArea: 'Phường Tân Phú',
+      items: [{ id: 'PROD-001', quantity: 1 }]
+    }, { 'Cookie': custCookie });
+    assert(noPinOrder.status === 400, 'Tạo đơn thiếu ghim bản đồ bị từ chối 400 Bad Request');
+
     // --- PHẦN 3: ORDERS & ACID TRANSACTIONS ---
     console.log('\n--- 3. Testing Order Creation, Stock Decrement & ACID Transactions ---');
     // Kiểm tra tồn kho trước khi đặt hàng
     const initialProd = await container.prisma.products.findUnique({ where: { id: 'PROD-001' } });
     const initialStock = initialProd.stock;
 
+    const defaultDelivery = {
+      deliveryArea: 'Phường Tân Phú',
+      deliveryLatitude: 10.7744,
+      deliveryLongitude: 106.63412
+    };
+
     // Khách hàng đặt mua 2 bó PROD-001 với voucher HOAXUAN20 (giảm 20%) và cố tình gửi totalAmount: 1
     const orderPayload = {
       customerName: 'Nguyễn Văn Test',
       customerPhone: '0901234567',
       shippingAddress: '123 Đường Hoa, Q.1, TP.HCM',
-      shippingFee: 30000,
+      deliveryArea: 'Phường Tân Sơn Nhì',
+      deliveryLatitude: 10.795,
+      deliveryLongitude: 106.635,
       voucherCode: 'HOAXUAN20',
       totalAmount: 1, // Cố tình gian lận giá
       items: [
@@ -251,12 +319,16 @@ async function runTests() {
     assert(orderRes.data.id && orderRes.data.orderCode, 'Đơn hàng được cấp ID và Order Code');
 
     // Đối soát giá niêm yết: Giá PROD-001 là 350.000đ * 2 = 700.000đ.
-    // Voucher HOAMOI20 giảm 20% = 140.000đ (tối đa 100.000đ theo rule maxDiscount).
-    // Total = 700.000 - 100.000 + 30.000 = 630.000đ.
+    // Voucher HOAXUAN20 giảm 20% = 140.000đ (tối đa 100.000đ theo rule maxDiscount).
+    // Phí giao Phường Tân Sơn Nhì (local) = 35.000đ.
+    // Total = 700.000 - 100.000 + 35.000 = 635.000đ.
     const expectedSubtotal = 350000 * 2;
     assert(orderRes.data.subtotal === expectedSubtotal, `Subtotal tính lại từ server: ${orderRes.data.subtotal}đ khớp 700.000đ`);
     assert(orderRes.data.totalAmount !== 1, 'Server triệt tiêu gian lận giá totalAmount: 1 từ client');
     assert(orderRes.data.discountAmount > 0, 'Voucher giảm giá được áp dụng chính xác');
+    assert(orderRes.data.shippingFee === 35000, 'Phí ship Tân Sơn Nhì khớp 35.000đ');
+    assert(orderRes.data.totalAmount === 635000, 'Tổng thanh toán đúng 635.000đ');
+    assert(orderRes.data.deliveryZone === 'local', 'Vùng giao hàng xác định đúng là local');
 
     // Kiểm tra trừ kho nguyên tử trong MySQL
     const updatedProd = await container.prisma.products.findUnique({ where: { id: 'PROD-001' } });
@@ -269,6 +341,7 @@ async function runTests() {
       customerName: 'Oversell Test',
       customerPhone: '0909999999',
       shippingAddress: 'HN',
+      ...defaultDelivery,
       items: [{ id: 'PROD-001', quantity: 999999 }]
     });
     assert(oversellRes.status === 400, 'Đặt hàng vượt quá tồn kho bị từ chối với HTTP 400');
@@ -278,6 +351,7 @@ async function runTests() {
       customerName: 'Khách Chọn Phụ Kiện',
       customerPhone: '0901234567',
       shippingAddress: '456 Phố Hoa',
+      ...defaultDelivery,
       items: [
         { id: 'PROD-001', quantity: 1, addonIds: ['ADDON-LED', 'ADDON-CARD'] }
       ]
@@ -296,6 +370,7 @@ async function runTests() {
       customerName: 'Lỗi Phụ Kiện',
       customerPhone: '0901234567',
       shippingAddress: '456 Phố Hoa',
+      ...defaultDelivery,
       items: [
         { id: 'PROD-001', quantity: 1, addonIds: ['ADDON-NONEXISTENT'] }
       ]
@@ -309,6 +384,7 @@ async function runTests() {
       customerName: 'Trùng Phụ Kiện',
       customerPhone: '0901234567',
       shippingAddress: '789 Phố Hoa',
+      ...defaultDelivery,
       items: [
         { id: 'PROD-001', quantity: 1, addonIds: ['ADDON-LED', 'ADDON-LED'] }
       ]
@@ -345,6 +421,7 @@ async function runTests() {
       customerName: 'Khách Đơn COD A11',
       customerPhone: '0901234567',
       shippingAddress: '456 Đường COD',
+      ...defaultDelivery,
       paymentMethod: 'cod',
       items: [{ id: 'PROD-001', quantity: 1 }]
     }, {
@@ -401,6 +478,7 @@ async function runTests() {
       customerName: 'Khách Đặt SePay Để Hủy',
       customerPhone: '0901234567',
       shippingAddress: '789 Đường Hoa',
+      ...defaultDelivery,
       paymentMethod: 'sepay',
       items: [{ id: 'PROD-001', quantity: 1 }]
     }, {
@@ -456,6 +534,7 @@ async function runTests() {
       customerName: 'Khách Test Simulate',
       customerPhone: '0912345678',
       shippingAddress: '123 Đường Simulate',
+      ...defaultDelivery,
       paymentMethod: 'sepay',
       items: [{ id: 'PROD-001', quantity: 1 }]
     }, {
@@ -503,6 +582,7 @@ async function runTests() {
       customerName: 'Khách Đặt Quá Hạn Có Voucher',
       customerPhone: '0901234567',
       shippingAddress: '999 Đường Hoa Quá Hạn',
+      ...defaultDelivery,
       paymentMethod: 'sepay',
       voucherCode: 'HOAXUAN20',
       items: [{ id: 'PROD-001', quantity: 2 }]
@@ -547,6 +627,7 @@ async function runTests() {
       customerName: 'Khách Đã Xác Nhận',
       customerPhone: '0901234567',
       shippingAddress: '888 Đường Hoa Đã Xác Nhận',
+      ...defaultDelivery,
       paymentMethod: 'sepay',
       items: [{ id: 'PROD-001', quantity: 1 }]
     }, {
@@ -612,6 +693,7 @@ async function runTests() {
       customerName: 'Khách SePay Draft',
       customerPhone: '0901234567',
       shippingAddress: '111 Đường Nháp Cũ',
+      ...defaultDelivery,
       paymentMethod: 'sepay',
       items: [{ id: 'PROD-001', quantity: 1 }]
     }, {
@@ -637,6 +719,7 @@ async function runTests() {
       customerName: 'Khách SePay Draft',
       customerPhone: '0901234567',
       shippingAddress: '222 Đường Mới',
+      ...defaultDelivery,
       paymentMethod: 'cod',
       items: [{ id: 'PROD-001', quantity: 1 }]
     }, {
@@ -648,6 +731,7 @@ async function runTests() {
       customerName: 'Khách SePay Draft Đã Sửa',
       customerPhone: '0901234567',
       shippingAddress: '222 Đường Nháp Đã Sửa',
+      ...defaultDelivery,
       paymentMethod: 'cod',
       items: [{ id: 'PROD-001', quantity: 1 }],
       draftToken: draftSepayRes.data.draftToken
@@ -671,6 +755,7 @@ async function runTests() {
       customerName: 'Khách Sửa Trái Phép',
       customerPhone: '0901234567',
       shippingAddress: '333 Đường Lỗi',
+      ...defaultDelivery,
       paymentMethod: 'cod',
       items: [{ id: 'PROD-001', quantity: 1 }],
       draftToken: updatedDraftRes.data.draftToken
@@ -685,7 +770,8 @@ async function runTests() {
       customerName: 'Nguyễn Thị Vãng Lai',
       customerPhone: '091234567',
       email: 'secret-guest@shophoa.example',
-      shippingAddress: '45A Đường Bí Mật, Phường 7, Quận 3',
+      shippingAddress: '45A Đường Bí Mật, Phường Tân Phú, Quận Tân Phú',
+      ...defaultDelivery,
       hasGreetingCard: true,
       cardMessage: 'Lời chúc riêng tư tuyệt mật',
       note: 'Ghi chú nội bộ bí mật',

@@ -20,10 +20,11 @@
   <link rel="apple-touch-icon" href="./images/favicon-flower.webp">
   <link rel="stylesheet" href="./css/reset.css?v=20261114_orders_v3">
   <link rel="stylesheet" href="./css/variables.css?v=20261114_orders_v3">
-  <link rel="stylesheet" href="./css/style.css?v=20261114_orders_v3">
+  <link rel="stylesheet" href="./vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="./css/style.css?v=20261114_delivery_zones_v1">
   <link rel="stylesheet" href="./css/orders.css?v=20261114_orders_v3">
   <link rel="stylesheet" href="./css/chatbot.css?v=20261114_orders_v3">
-  <link rel="stylesheet" href="./css/responsive.css?v=20261114_orders_v3">
+  <link rel="stylesheet" href="./css/responsive.css?v=20261114_delivery_zones_v1">
 
   <!-- jsPDF & AutoTable (Nạp nội bộ từ public/vendor/) -->
   <script src="./vendor/jspdf.umd.min.js"></script>
@@ -423,7 +424,8 @@
   </footer>
 
   <!-- SCRIPT LOGIC TRANG ĐƠN HÀNG & CHATBOT NỔI ĐA KÊNH -->
-  <script type="module" src="./js/orders.js?v=20261114_orders_v3"></script>
+  <script src="./vendor/leaflet/leaflet.js"></script>
+  <script type="module" src="./js/orders.js?v=20261114_delivery_zones_v1"></script>
   <script type="module" src="./js/chatbot.js?v=20261114_orders_v3"></script>
 
 </body>
