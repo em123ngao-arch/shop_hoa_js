@@ -150,9 +150,22 @@ export async function fetchBanners() {
   try {
     const response = await api.get('/api/banners');
     const list = Array.isArray(response.data) ? response.data : [];
-    return list
-      .filter(b => b.active !== false && b.is_active !== false)
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const valid = list
+      .filter(b => {
+        if (b.active === false || b.is_active === false) return false;
+        const start = b.startDate || b.start_date;
+        const end = b.endDate || b.end_date;
+        if (start && start > todayStr) return false;
+        if (end && end < todayStr) return false;
+        return true;
+      })
       .sort((a, b) => ((a.order ?? a.display_order ?? 0) - (b.order ?? b.display_order ?? 0)));
+
+    if (valid.length === 0 && list.length > 0) {
+      return [list[0]];
+    }
+    return valid;
   } catch (error) {
     console.error('Lỗi tải banner từ /api/banners:', error.response?.data?.error?.message || error.message);
     return [];
@@ -553,7 +566,9 @@ export async function createBanner(bannerData) {
     ...bannerData,
     order: Number(bannerData.order) || 1,
     active: bannerData.active !== undefined ? Boolean(bannerData.active) : true,
-    theme: bannerData.theme || 'default'
+    theme: bannerData.theme || 'default',
+    startDate: bannerData.startDate || null,
+    endDate: bannerData.endDate || null
   });
   return response.data;
 }
