@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import { container } from './server/infrastructure/config/container.js';
 import { createOriginGuard } from './server/adapters/in/web/middlewares/originGuard.js';
 import { createRateLimiter } from './server/adapters/in/web/middlewares/rateLimiter.js';
+import { ensureBannerScheduleColumns } from './scripts/ensure-banner-columns.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -454,6 +455,7 @@ let expiryTimer = null;
 
 export const startServer = (port = PORT, host = '0.0.0.0') => {
   if (server) return server;
+  ensureBannerScheduleColumns().catch(err => console.warn('[Schema Notice] Note on banners columns:', err.message));
   const lanIp = getLanIpAddress();
   const disableExpiryForLocalPreview = process.env.NODE_ENV !== 'production' &&
     String(process.env.DISABLE_ORDER_EXPIRY_JOB || '').toLowerCase() === 'true';

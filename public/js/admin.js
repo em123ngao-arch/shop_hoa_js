@@ -1764,14 +1764,16 @@ function renderBannersTable() {
   if (!tbody) return;
 
   if (allBanners.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 32px; color: var(--text-muted);">Chưa có banner nào</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 32px; color: var(--text-muted);">Chưa có banner nào</td></tr>`;
     return;
   }
+
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   tbody.innerHTML = allBanners.map(b => {
     let themeBadge = 'badge-emerald';
     let themeLabel = 'Mặc định';
-    if (b.theme === 'tet') { themeBadge = 'badge-rose'; themeLabel = 'Tết 2026'; }
+    if (b.theme === 'tet') { themeBadge = 'badge-rose'; themeLabel = 'Tết & Xuân'; }
     else if (b.theme === 'valentine') { themeBadge = 'badge-rose'; themeLabel = 'Valentine'; }
     else if (b.theme === 'sale') { themeBadge = 'badge-amber'; themeLabel = 'Siêu Sale'; }
 
@@ -1779,6 +1781,23 @@ function renderBannersTable() {
     const bannerName = b.tenbanner || b.title || 'Banner';
     const bannerOrder = b.order ?? b.display_order ?? 1;
     const isBannerActive = (b.active !== undefined ? b.active : b.is_active) ?? true;
+
+    // Tính toán trạng thái lịch hẹn ngày (Tự động chạy theo ngày)
+    let scheduleHtml = '';
+    const startStr = b.startDate || b.start_date;
+    const endStr = b.endDate || b.end_date;
+
+    if (!isBannerActive) {
+      scheduleHtml = `<span class="badge-pill badge-gray" title="Banner đang bị tắt công tắc hiển thị">⚪ Đã tắt</span>`;
+    } else if (startStr && startStr > todayStr) {
+      scheduleHtml = `<span class="badge-pill badge-amber" title="Banner sẽ tự động bật khi đến ngày ${startStr}">🟡 Chờ tới ngày (${startStr})</span>`;
+    } else if (endStr && endStr < todayStr) {
+      scheduleHtml = `<span class="badge-pill badge-rose" title="Banner đã tự động ẩn vì quá hạn ${endStr}">🔴 Đã hết hạn (${endStr})</span>`;
+    } else if (startStr || endStr) {
+      scheduleHtml = `<span class="badge-pill badge-emerald" title="Đang trong khung ngày hiển thị">🟢 Đang chạy ${endStr ? `(đến ${endStr})` : ''}</span>`;
+    } else {
+      scheduleHtml = `<span class="badge-pill badge-emerald" title="Banner hiển thị liên tục (không giới hạn ngày)">🟢 Đang chạy (Vô thời hạn)</span>`;
+    }
 
     return `
       <tr data-id="${escapeHTML(b.id)}">
@@ -1791,6 +1810,7 @@ function renderBannersTable() {
         </td>
         <td><span class="badge-pill badge-gray">${escapeHTML(b.tag || '--')}</span></td>
         <td><span class="badge-pill ${themeBadge}">${themeLabel}</span></td>
+        <td>${scheduleHtml}</td>
         <td><strong>${bannerOrder}</strong></td>
         <td>
           <label class="toggle-switch">
@@ -1843,6 +1863,8 @@ function initBannerCrud() {
       modalTitle.textContent = 'Thêm Banner Slider Mới';
       form.reset();
       document.querySelector('#bannerFormId').value = '';
+      if (document.querySelector('#bannerStartDateInput')) document.querySelector('#bannerStartDateInput').value = '';
+      if (document.querySelector('#bannerEndDateInput')) document.querySelector('#bannerEndDateInput').value = '';
       if (bannerDropzoneHelper) bannerDropzoneHelper.setPreview('');
     } else if (mode === 'edit' && banner) {
       modalTitle.textContent = `Chỉnh Sửa Banner #${banner.id}`;
@@ -1854,6 +1876,12 @@ function initBannerCrud() {
       document.querySelector('#bannerDescInput').value = banner.desc || '';
       document.querySelector('#bannerOrderInput').value = banner.order ?? banner.display_order ?? 1;
       document.querySelector('#bannerActiveCheckbox').checked = Boolean(banner.active !== undefined ? banner.active : banner.is_active);
+      if (document.querySelector('#bannerStartDateInput')) {
+        document.querySelector('#bannerStartDateInput').value = banner.startDate || banner.start_date || '';
+      }
+      if (document.querySelector('#bannerEndDateInput')) {
+        document.querySelector('#bannerEndDateInput').value = banner.endDate || banner.end_date || '';
+      }
       const bImg = banner.hinhbanner || banner.image_url || banner.image || '';
       if (bannerDropzoneHelper) bannerDropzoneHelper.setPreview(bImg);
       const urlInput = document.querySelector('#bannerImageUrlInput');
@@ -1887,6 +1915,14 @@ function initBannerCrud() {
       let hinhbanner = document.querySelector('#bannerImageUrl').value || document.querySelector('#bannerImageUrlInput').value;
       if (!hinhbanner) hinhbanner = './images/350.webp';
 
+      const startDate = document.querySelector('#bannerStartDateInput')?.value || null;
+      const endDate = document.querySelector('#bannerEndDateInput')?.value || null;
+
+      if (startDate && endDate && startDate > endDate) {
+        showToast('Ngày bắt đầu không được lớn hơn ngày kết thúc!', 'error');
+        return;
+      }
+
       const bannerData = {
         tenbanner: document.querySelector('#bannerTenInput').value.trim(),
         tag: document.querySelector('#bannerTagInput').value.trim(),
@@ -1895,6 +1931,8 @@ function initBannerCrud() {
         desc: document.querySelector('#bannerDescInput').value.trim(),
         order: Number(document.querySelector('#bannerOrderInput').value) || 1,
         active: document.querySelector('#bannerActiveCheckbox').checked,
+        startDate: startDate,
+        endDate: endDate,
         link: '#products',
         ctaText: 'Khám Phá Các Mẫu Hoa',
         hinhbanner

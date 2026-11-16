@@ -8,16 +8,18 @@ datasource db {
 }
 
 model banners {
-  id            String  @id @db.VarChar(36)
-  title         String  @db.VarChar(255)
-  image_url     String  @db.VarChar(255)
-  link_url      String? @db.VarChar(255)
-  display_order Int     @default(0)
-  is_active     Boolean @default(true)
-  tag           String? @db.VarChar(100)
-  description   String? @db.Text
-  theme         String? @default("default") @db.VarChar(50)
-  cta_text      String? @default("Khám Phá Các Mẫu Hoa") @db.VarChar(100)
+  id            String    @id @db.VarChar(36)
+  title         String    @db.VarChar(255)
+  image_url     String    @db.VarChar(255)
+  link_url      String?   @db.VarChar(255)
+  display_order Int       @default(0)
+  is_active     Boolean   @default(true)
+  tag           String?   @db.VarChar(100)
+  description   String?   @db.Text
+  theme         String?   @default("default") @db.VarChar(50)
+  cta_text      String?   @default("Khám Phá Các Mẫu Hoa") @db.VarChar(100)
+  start_date    DateTime? @db.DateTime(0)
+  end_date      DateTime? @db.DateTime(0)
 }
 
 model categories {

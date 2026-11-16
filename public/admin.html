@@ -735,6 +735,7 @@
                   <th>Tiêu Đề Banner</th>
                   <th>Tag Chiến Dịch</th>
                   <th>Chủ Đề</th>
+                  <th>Lịch Chạy (Thời Gian)</th>
                   <th>Thứ Tự</th>
                   <th>Hiển Thị (Active)</th>
                   <th style="text-align: right;">Hành Động</th>
@@ -1678,6 +1679,21 @@
             <label class="form-label" for="bannerDescInput">Mô Tả Phụ:</label>
             <textarea id="bannerDescInput" class="form-textarea" rows="2"
               placeholder="Từng cành hoa được uốn nắn thủ công..."></textarea>
+          </div>
+
+          <!-- LỊCH HẸN NGÀY HIỂN THỊ BANNER (TỰ ĐỘNG BẬT KHI ĐẾN NGÀY) -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="bannerStartDateInput">Ngày Bắt Đầu Hiển Thị:</label>
+              <input type="date" id="bannerStartDateInput" class="form-input">
+              <span class="field-hint" style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px;">Tự động hiển thị khi đến ngày (để trống: chạy ngay)</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="bannerEndDateInput">Ngày Kết Thúc (Hết Hạn):</label>
+              <input type="date" id="bannerEndDateInput" class="form-input">
+              <span class="field-hint" style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px;">Tự động ẩn sau ngày này (để trống: vô thời hạn)</span>
+            </div>
           </div>
 
           <div class="form-row">

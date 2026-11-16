@@ -293,6 +293,8 @@ export class PrismaCatalogRepository {
     const desc = b.description || b.desc || title;
     const theme = b.theme || 'default';
     const ctaText = b.cta_text || b.ctaText || 'Khám Phá Các Mẫu Hoa';
+    const startDate = b.start_date ? (b.start_date instanceof Date ? b.start_date.toISOString().slice(0, 10) : String(b.start_date).slice(0, 10)) : null;
+    const endDate = b.end_date ? (b.end_date instanceof Date ? b.end_date.toISOString().slice(0, 10) : String(b.end_date).slice(0, 10)) : null;
 
     return {
       id: b.id,
@@ -313,19 +315,38 @@ export class PrismaCatalogRepository {
       desc: desc,
       description: desc,
       ctaText: ctaText,
-      cta_text: ctaText
+      cta_text: ctaText,
+      startDate: startDate,
+      endDate: endDate,
+      start_date: startDate,
+      end_date: endDate
     };
   }
 
   /**
-   * Lay toan bo banner hoat dong (kem DTO tuong thich cao)
+   * Lay toan bo banner hoat dong (kem DTO tuong thich cao va loc theo lich hen ngay)
    */
   async findBanners({ activeOnly = true } = {}) {
     const records = await this.prisma.banners.findMany({
       where: activeOnly ? { is_active: true } : {},
       orderBy: { display_order: 'asc' }
     });
-    return records.map(b => this.#mapBannerToDTO(b));
+    const dtoList = records.map(b => this.#mapBannerToDTO(b));
+    if (!activeOnly) return dtoList;
+
+    // Lọc theo ngày hiện tại: Chỉ hiển thị banner nếu đã tới ngày bắt đầu và chưa quá hạn
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const validBanners = dtoList.filter(b => {
+      if (b.startDate && b.startDate > todayStr) return false; // Chưa tới ngày hẹn
+      if (b.endDate && b.endDate < todayStr) return false;     // Đã hết hạn hiển thị
+      return true;
+    });
+
+    // Fallback an toàn: Nếu mọi banner đều nằm ngoài lịch hẹn, giữ lại banner đầu tiên active để không làm rỗng slider
+    if (validBanners.length === 0 && dtoList.length > 0) {
+      return [dtoList[0]];
+    }
+    return validBanners;
   }
 
   /**
@@ -353,6 +374,17 @@ export class PrismaCatalogRepository {
     const theme = data.theme || 'default';
     const ctaText = data.ctaText || data.cta_text || 'Khám Phá Các Mẫu Hoa';
 
+    let startDate = null;
+    if (data.startDate || data.start_date) {
+      const d = new Date(data.startDate || data.start_date);
+      if (!Number.isNaN(d.getTime())) startDate = d;
+    }
+    let endDate = null;
+    if (data.endDate || data.end_date) {
+      const d = new Date(data.endDate || data.end_date);
+      if (!Number.isNaN(d.getTime())) endDate = d;
+    }
+
     const raw = await this.prisma.banners.create({
       data: {
         id,
@@ -364,7 +396,9 @@ export class PrismaCatalogRepository {
         tag,
         description: desc,
         theme,
-        cta_text: ctaText
+        cta_text: ctaText,
+        start_date: startDate,
+        end_date: endDate
       }
     });
     return this.#mapBannerToDTO(raw);
@@ -401,6 +435,24 @@ export class PrismaCatalogRepository {
     }
     if (data.ctaText !== undefined || data.cta_text !== undefined) {
       updateData.cta_text = data.ctaText ?? data.cta_text;
+    }
+    if (data.startDate !== undefined || data.start_date !== undefined) {
+      const val = data.startDate ?? data.start_date;
+      if (!val) {
+        updateData.start_date = null;
+      } else {
+        const d = new Date(val);
+        updateData.start_date = Number.isNaN(d.getTime()) ? null : d;
+      }
+    }
+    if (data.endDate !== undefined || data.end_date !== undefined) {
+      const val = data.endDate ?? data.end_date;
+      if (!val) {
+        updateData.end_date = null;
+      } else {
+        const d = new Date(val);
+        updateData.end_date = Number.isNaN(d.getTime()) ? null : d;
+      }
     }
 
     const raw = await this.prisma.banners.update({
