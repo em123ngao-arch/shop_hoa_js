@@ -139,7 +139,7 @@ export class PaymentService {
         return { paid: false, cancelled: true, order, paymentIntent: intent, message: 'Đơn hàng đã bị hủy; giao dịch đã nhận cần shop đối soát' };
       }
       if (intent.status === 'paid') return { paid: true, settled: true, order, paymentIntent: intent };
-      if (['cancelled', 'expired', 'needs_review'].includes(intent.status)) {
+      if (['cancelled', 'expired'].includes(intent.status)) {
         return { paid: false, cancelled: order.status === 'cancelled', order, paymentIntent: intent, message: 'Khoản thanh toán cần shop đối soát hoặc đã bị hủy' };
       }
       if ((process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') || !this.liveEnabled) {

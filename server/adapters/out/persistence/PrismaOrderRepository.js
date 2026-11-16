@@ -1025,7 +1025,11 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
     if (!providerTxId || providerTxId.length > 100 || !Number.isSafeInteger(amount) || amount <= 0) {
       throw new ValidationError('Dữ liệu giao dịch thanh toán không hợp lệ');
     }
-    const transactionDate = new Date(transaction.transactionDate || Date.now());
+    let rawDate = transaction.transactionDate || Date.now();
+    if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/.test(rawDate.trim())) {
+      rawDate = rawDate.trim().replace(' ', 'T') + '+07:00';
+    }
+    const transactionDate = new Date(rawDate);
     if (Number.isNaN(transactionDate.getTime())) throw new ValidationError('Ngày giao dịch không hợp lệ');
     try {
       return await this.prisma.$transaction(async tx => {
@@ -1046,13 +1050,14 @@ export class PrismaOrderRepository extends OrderRepositoryPort {
           : intent.purpose === 'redelivery_fee'
             ? ['failed', 'exception_required'].includes(relatedDeliveryAttempt?.status)
             : ['advance_50', 'full_payment'].includes(intent.purpose);
-        const beforeExpiry = !intent.expires_at || transactionDate <= intent.expires_at;
+        const expiryThreshold = intent.expires_at ? new Date(intent.expires_at.getTime() + 15 * 60 * 1000) : null;
+        const beforeExpiry = !expiryThreshold || transactionDate <= expiryThreshold || new Date() <= expiryThreshold;
         const legacyRedeliveryFee = order.payment_plan === 'legacy_cod' && intent.purpose === 'redelivery_fee';
-        let canApply = intent.status === 'pending' && beforeExpiry && exactAmount && order.status !== 'cancelled' &&
+        let canApply = ['pending', 'needs_review'].includes(intent.status) && beforeExpiry && exactAmount && order.status !== 'cancelled' &&
           (order.payment_plan !== 'legacy_cod' || legacyRedeliveryFee) && validPurposeTarget;
         if (canApply) {
           const claimedIntent = await tx.payment_intents.updateMany({
-            where: { id: intent.id, status: 'pending' },
+            where: { id: intent.id, status: { in: ['pending', 'needs_review'] } },
             data: { status: 'paid', received_amount: amount, paid_at: transactionDate }
           });
           canApply = claimedIntent.count === 1;
