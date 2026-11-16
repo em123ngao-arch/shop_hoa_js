@@ -294,10 +294,11 @@ function renderUserProfileSidebar() {
  */
 function updateTabCountBadges() {
   const countAll = allUserOrders.length;
+  const hasOrderPaidOrDeposited = (o) => isOrderPaid(o) || String(o.paymentStatus || o.payment_status || '').toLowerCase() === 'partially_paid' || Number(o.amountReceived || o.amount_received || 0) > 0;
   // Đơn chờ quét QR: Phải là SePay, chưa thanh toán và CHƯA HỦY
   const countUnpaid = allUserOrders.filter(o => isUnpaidSepayOrder(o) && o.status !== 'cancelled').length;
-  // Đơn đang cắm hoa: Đã xác nhận / đã trả tiền (gồm cả partially_refunded) và CHƯA HỦY
-  const countCrafting = allUserOrders.filter(o => (o.status === 'confirmed' || (isOrderPaid(o) && o.status === 'pending')) && o.status !== 'cancelled').length;
+  // Đơn đang cắm hoa: Đã xác nhận / đã trả tiền (gồm cả partially_refunded, partially_paid cọc 50%) và CHƯA HỦY
+  const countCrafting = allUserOrders.filter(o => (o.status === 'confirmed' || (hasOrderPaidOrDeposited(o) && o.status === 'pending')) && o.status !== 'cancelled').length;
   // Đơn đang giao: Đang vận chuyển và CHƯA HỦY
   const countShipping = allUserOrders.filter(o => o.status === 'shipping' && o.status !== 'cancelled').length;
   // Đơn hoàn tất
@@ -336,10 +337,11 @@ function applyFiltersAndRender() {
   });
 
   // 1. Lọc theo Tab đang chọn (Đảm bảo không lẫn lộn đơn đã hủy vào các bước đang thực hiện)
+  const hasOrderPaidOrDeposited = (o) => isOrderPaid(o) || String(o.paymentStatus || o.payment_status || '').toLowerCase() === 'partially_paid' || Number(o.amountReceived || o.amount_received || 0) > 0;
   if (activeTab === 'unpaid') {
     filtered = filtered.filter(o => isUnpaidSepayOrder(o) && o.status !== 'cancelled');
   } else if (activeTab === 'crafting') {
-    filtered = filtered.filter(o => (o.status === 'confirmed' || (isOrderPaid(o) && o.status === 'pending')) && o.status !== 'cancelled');
+    filtered = filtered.filter(o => (o.status === 'confirmed' || (hasOrderPaidOrDeposited(o) && o.status === 'pending')) && o.status !== 'cancelled');
   } else if (activeTab === 'shipping') {
     filtered = filtered.filter(o => o.status === 'shipping' && o.status !== 'cancelled');
   } else if (activeTab === 'completed') {
@@ -572,36 +574,50 @@ function renderOrdersList(orders = []) {
         </div>
       `;
     } else {
-      // Tính toán tiến trình 4 bước bình thường
+      // Tính toán tiến trình 4 bước bình thường (hỗ trợ COD, SePay 100% và SePay cọc 50%)
+      const isDeposit = order.paymentPlan === 'sepay_deposit' || order.payment_plan === 'sepay_deposit';
+      const isPartiallyPaid = String(order.paymentStatus || order.payment_status || '').toLowerCase() === 'partially_paid';
+      const hasReceivedMoney = isPaid || isPartiallyPaid || Number(order.amountReceived || order.amount_received || 0) > 0;
+
       let step1Class = 'done';
       let step2Class = 'done';
-      let step2Sub = isPaid ? 'Đã nhận tiền' : 'Đã duyệt';
+      let step2Sub = isDeposit
+        ? (hasReceivedMoney ? 'Đã cọc 50%' : 'Chờ cọc 50%')
+        : (isPaid ? 'Đã nhận tiền' : 'Đã duyệt');
       let step3Class = '';
       let step3Sub = 'Đang uốn kẽm';
       let step4Class = '';
-      let step4Sub = 'Dự kiến trong ngày';
+      let step4Sub = isDeposit ? 'Thu 50% khi giao' : 'Dự kiến trong ngày';
       let fillProgress = 0.33;
 
-      if (isSepay && !isPaid) {
-        step2Class = 'active';
-        step2Sub = 'Chờ quét QR';
-        fillProgress = 0.15;
-      } else if (status === 'confirmed' || (isPaid && status === 'pending')) {
-        step3Class = 'active green-active';
-        step3Sub = 'Đang bó hoa';
-        fillProgress = 0.66;
-      } else if (status === 'shipping') {
-        step3Class = 'done';
-        step3Sub = 'Đã cắm xong';
-        step4Class = 'active green-active';
-        step4Sub = 'Đang giao hoa';
-        fillProgress = 0.88;
-      } else if (status === 'completed') {
+      if (status === 'completed') {
+        step2Class = 'done';
+        step2Sub = isDeposit ? (isPaid ? 'Đã thu đủ' : 'Đã cọc 50%') : (isPaid ? 'Đã nhận tiền' : 'Đã thu tiền');
         step3Class = 'done';
         step3Sub = 'Đã cắm xong';
         step4Class = 'done';
         step4Sub = 'Đã nhận hoa';
         fillProgress = 1;
+      } else if (status === 'shipping') {
+        step2Class = 'done';
+        step2Sub = isDeposit ? 'Đã cọc 50%' : (isPaid ? 'Đã nhận tiền' : 'Đã duyệt');
+        step3Class = 'done';
+        step3Sub = 'Đã cắm xong';
+        step4Class = 'active green-active';
+        step4Sub = isDeposit ? 'Đang giao • Thu 50%' : 'Đang giao hoa';
+        fillProgress = 0.88;
+      } else if (status === 'confirmed' || (hasReceivedMoney && status === 'pending')) {
+        step2Class = 'done';
+        step2Sub = isDeposit ? 'Đã cọc 50%' : (isPaid ? 'Đã nhận tiền' : 'Đã duyệt');
+        step3Class = 'active green-active';
+        step3Sub = 'Đang bó hoa';
+        fillProgress = 0.66;
+      } else if (isSepay && !hasReceivedMoney) {
+        step2Class = 'active';
+        step2Sub = isDeposit ? 'Chờ cọc 50%' : 'Chờ quét QR';
+        step3Sub = 'Chờ thanh toán';
+        step4Sub = isDeposit ? 'Thu 50% khi giao' : 'Dự kiến trong ngày';
+        fillProgress = 0.15;
       }
 
       timelineOrBannerHtml = `
@@ -630,7 +646,7 @@ function renderOrdersList(orders = []) {
                   <line x1="2" y1="10" x2="22" y2="10"></line>
                 </svg>
               </div>
-              <span class="floral-step-title">${isSepay ? 'Khớp VietQR' : 'Duyệt COD'}</span>
+              <span class="floral-step-title">${isSepay ? (isDeposit ? 'Cọc VietQR' : 'Khớp VietQR') : 'Duyệt COD'}</span>
               <span class="floral-step-sub">${step2Sub}</span>
             </div>
 
