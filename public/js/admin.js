@@ -134,6 +134,156 @@ let selectedOrderSegment = 'all'; // 'all', 'pending', 'unpaid_sepay', 'confirme
 let selectedRefundSegment = 'all'; // 'all', 'pending_approval', 'approved', 'rejected'
 
 // ==========================================================================
+// 1.1 HÀM TIỆN ÍCH ĐỊNH DẠNG NGÀY THÁNG VIỆT NAM (DD/MM/YYYY)
+// ==========================================================================
+
+/**
+ * Chuyển đổi định dạng ngày YYYY-MM-DD (hoặc ISO string) sang chuẩn Việt Nam DD/MM/YYYY
+ * Giúp người dùng nhìn trực quan ngày/tháng/năm (tránh nhầm lẫn mm/dd/yyyy kiểu Mỹ)
+ * @param {string|Date} dateInput
+ * @returns {string} Chuỗi định dạng dd/mm/yyyy hoặc '' nếu rỗng
+ */
+function formatDateVN(dateInput) {
+  if (!dateInput) return '';
+  if (typeof dateInput === 'string') {
+    const trimmed = dateInput.trim();
+    if (!trimmed) return '';
+    // Mẫu chuẩn ISO YYYY-MM-DD (tránh bị lệch múi giờ khi dùng new Date())
+    const matchIso = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (matchIso) {
+      const [, y, m, d] = matchIso;
+      return `${d}/${m}/${y}`;
+    }
+    // Mẫu dd/mm/yyyy hoặc dd-mm-yyyy đã có sẵn
+    const matchVn = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (matchVn) {
+      const [, d, m, y] = matchVn;
+      return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+    }
+  }
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+/**
+ * Chuyển chuỗi ngày từ người dùng (dd/mm/yyyy, dd-mm-yyyy hoặc yyyy-mm-dd)
+ * sang chuẩn ISO YYYY-MM-DD để gửi lên backend và lưu vào Database MySQL
+ * @param {string} str
+ * @returns {string|null|'INVALID'} Chuỗi 'YYYY-MM-DD' hoặc null nếu để trống, hoặc 'INVALID' nếu sai
+ */
+function parseDateVN(str) {
+  if (!str) return null;
+  const trimmed = String(str).trim();
+  if (!trimmed) return null;
+
+  // 1. Trường hợp người dùng gõ dạng dd/mm/yyyy hoặc d/m/yyyy hoặc dd-mm-yyyy
+  const vnMatch = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (vnMatch) {
+    const day = parseInt(vnMatch[1], 10);
+    const month = parseInt(vnMatch[2], 10);
+    const year = parseInt(vnMatch[3], 10);
+
+    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2100) {
+      return 'INVALID';
+    }
+    const testDate = new Date(year, month - 1, day);
+    if (testDate.getFullYear() !== year || testDate.getMonth() !== month - 1 || testDate.getDate() !== day) {
+      return 'INVALID';
+    }
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  // 2. Trường hợp là ISO YYYY-MM-DD (từ native date picker)
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const year = parseInt(isoMatch[1], 10);
+    const month = parseInt(isoMatch[2], 10);
+    const day = parseInt(isoMatch[3], 10);
+    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2100) {
+      return 'INVALID';
+    }
+    const testDate = new Date(year, month - 1, day);
+    if (testDate.getFullYear() !== year || testDate.getMonth() !== month - 1 || testDate.getDate() !== day) {
+      return 'INVALID';
+    }
+    return trimmed;
+  }
+
+  return 'INVALID';
+}
+
+/**
+ * Thiết lập liên kết 2 chiều giữa ô nhập text hiển thị dd/mm/yyyy
+ * và bộ chọn ngày native của trình duyệt.
+ * @param {string} textInputId
+ * @param {string} pickerInputId
+ */
+function setupVnDatePicker(textInputId, pickerInputId) {
+  const textInput = document.getElementById(textInputId);
+  const pickerInput = document.getElementById(pickerInputId);
+  if (!textInput || !pickerInput) return;
+
+  if (textInput.dataset.vnPickerBound) return;
+  textInput.dataset.vnPickerBound = 'true';
+
+  // 1. Khi chọn ngày từ popup lịch native: điền ngay dạng dd/mm/yyyy vào ô text
+  pickerInput.addEventListener('change', () => {
+    if (pickerInput.value) {
+      textInput.value = formatDateVN(pickerInput.value);
+      textInput.classList.remove('input-error');
+    }
+  });
+
+  // 2. Khi người dùng gõ trực tiếp vào ô text: cập nhật ngầm giá trị cho picker
+  textInput.addEventListener('input', () => {
+    textInput.classList.remove('input-error');
+    const parsed = parseDateVN(textInput.value);
+    if (parsed && parsed !== 'INVALID') {
+      pickerInput.value = parsed;
+    }
+  });
+
+  // 3. Khi blur: nếu ngày hợp lệ thì chuẩn hóa đẹp dd/mm/yyyy
+  textInput.addEventListener('blur', () => {
+    const raw = textInput.value.trim();
+    if (!raw) {
+      pickerInput.value = '';
+      return;
+    }
+    const parsed = parseDateVN(raw);
+    if (parsed && parsed !== 'INVALID') {
+      textInput.value = formatDateVN(parsed);
+      pickerInput.value = parsed;
+    }
+  });
+
+  // 4. Khi click vào overlay button: mở calendar picker
+  const wrap = textInput.closest('.vn-date-input-wrap');
+  if (wrap) {
+    const btn = wrap.querySelector('.vn-picker-btn-overlay');
+    if (btn) {
+      btn.addEventListener('click', (e) => {
+        if (e.target !== pickerInput) {
+          try {
+            if (typeof pickerInput.showPicker === 'function') {
+              pickerInput.showPicker();
+            } else {
+              pickerInput.focus();
+            }
+          } catch {
+            pickerInput.focus();
+          }
+        }
+      });
+    }
+  }
+}
+
+// ==========================================================================
 // 2. CỬA NGÕ XÁC THỰC QUẢN TRỊ & PHÂN QUYỀN 3 ROLE (AUTH GATE & ROLE ACCESS)
 // ==========================================================================
 async function initAuthGate() {
@@ -1786,15 +1936,17 @@ function renderBannersTable() {
     let scheduleHtml = '';
     const startStr = b.startDate || b.start_date;
     const endStr = b.endDate || b.end_date;
+    const startVn = formatDateVN(startStr);
+    const endVn = formatDateVN(endStr);
 
     if (!isBannerActive) {
       scheduleHtml = `<span class="badge-pill badge-gray" title="Banner đang bị tắt công tắc hiển thị">⚪ Đã tắt</span>`;
     } else if (startStr && startStr > todayStr) {
-      scheduleHtml = `<span class="badge-pill badge-amber" title="Banner sẽ tự động bật khi đến ngày ${startStr}">🟡 Chờ tới ngày (${startStr})</span>`;
+      scheduleHtml = `<span class="badge-pill badge-amber" title="Banner sẽ tự động bật khi đến ngày ${startVn}">🟡 Chờ tới ngày (${startVn})</span>`;
     } else if (endStr && endStr < todayStr) {
-      scheduleHtml = `<span class="badge-pill badge-rose" title="Banner đã tự động ẩn vì quá hạn ${endStr}">🔴 Đã hết hạn (${endStr})</span>`;
+      scheduleHtml = `<span class="badge-pill badge-rose" title="Banner đã tự động ẩn vì quá hạn ${endVn}">🔴 Đã hết hạn (${endVn})</span>`;
     } else if (startStr || endStr) {
-      scheduleHtml = `<span class="badge-pill badge-emerald" title="Đang trong khung ngày hiển thị">🟢 Đang chạy ${endStr ? `(đến ${endStr})` : ''}</span>`;
+      scheduleHtml = `<span class="badge-pill badge-emerald" title="Đang trong khung ngày hiển thị">🟢 Đang chạy ${endVn ? `(đến ${endVn})` : ''}</span>`;
     } else {
       scheduleHtml = `<span class="badge-pill badge-emerald" title="Banner hiển thị liên tục (không giới hạn ngày)">🟢 Đang chạy (Vô thời hạn)</span>`;
     }
@@ -1839,6 +1991,10 @@ function initBannerCrud() {
   const themePills = document.querySelector('#themePillGroup');
   const table = document.querySelector('#adminBannersTable');
 
+  // Liên kết bộ chọn ngày chuẩn dd/mm/yyyy với calendar popup
+  setupVnDatePicker('bannerStartDateInput', 'bannerStartDatePicker');
+  setupVnDatePicker('bannerEndDateInput', 'bannerEndDatePicker');
+
   // Xử lý chọn chủ đề chiến dịch toàn shop
   if (themePills) {
     themePills.addEventListener('click', async (e) => {
@@ -1864,7 +2020,9 @@ function initBannerCrud() {
       form.reset();
       document.querySelector('#bannerFormId').value = '';
       if (document.querySelector('#bannerStartDateInput')) document.querySelector('#bannerStartDateInput').value = '';
+      if (document.querySelector('#bannerStartDatePicker')) document.querySelector('#bannerStartDatePicker').value = '';
       if (document.querySelector('#bannerEndDateInput')) document.querySelector('#bannerEndDateInput').value = '';
+      if (document.querySelector('#bannerEndDatePicker')) document.querySelector('#bannerEndDatePicker').value = '';
       if (bannerDropzoneHelper) bannerDropzoneHelper.setPreview('');
     } else if (mode === 'edit' && banner) {
       modalTitle.textContent = `Chỉnh Sửa Banner #${banner.id}`;
@@ -1876,11 +2034,21 @@ function initBannerCrud() {
       document.querySelector('#bannerDescInput').value = banner.desc || '';
       document.querySelector('#bannerOrderInput').value = banner.order ?? banner.display_order ?? 1;
       document.querySelector('#bannerActiveCheckbox').checked = Boolean(banner.active !== undefined ? banner.active : banner.is_active);
+      
+      const sDate = banner.startDate || banner.start_date || '';
+      const eDate = banner.endDate || banner.end_date || '';
+
       if (document.querySelector('#bannerStartDateInput')) {
-        document.querySelector('#bannerStartDateInput').value = banner.startDate || banner.start_date || '';
+        document.querySelector('#bannerStartDateInput').value = formatDateVN(sDate);
+      }
+      if (document.querySelector('#bannerStartDatePicker')) {
+        document.querySelector('#bannerStartDatePicker').value = sDate ? (parseDateVN(sDate) || '') : '';
       }
       if (document.querySelector('#bannerEndDateInput')) {
-        document.querySelector('#bannerEndDateInput').value = banner.endDate || banner.end_date || '';
+        document.querySelector('#bannerEndDateInput').value = formatDateVN(eDate);
+      }
+      if (document.querySelector('#bannerEndDatePicker')) {
+        document.querySelector('#bannerEndDatePicker').value = eDate ? (parseDateVN(eDate) || '') : '';
       }
       const bImg = banner.hinhbanner || banner.image_url || banner.image || '';
       if (bannerDropzoneHelper) bannerDropzoneHelper.setPreview(bImg);
@@ -1915,8 +2083,22 @@ function initBannerCrud() {
       let hinhbanner = document.querySelector('#bannerImageUrl').value || document.querySelector('#bannerImageUrlInput').value;
       if (!hinhbanner) hinhbanner = './images/350.webp';
 
-      const startDate = document.querySelector('#bannerStartDateInput')?.value || null;
-      const endDate = document.querySelector('#bannerEndDateInput')?.value || null;
+      const rawStartDate = document.querySelector('#bannerStartDateInput')?.value || '';
+      const rawEndDate = document.querySelector('#bannerEndDateInput')?.value || '';
+
+      const startDate = parseDateVN(rawStartDate);
+      if (rawStartDate.trim() && startDate === 'INVALID') {
+        showToast('Ngày bắt đầu không đúng định dạng! Vui lòng nhập theo dạng dd/mm/yyyy (Ví dụ: 18/11/2026)', 'error');
+        document.querySelector('#bannerStartDateInput')?.focus();
+        return;
+      }
+
+      const endDate = parseDateVN(rawEndDate);
+      if (rawEndDate.trim() && endDate === 'INVALID') {
+        showToast('Ngày kết thúc không đúng định dạng! Vui lòng nhập theo dạng dd/mm/yyyy (Ví dụ: 20/11/2026)', 'error');
+        document.querySelector('#bannerEndDateInput')?.focus();
+        return;
+      }
 
       if (startDate && endDate && startDate > endDate) {
         showToast('Ngày bắt đầu không được lớn hơn ngày kết thúc!', 'error');
@@ -2048,6 +2230,10 @@ function initVoucherCrud() {
   const modalTitle = document.querySelector('#voucherModalTitle');
   const table = document.querySelector('#adminVouchersTable');
 
+  // Liên kết bộ chọn ngày chuẩn dd/mm/yyyy với calendar popup
+  setupVnDatePicker('voucherStartDateInput', 'voucherStartDatePicker');
+  setupVnDatePicker('voucherEndDateInput', 'voucherEndDatePicker');
+
   const typeSelect = document.querySelector('#voucherDiscountTypeSelect');
   const valueInput = document.querySelector('#voucherDiscountValueInput');
   const valueLabel = document.querySelector('#voucherDiscountValueLabel');
@@ -2129,6 +2315,10 @@ function initVoucherCrud() {
       if (document.querySelector('#voucherUsageLimitInput')) document.querySelector('#voucherUsageLimitInput').value = '100';
       if (document.querySelector('#voucherActiveCheckbox')) document.querySelector('#voucherActiveCheckbox').checked = true;
       if (document.querySelector('#voucherExcludeSaleCheckbox')) document.querySelector('#voucherExcludeSaleCheckbox').checked = false;
+      if (document.querySelector('#voucherStartDateInput')) document.querySelector('#voucherStartDateInput').value = '';
+      if (document.querySelector('#voucherStartDatePicker')) document.querySelector('#voucherStartDatePicker').value = '';
+      if (document.querySelector('#voucherEndDateInput')) document.querySelector('#voucherEndDateInput').value = '';
+      if (document.querySelector('#voucherEndDatePicker')) document.querySelector('#voucherEndDatePicker').value = '';
       handleDiscountTypeChange();
       handleScopeChange();
     } else if (mode === 'edit' && voucher) {
@@ -2164,11 +2354,19 @@ function initVoucherCrud() {
       if (document.querySelector('#voucherUsageLimitInput')) {
         document.querySelector('#voucherUsageLimitInput').value = voucher.usageLimit || 100;
       }
+      const vStartDate = voucher.startDate || '';
+      const vEndDate = voucher.endDate || '';
       if (document.querySelector('#voucherStartDateInput')) {
-        document.querySelector('#voucherStartDateInput').value = voucher.startDate || '';
+        document.querySelector('#voucherStartDateInput').value = formatDateVN(vStartDate);
+      }
+      if (document.querySelector('#voucherStartDatePicker')) {
+        document.querySelector('#voucherStartDatePicker').value = vStartDate ? (parseDateVN(vStartDate) || '') : '';
       }
       if (document.querySelector('#voucherEndDateInput')) {
-        document.querySelector('#voucherEndDateInput').value = voucher.endDate || '';
+        document.querySelector('#voucherEndDateInput').value = formatDateVN(vEndDate);
+      }
+      if (document.querySelector('#voucherEndDatePicker')) {
+        document.querySelector('#voucherEndDatePicker').value = vEndDate ? (parseDateVN(vEndDate) || '') : '';
       }
       if (document.querySelector('#voucherDescInput')) {
         document.querySelector('#voucherDescInput').value = voucher.desc || '';
@@ -2222,8 +2420,22 @@ function initVoucherCrud() {
 
       const minOrder = Number(document.querySelector('#voucherMinOrderInput').value) || 0;
       const usageLimit = Number(document.querySelector('#voucherUsageLimitInput').value) || 100;
-      const startDate = document.querySelector('#voucherStartDateInput').value || null;
-      const endDate = document.querySelector('#voucherEndDateInput').value || null;
+      const rawVoucherStartDate = document.querySelector('#voucherStartDateInput')?.value || '';
+      const rawVoucherEndDate = document.querySelector('#voucherEndDateInput')?.value || '';
+
+      const startDate = parseDateVN(rawVoucherStartDate);
+      if (rawVoucherStartDate.trim() && startDate === 'INVALID') {
+        showToast('Ngày bắt đầu voucher không hợp lệ! Vui lòng nhập theo định dạng dd/mm/yyyy', 'error');
+        document.querySelector('#voucherStartDateInput')?.focus();
+        return;
+      }
+
+      const endDate = parseDateVN(rawVoucherEndDate);
+      if (rawVoucherEndDate.trim() && endDate === 'INVALID') {
+        showToast('Ngày kết thúc voucher không hợp lệ! Vui lòng nhập theo định dạng dd/mm/yyyy', 'error');
+        document.querySelector('#voucherEndDateInput')?.focus();
+        return;
+      }
       const desc = document.querySelector('#voucherDescInput').value.trim();
       const excludeSaleItems = Boolean(document.querySelector('#voucherExcludeSaleCheckbox')?.checked);
       const active = Boolean(document.querySelector('#voucherActiveCheckbox')?.checked);
@@ -2564,8 +2776,8 @@ function renderOrdersTable() {
         <td>
           <div style="font-weight: 600; color: var(--text-main); font-size: 13px;">${dateStr} <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">${timeStr}</span></div>
           ${(o.deliveryDate || o.delivery_date) ? `
-            <div style="font-size: 11px; color: #0D9488; font-weight: 600; margin-top: 2px;" title="Ngày hẹn giao hoa: ${escapeHTML(o.deliveryDate || o.delivery_date)}${(o.deliverySlot || o.delivery_slot) ? ` (${escapeHTML(o.deliverySlot || o.delivery_slot)})` : ''}">
-              🚚 ${escapeHTML(o.deliveryDate || o.delivery_date)}${(o.deliverySlot || o.delivery_slot) ? ` • ${escapeHTML(o.deliverySlot || o.delivery_slot)}` : ''}
+            <div style="font-size: 11px; color: #0D9488; font-weight: 600; margin-top: 2px;" title="Ngày hẹn giao hoa: ${escapeHTML(formatDateVN(o.deliveryDate || o.delivery_date) || (o.deliveryDate || o.delivery_date))}${(o.deliverySlot || o.delivery_slot) ? ` (${escapeHTML(o.deliverySlot || o.delivery_slot)})` : ''}">
+              🚚 ${escapeHTML(formatDateVN(o.deliveryDate || o.delivery_date) || (o.deliveryDate || o.delivery_date))}${(o.deliverySlot || o.delivery_slot) ? ` • ${escapeHTML(o.deliverySlot || o.delivery_slot)}` : ''}
             </div>
           ` : `
             <div style="font-size: 10.5px; color: #94A3B8; margin-top: 2px;">Giao ngay</div>
@@ -2799,7 +3011,7 @@ function initOrderManagement() {
               <div><strong>SĐT người nhận:</strong> ${escapeHTML(order.recipientPhone || '---')}</div>
             ` : ''}
             <div><strong>Khung giờ giao:</strong> ${escapeHTML(order.deliverySlot || 'Trong ngày')}</div>
-            <div><strong>Ngày hẹn giao:</strong> <span style="color: #0D9488; font-weight: 700;">📅 ${escapeHTML(order.deliveryDate || order.delivery_date || 'Giao ngay trong ngày')}</span></div>
+            <div><strong>Ngày hẹn giao:</strong> <span style="color: #0D9488; font-weight: 700;">📅 ${escapeHTML(formatDateVN(order.deliveryDate || order.delivery_date) || (order.deliveryDate || order.delivery_date) || 'Giao ngay trong ngày')}</span></div>
             <div><strong>Thời gian đặt:</strong> ${new Date(order.createdAt).toLocaleString('vi-VN')}</div>
             ${(order.isAnonymous || order.is_anonymous) ? `
               <div style="grid-column: 1 / -1; margin-top: 4px; padding: 6px 12px; background: #FFF1F2; border: 1px solid #FECDD3; border-radius: 6px; color: #BE185D; font-size: 12.5px; font-weight: 600;">
@@ -4509,7 +4721,7 @@ function renderLogisticsOrdersTable(orders = []) {
         </td>
         <td>
           <div style="font-size: 13px; font-weight: 700; color: #0D9488;">
-            📅 ${escapeHTML(order.deliveryDate || 'Trong ngày')}
+            📅 ${escapeHTML(formatDateVN(order.deliveryDate) || order.deliveryDate || 'Trong ngày')}
           </div>
           <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
             ⏰ ${escapeHTML(order.deliverySlot || 'Khung giờ chuẩn')}

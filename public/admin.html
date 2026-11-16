@@ -1684,14 +1684,38 @@
           <!-- LỊCH HẸN NGÀY HIỂN THỊ BANNER (TỰ ĐỘNG BẬT KHI ĐẾN NGÀY) -->
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="bannerStartDateInput">Ngày Bắt Đầu Hiển Thị:</label>
-              <input type="date" id="bannerStartDateInput" class="form-input">
+              <label class="form-label" for="bannerStartDateInput">Ngày Bắt Đầu Hiển Thị (ngày/tháng/năm):</label>
+              <div class="vn-date-input-wrap">
+                <input type="text" id="bannerStartDateInput" class="form-input vn-date-display"
+                  placeholder="dd/mm/yyyy (Ví dụ: 18/11/2026)" autocomplete="off">
+                <div class="vn-picker-btn-overlay" title="Mở lịch chọn ngày">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <input type="date" id="bannerStartDatePicker" class="vn-hidden-picker" tabindex="-1" aria-label="Chọn ngày bắt đầu banner từ lịch">
+                </div>
+              </div>
               <span class="field-hint" style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px;">Tự động hiển thị khi đến ngày (để trống: chạy ngay)</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="bannerEndDateInput">Ngày Kết Thúc (Hết Hạn):</label>
-              <input type="date" id="bannerEndDateInput" class="form-input">
+              <label class="form-label" for="bannerEndDateInput">Ngày Kết Thúc (ngày/tháng/năm):</label>
+              <div class="vn-date-input-wrap">
+                <input type="text" id="bannerEndDateInput" class="form-input vn-date-display"
+                  placeholder="dd/mm/yyyy (Ví dụ: 20/11/2026)" autocomplete="off">
+                <div class="vn-picker-btn-overlay" title="Mở lịch chọn ngày">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <input type="date" id="bannerEndDatePicker" class="vn-hidden-picker" tabindex="-1" aria-label="Chọn ngày kết thúc banner từ lịch">
+                </div>
+              </div>
               <span class="field-hint" style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 3px;">Tự động ẩn sau ngày này (để trống: vô thời hạn)</span>
             </div>
           </div>
@@ -1815,13 +1839,37 @@
           <!-- Hàng 5: Thời hạn sử dụng -->
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="voucherStartDateInput">Ngày Bắt Đầu:</label>
-              <input type="date" id="voucherStartDateInput" class="form-input">
+              <label class="form-label" for="voucherStartDateInput">Ngày Bắt Đầu (ngày/tháng/năm):</label>
+              <div class="vn-date-input-wrap">
+                <input type="text" id="voucherStartDateInput" class="form-input vn-date-display"
+                  placeholder="dd/mm/yyyy (Ví dụ: 01/11/2026)" autocomplete="off">
+                <div class="vn-picker-btn-overlay" title="Mở lịch chọn ngày">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <input type="date" id="voucherStartDatePicker" class="vn-hidden-picker" tabindex="-1" aria-label="Chọn ngày bắt đầu voucher từ lịch">
+                </div>
+              </div>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="voucherEndDateInput">Ngày Kết Thúc (Hết Hạn):</label>
-              <input type="date" id="voucherEndDateInput" class="form-input">
+              <label class="form-label" for="voucherEndDateInput">Ngày Kết Thúc (ngày/tháng/năm):</label>
+              <div class="vn-date-input-wrap">
+                <input type="text" id="voucherEndDateInput" class="form-input vn-date-display"
+                  placeholder="dd/mm/yyyy (Ví dụ: 30/11/2026)" autocomplete="off">
+                <div class="vn-picker-btn-overlay" title="Mở lịch chọn ngày">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <input type="date" id="voucherEndDatePicker" class="vn-hidden-picker" tabindex="-1" aria-label="Chọn ngày kết thúc voucher từ lịch">
+                </div>
+              </div>
             </div>
           </div>
 
