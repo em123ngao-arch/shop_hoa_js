@@ -187,7 +187,7 @@ export class OrderController {
 
   getDeliveryMapConfig = async (_req, res) => {
     try {
-      res.set('Cache-Control', 'no-store');
+      res.set('Cache-Control', 'public, max-age=3600');
       return res.status(200).json(this.orderService.getDeliveryMapConfig());
     } catch (err) {
       console.error('Loi getDeliveryMapConfig:', err);
